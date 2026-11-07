@@ -1,0 +1,8 @@
+// Local shape matching: suggestions, never an assertion about the child's intent.
+const templates={
+ cloud:[[-80,22],[-95,0],[-85,-30],[-60,-45],[-40,-35],[-25,-70],[15,-75],[50,-60],[60,-35],[85,-40],[105,-15],[95,20],[70,35],[-75,35],[-80,22]],
+ lotus:[[0,65],[-50,15],[-76,-25],[-60,10],[0,65],[-35,0],[-38,-45],[-10,15],[0,65],[0,-30],[0,-65],[15,0],[0,65],[45,0],[76,-25],[60,20],[0,65]],
+ crane:[[-10,10],[-50,-65],[-105,-50],[-65,20],[-10,30],[45,20],[100,-55],[40,-45],[5,5],[0,15],[40,5],[20,-50],[55,-75],[85,-65]]
+};
+function normalize(points){const xs=points.map(p=>p[0]),ys=points.map(p=>p[1]),minX=Math.min(...xs),minY=Math.min(...ys),width=Math.max(...xs)-minX,height=Math.max(...ys)-minY,size=Math.max(width,height,1);return points.map(([x,y])=>[(x-minX-width/2)/size,(y-minY-height/2)/size]);}
+export function recognizeDrawing(strokes){const points=strokes.flatMap(s=>s.points.map(p=>p.screen));if(points.length<8)return null;const input=normalize(points);const width=Math.max(...input.map(p=>p[0]))-Math.min(...input.map(p=>p[0])),height=Math.max(...input.map(p=>p[1]))-Math.min(...input.map(p=>p[1]));if(Math.min(width,height)<.2)return null;let best=null;for(const [id,raw]of Object.entries(templates)){const t=normalize(raw);const distance=input.reduce((sum,p)=>sum+Math.min(...t.map(q=>Math.hypot(p[0]-q[0],p[1]-q[1]))),0)/input.length;const reverse=t.reduce((sum,p)=>sum+Math.min(...input.map(q=>Math.hypot(p[0]-q[0],p[1]-q[1]))),0)/t.length;const error=(distance+reverse)/2;if(!best||error<best.error)best={id,error};}return best.error<.12?{id:best.id,confidence:best.error<.09?'와 비슷해 보여요':'일 수도 있어요'}:null;}

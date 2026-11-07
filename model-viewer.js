@@ -100,6 +100,15 @@ export async function openArtifact(container, shape) {
   container.dataset.shape = shape;
   container.style.position = 'relative';
 
+  const title = create('h3', 'artifact-title', artifact.name);
+  Object.assign(title.style, {margin:'0 0 7px', fontSize:'20px', lineHeight:'1.4', color:'#284b33'});
+  container.append(title);
+  if (artifact.use) {
+    const use = create('p', 'artifact-use', `쓰임: ${artifact.use}`);
+    Object.assign(use.style, {margin:'0 0 12px', fontSize:'14px', lineHeight:'1.6', color:'#53644b'});
+    container.append(use);
+  }
+
   const viewport = create('div', 'artifact-viewport');
   Object.assign(viewport.style, {
     position: 'relative', width: '100%', height: 'min(48vh, 430px)', minHeight: '260px',
@@ -136,7 +145,7 @@ export async function openArtifact(container, shape) {
   const clue = create('p', 'artifact-clue', artifact.clue);
   Object.assign(clue.style, {margin:'6px 0', fontSize:'14px', fontWeight:'700', color:'#284b33'});
   container.append(clue);
-  const note = create('p', 'artifact-source-note', artifact.note + ' 형태 관찰용 경량 자료이며 세부 측정에는 사용하지 않습니다.');
+  const note = create('p', 'artifact-source-note', artifact.note + ' 박물관의 상세 관찰용 원본 자료입니다. 사진 기반 재현의 추정 부분은 실측 정보가 아닙니다.');
   Object.assign(note.style, {margin:'7px 0', fontSize:'11px', lineHeight:'1.65', color:'#66715f'});
   container.append(note);
   const credit = create('p', 'artifact-credit', artifact.source + ' · ');
@@ -195,7 +204,7 @@ export async function openArtifact(container, shape) {
     });
     observer.observe(viewport);
 
-    const response = await fetch(artifact.src, {signal:abort.signal});
+    const response = await fetch(artifact.detailedSrc||artifact.src, {signal:abort.signal});
     if (!response.ok) throw new Error('3D 자료를 가져오지 못했어요.');
     const data = await response.arrayBuffer();
     if (disposed) return controller;
