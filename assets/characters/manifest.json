@@ -1,0 +1,98 @@
+{
+  "generator": "OpenAI image generation",
+  "styleReference": "../workshop-v2.png",
+  "costumeReference": "User-provided Goryeo costume illustrations and 王服 text; artist interpretation, not a measured historical reconstruction",
+  "layout": "four equal quarter-width cells, same complete character in each direction",
+  "assets": [
+    {
+      "id": "king",
+      "source": "source/king.png",
+      "runtime": "king.webp",
+      "width": 1774,
+      "height": 887,
+      "alpha": true,
+      "sourceSha256": "feb9a1bbab71f90dc2007c118396d8198bdbbb6058aeebff196923f0b18ce9c3",
+      "runtimeSha256": "d4ddb6ead70ac116a11fe2ef9f74ddc1e10f5e5b3c7da3c3b6d9143185c3199c",
+      "sourceBytes": 1491496,
+      "runtimeBytes": 268000,
+      "frames": [
+        "front",
+        "back",
+        "left",
+        "right"
+      ]
+    },
+    {
+      "id": "queen",
+      "source": "source/queen.png",
+      "runtime": "queen.webp",
+      "width": 1774,
+      "height": 887,
+      "alpha": true,
+      "sourceSha256": "1bad4bf76126419128eccb715f221dfb425aaba81051fd9c7fda4b0cc1dbee38",
+      "runtimeSha256": "0c3493eadb89d8e8b47e9016ba9c0c47a2dfb45a0fbb2bf488dcd4f605eadb6c",
+      "sourceBytes": 1679874,
+      "runtimeBytes": 314898,
+      "frames": [
+        "front",
+        "back",
+        "left",
+        "right"
+      ]
+    },
+    {
+      "id": "noble",
+      "source": "source/noble.png",
+      "runtime": "noble.webp",
+      "width": 1774,
+      "height": 887,
+      "alpha": true,
+      "sourceSha256": "27edc2fdf5b2cb928ac34ede66f2446eb886b80827e83f84051e9761290b4621",
+      "runtimeSha256": "070aaa9062bb5c65c520ff26201334c2c115f165ff26b0fabbe186b7ae4cebaf",
+      "sourceBytes": 1541221,
+      "runtimeBytes": 261338,
+      "frames": [
+        "front",
+        "back",
+        "left",
+        "right"
+      ]
+    },
+    {
+      "id": "noblewoman",
+      "source": "source/noblewoman.png",
+      "runtime": "noblewoman.webp",
+      "width": 1774,
+      "height": 887,
+      "alpha": true,
+      "sourceSha256": "9384a72aab72eac8cbbb3f8c8982c225fcce32f41416d40988e1990a34d852c4",
+      "runtimeSha256": "1949e66fce3af1b2712ee67f6239eff65daf27152a33d68fd75f7d66b2885fd0",
+      "sourceBytes": 1991968,
+      "runtimeBytes": 455824,
+      "frames": [
+        "front",
+        "back",
+        "left",
+        "right"
+      ]
+    },
+    {
+      "id": "artisan",
+      "source": "source/artisan.png",
+      "runtime": "artisan.webp",
+      "width": 1774,
+      "height": 887,
+      "alpha": true,
+      "sourceSha256": "2a6094fd16399894f7d8cba763544c8ab4f717cf0aa105c07c3bfae4ea36de01",
+      "runtimeSha256": "1bc6109862b5895fe03729fbededec0e70a5c96aa7f89ae7eed610ef7454b95c",
+      "sourceBytes": 1628710,
+      "runtimeBytes": 301872,
+      "frames": [
+        "front",
+        "back",
+        "left",
+        "right"
+      ]
+    }
+  ]
+}
