@@ -1,0 +1,235 @@
+{
+  "kind": "Original undecorated 2D crafting illustrations inspired by museum reference silhouettes",
+  "assets": [
+    {
+      "id": "bambooShootPitcher",
+      "source": "source/bambooShootPitcher.png",
+      "runtime": "bambooShootPitcher.webp",
+      "width": 1269,
+      "height": 1240,
+      "alpha": true,
+      "sourceSha256": "7dcc4a6ff805011f47d1df274945cde2d2e223726970bf203ae3d4615ca2a20a",
+      "runtimeSha256": "21166716b230708a337346e76f7c00215b3eebf0c9aa0261c0ec1edecdca5a9e"
+    },
+    {
+      "id": "chrysanthemumCup",
+      "source": "source/chrysanthemumCup.png",
+      "runtime": "chrysanthemumCup.webp",
+      "width": 1312,
+      "height": 1199,
+      "alpha": true,
+      "sourceSha256": "4de9e63873f3c9f2817f42b3066c566f4162f77cae6e8225b14d054a92f55900",
+      "runtimeSha256": "c533ed45f5e288c82f6bc175dd769ceae5217b6b1d4bf56252a3057333c3a1f8"
+    },
+    {
+      "id": "cloudCraneMaebyeong",
+      "source": "source/cloudCraneMaebyeong.png",
+      "runtime": "cloudCraneMaebyeong.webp",
+      "width": 1086,
+      "height": 1448,
+      "alpha": true,
+      "sourceSha256": "ece7f677f86dad55b0115d4269f038fdcb3456c83e45105bf82cf89f0a86442c",
+      "runtimeSha256": "4edd0ff1ce15a5997f91fadcb3dc1432eb14e7e9a0a39e80d9f7753e01be6372"
+    },
+    {
+      "id": "cupStand",
+      "source": "source/cupStand.png",
+      "runtime": "cupStand.webp",
+      "width": 1460,
+      "height": 1078,
+      "alpha": true,
+      "sourceSha256": "4399f4173a817325c49fd6c91224941e3cf0d1a9424fd11a224cb3c94830e66d",
+      "runtimeSha256": "39a952be11e65d2709964b8bc565e7ef853b3a5d42e0f94a216870dbc89fa6c2"
+    },
+    {
+      "id": "duckDropper",
+      "source": "source/duckDropper.png",
+      "runtime": "duckDropper.webp",
+      "width": 1536,
+      "height": 1024,
+      "alpha": true,
+      "sourceSha256": "2d5360cee545ebd822dda97c343adda4f4a24d070d2212e364c7e9b0eba077e2",
+      "runtimeSha256": "b1f747c6f13ef0cb49485ad225d42949a047eb667301e4553fe2421c3c8b89b1"
+    },
+    {
+      "id": "duckIncense",
+      "source": "source/duckIncense.png",
+      "runtime": "duckIncense.webp",
+      "width": 1312,
+      "height": 1199,
+      "alpha": true,
+      "sourceSha256": "3c8bb3fb12e9b7123617d7ca15ba53718acfc4da659c70c5cb3e45d12ea98987",
+      "runtimeSha256": "e45e732c5323e32d972c9c60c4ab5a52dcea50cce854325450b0d36e2e290a04"
+    },
+    {
+      "id": "gourdBottle",
+      "source": "source/gourdBottle.png",
+      "runtime": "gourdBottle.webp",
+      "width": 1086,
+      "height": 1448,
+      "alpha": true,
+      "sourceSha256": "e2d20655cf79d0abedc5741ae739586d249539b6e711cd384b96dfe64471c827",
+      "runtimeSha256": "c2e67f83f7c3e207dc9eca7725535a5285b5980e6eb13a2ed7499a24f0cbef89"
+    },
+    {
+      "id": "gourdPitcher",
+      "source": "source/gourdPitcher.png",
+      "runtime": "gourdPitcher.webp",
+      "width": 1086,
+      "height": 1448,
+      "alpha": true,
+      "sourceSha256": "668c5118aee839bdc0a5039fab1dd2db2e872777dcec4ff2160cb4f7706414d5",
+      "runtimeSha256": "31ce36e2b94f732fa20e6ba21e3e53559a37be3f438947e7ae6318cfdde724eb"
+    },
+    {
+      "id": "incense",
+      "source": "source/incense.png",
+      "runtime": "incense.webp",
+      "width": 1199,
+      "height": 1312,
+      "alpha": true,
+      "sourceSha256": "65a066a4ed703bf4f2b2cb08347e2599ba95e58a90f0581814242538ee5ee6d6",
+      "runtimeSha256": "f96052c49d02fb52e231294cf410c03299887a3586775c8f4657437e907d3b07"
+    },
+    {
+      "id": "lotusIncense",
+      "source": "source/lotusIncense.png",
+      "runtime": "lotusIncense.webp",
+      "width": 1086,
+      "height": 1448,
+      "alpha": true,
+      "sourceSha256": "00a71323a4c04245dd95c40bd47f42493da758336d397d440d36f4f85939f04d",
+      "runtimeSha256": "3cc2410e5565b2cb1c91ab13e40d7a8418f74f3fe20cda2d0b4013c14a5fcbea"
+    },
+    {
+      "id": "maebyeong",
+      "source": "source/maebyeong.png",
+      "runtime": "maebyeong.webp",
+      "width": 1024,
+      "height": 1536,
+      "alpha": true,
+      "sourceSha256": "1657780b7c485e397e04f96bd1d517de5caad805825c2724abd0a0032714b1cf",
+      "runtimeSha256": "8aa9f5c3f7a1b3b1feb704b5d7482876603d3ba639d9360468748972151daa48"
+    },
+    {
+      "id": "peonyPitcher",
+      "source": "source/peonyPitcher.png",
+      "runtime": "peonyPitcher.webp",
+      "width": 1086,
+      "height": 1448,
+      "alpha": true,
+      "sourceSha256": "458f09be6da79551a868f051fd9dbf644d08210cdf80fc15d1852eb6088c4ef8",
+      "runtimeSha256": "84c024cf46b623eb22a8000a0cada2be637ad6c73d0bcacbd3837336fed98806"
+    },
+    {
+      "id": "pillow",
+      "source": "source/pillow.png",
+      "runtime": "pillow.webp",
+      "width": 1536,
+      "height": 1024,
+      "alpha": true,
+      "sourceSha256": "a5aaa2695b8c98f6479c735549ac590db465ffe8db651e871e51b17a0cb96128",
+      "runtimeSha256": "a617458dde53ca4abb6db80b791bbbafd61248798c398ad7d87dac7d53973054"
+    },
+    {
+      "id": "pitcher",
+      "source": "source/pitcher.png",
+      "runtime": "pitcher.webp",
+      "width": 1086,
+      "height": 1448,
+      "alpha": true,
+      "sourceSha256": "8b3fefe34ca50b8ace9421c532c92ee30e07f45f6247085b979b674de99f87cc",
+      "runtimeSha256": "db04749a84f05b792efe90f038223a54eb59a8aa9c9b15fb87f6da674f37af8e"
+    },
+    {
+      "id": "plumBambooMaebyeong",
+      "source": "source/plumBambooMaebyeong.png",
+      "runtime": "plumBambooMaebyeong.webp",
+      "width": 1064,
+      "height": 1478,
+      "alpha": true,
+      "sourceSha256": "d3baa2bfc94194ab61011e869317a1bc9331bbd2aca5b15eba5cc56ee71a38a8",
+      "runtimeSha256": "e14e1e00a8baf34f9ac4039e7a5b21a97b9e06a3b99e564d7469f12107b12bba"
+    },
+    {
+      "id": "poemGourdBottle",
+      "source": "source/poemGourdBottle.png",
+      "runtime": "poemGourdBottle.webp",
+      "width": 1024,
+      "height": 1536,
+      "alpha": true,
+      "sourceSha256": "d4cd806ef5aa0731cd3bf44aa6aff0d390d78acec6d1469e7cac9715927c09a1",
+      "runtimeSha256": "5982eea43c748fca575ddd966da527f93fac79264f35eba2c0fc2a625c37f6f4"
+    },
+    {
+      "id": "pomegranateDropper",
+      "source": "source/pomegranateDropper.png",
+      "runtime": "pomegranateDropper.webp",
+      "width": 1312,
+      "height": 1199,
+      "alpha": true,
+      "sourceSha256": "4eec912d3b11d71a4dd38400184ea4c4cbd6bc88c8cd0e365bac6c0d9e5045d7",
+      "runtimeSha256": "d9720439274a94579807616832f72ead1836d8fb8eef988967cc54a951ea389c"
+    },
+    {
+      "id": "pomegranatePitcher",
+      "source": "source/pomegranatePitcher.png",
+      "runtime": "pomegranatePitcher.webp",
+      "width": 1312,
+      "height": 1199,
+      "alpha": true,
+      "sourceSha256": "ab3ecc10ae5090d205f86afac431be682f7c8e8f005b75399b474943fd26d778",
+      "runtimeSha256": "0722a6da20d63584a7ef8da84d5a732fcf3b68f86728df187b0a00a4debce949"
+    },
+    {
+      "id": "qilinDecoratedIncense",
+      "source": "source/qilinDecoratedIncense.png",
+      "runtime": "qilinDecoratedIncense.webp",
+      "width": 1460,
+      "height": 1078,
+      "alpha": true,
+      "sourceSha256": "17d3adcc0ebb398db7a14eb9b3abc10a057d0e435a9f24e72fa9fc6803dae682",
+      "runtimeSha256": "18a1f88812f6b8c60e2a8203e803633a9f5fb95b5be02abc33feabb6122075c5"
+    },
+    {
+      "id": "qilinIncense",
+      "source": "source/qilinIncense.png",
+      "runtime": "qilinIncense.webp",
+      "width": 1312,
+      "height": 1199,
+      "alpha": true,
+      "sourceSha256": "879c4008c9e0923629cfc75e43d89ea8a87ccaefe731ef829272b59be857b86c",
+      "runtimeSha256": "12457819fd575ea5599a875e482ede13098d81ae372597efa957749052ef7246"
+    },
+    {
+      "id": "stool",
+      "source": "source/stool.png",
+      "runtime": "stool.webp",
+      "width": 1062,
+      "height": 1481,
+      "alpha": true,
+      "sourceSha256": "8705166bf2d193fe7046d71ac7259a8cd7bc86e8ac8eb41ea3c32e9839d75cff",
+      "runtimeSha256": "b2f87d9f403a8958e8d776c70203876702e4f21d2619322f0bb2b168a9320f6e"
+    },
+    {
+      "id": "wildflowerPitcher",
+      "source": "source/wildflowerPitcher.png",
+      "runtime": "wildflowerPitcher.webp",
+      "width": 1192,
+      "height": 1320,
+      "alpha": true,
+      "sourceSha256": "d7d4ee6c0fea9e1fec8e3e9abab2e93912099792534bdd8ce30d8b3969357622",
+      "runtimeSha256": "f3bbc74e0c85b5f5eb2f784587880b02a91a60bc48ac50cf41b72b0e0d3f24da"
+    },
+    {
+      "id": "willowMaebyeong",
+      "source": "source/willowMaebyeong.png",
+      "runtime": "willowMaebyeong.webp",
+      "width": 1086,
+      "height": 1448,
+      "alpha": true,
+      "sourceSha256": "24a039960bb5bdbbf62385ad53fafc9d73456b5fa0164c4df86a32e43af338b7",
+      "runtimeSha256": "803b15dade9f194ae958391a2a94f63fab3b72733f4cda29b47a9c8523d6ecf4"
+    }
+  ]
+}
