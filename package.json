@@ -17,6 +17,7 @@
     "test:ui": "node tests/browser-ui.cjs"
   },
   "dependencies": {
+    "@vercel/oidc": "4.0.7",
     "three": "0.180.0",
     "three-bvh-csg": "^0.0.17",
     "three-mesh-bvh": "0.8.3"

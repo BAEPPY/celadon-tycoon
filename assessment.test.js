@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Readable} from 'node:stream';
 import {assessmentInput, assessmentFingerprint, normalizeAssessment, rubricAssessment, explanationScores} from './assessment-rules.js';
-import assess, {assessWithGateway, selectModel, ASSESSMENT_SYSTEM} from './api/assess.js';
+import assess, {assessWithGateway, selectModel, resolveGatewayToken, ASSESSMENT_SYSTEM} from './api/assess.js';
 
 const work = {
   orderId: 'royal-rest', shape: 'pillow', modelId: 'pillow', technique: 'inlay', pattern: 'crane',
@@ -85,6 +85,37 @@ async function invoke(method, body) {
   const headers = {}, res = {statusCode: 200, setHeader: (key, value) => headers[key] = value, end: value => res.body = JSON.parse(value)};
   await assess(req, res);return {...res, headers};
 }
+test('환경변수가 없어도 요청 문맥 OIDC로 인증하고 다음 요청의 새 토큰을 사용한다', async () => {
+  const symbol = Symbol.for('@vercel/request-context'), previousContext = globalThis[symbol], previousFetch = globalThis.fetch;
+  const names = ['AI_GATEWAY_API_KEY', 'VERCEL_OIDC_TOKEN', 'VERCEL_OIDC_TOKEN_FILE'];
+  const previousEnv = Object.fromEntries(names.map(name => [name, process.env[name]]));
+  const fakeJwt = id => `${Buffer.from('{"alg":"none"}').toString('base64url')}.${Buffer.from(JSON.stringify({sub:`test-${id}`,exp:Math.floor(Date.now()/1000)+3600})).toString('base64url')}.test-only`;
+  let token = fakeJwt(1);
+  const seen = [];
+  try {
+    for (const name of names) delete process.env[name];
+    globalThis[symbol] = {get: () => ({headers: {'x-vercel-oidc-token': token}})};
+    globalThis.fetch = async (url, options) => {
+      seen.push(options.headers.Authorization);
+      if (url.endsWith('/models')) return {ok:true,json:async()=>({data:[{id:'openai/gpt-6.1-sol'}]})};
+      return {ok:true,json:async()=>({choices:[{message:{content:JSON.stringify({accepted:true,use:{score:9,feedback:'모양과 쓰임을 연결했어요.'},beauty:{score:8,feedback:'제작 과정을 설명했어요.'}})}}]})};
+    };
+    assert.equal((await invoke('GET', {})).body.aiConfigured, true);
+    assert.equal(seen.length, 0, '상태 확인은 모델을 호출하지 않는다');
+    const first = await invoke('POST', assessmentInput(work));
+    assert.equal(first.body.source, 'ai');assert.equal(seen.at(-1), `Bearer ${token}`);
+    token = fakeJwt(2);
+    const second = await invoke('POST', assessmentInput(work));
+    assert.equal(second.body.source, 'ai');assert.equal(seen.at(-1), `Bearer ${token}`);
+    assert.ok(!JSON.stringify(second.body).includes(token), '응답에 인증 토큰이 포함되지 않는다');
+    process.env.AI_GATEWAY_API_KEY = 'test-only-key';
+    assert.equal(await resolveGatewayToken(), 'test-only-key');
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (previousContext === undefined) delete globalThis[symbol]; else globalThis[symbol] = previousContext;
+    for (const name of names) if (previousEnv[name] === undefined) delete process.env[name]; else process.env[name] = previousEnv[name];
+  }
+});
 test('API는 잘못된 작품과 너무 긴 글을 거절하고 비밀 없는 상태만 반환한다', async () => {
   const health = await invoke('GET', {});assert.equal(health.statusCode, 200);assert.equal(health.headers['Cache-Control'], 'no-store');assert.equal(typeof health.body.aiConfigured, 'boolean');
   const invalid = await invoke('POST', {...assessmentInput(work), shape: 'invented'});assert.equal(invalid.statusCode, 400);

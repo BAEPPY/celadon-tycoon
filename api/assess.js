@@ -1,8 +1,15 @@
 import {ORDERS, SHAPES, TECHNIQUES, PATTERNS} from '../domain.js';
 import {assessmentInput, assessmentFingerprint, normalizeAssessment, rubricAssessment} from '../assessment-rules.js';
+import {getVercelOidcToken} from '@vercel/oidc';
 
 const GATEWAY = 'https://ai-gateway.vercel.sh/v1';
 let modelCache;
+export async function resolveGatewayToken() {
+  if (process.env.AI_GATEWAY_API_KEY) return process.env.AI_GATEWAY_API_KEY;
+  // Runtime tokens may live only in Vercel's request context. Read each request
+  // through the official helper so rotating context/file credentials stay fresh.
+  try {return await getVercelOidcToken();} catch {throw new Error('auth-unavailable');}
+}
 const gradeSchema = {
   type: 'object', additionalProperties: false, required: ['accepted', 'use', 'beauty'],
   properties: {
@@ -69,7 +76,11 @@ async function readBody(req) {
   return JSON.parse(data);
 }
 export default async function handler(req, res) {
-  if (req.method === 'GET') return json(res, 200, {service: 'celadon-explanation',aiConfigured: Boolean(process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN),fallback: 'rubric'});
+  if (req.method === 'GET') {
+    let aiConfigured = false;
+    try {aiConfigured = Boolean(await resolveGatewayToken());} catch {}
+    return json(res, 200, {service: 'celadon-explanation',aiConfigured,fallback: 'rubric'});
+  }
   if (req.method !== 'POST') {res.setHeader('Allow', 'GET, POST');return json(res, 405, {error: 'method'});}
   let input;
   try {
@@ -79,7 +90,7 @@ export default async function handler(req, res) {
     if (!ORDERS.some(o => o.id === input.orderId) || !SHAPES.some(s => s.id === input.shape) || !TECHNIQUES.some(t => t.id === input.technique)) throw new Error('invalid-work');
   } catch {return json(res, 400, {error: '작품과 설명을 다시 확인해 주세요.'});}
   try {
-    return json(res, 200, await assessWithGateway(input, {token: process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN}));
+    return json(res, 200, await assessWithGateway(input, {token: await resolveGatewayToken()}));
   } catch (error) {
     // Do not log student writing, authorization, or raw provider responses.
     console.warn('Explanation AI unavailable:', error.name === 'TimeoutError' ? 'timeout' : /^(auth-unavailable|model-unavailable|models-\d+|gateway-\d+|invalid-output)$/.test(error.message) ? error.message : 'response-error');

@@ -39,6 +39,7 @@ chrysanthemumHole += 'Z';
 const plumBloom = blossom(-14, -31, 57);
 const plumBranch = 'M-88 108L-37 72L-19 37L0 22M-37 72L18 62L48 36M18 62L37 89L74 103M48 36L66 8L94-1M66 8L60-17';
 const plumBuds = 'M60-17C43-29 49-48 64-47C81-43 79-24 60-17ZM94-1C87-18 103-29 112-18C116-9 106 0 94-1Z';
+const plumBranchHole = 'M-91 104L-41 69L-22 34L-3 19L3 25L-16 40L-33 75L-85 112ZM-39 68L15 58L44 33L62 5L92-5L96 3L70 12L52 39L21 66L-35 76ZM14 64L33 92L72 107L76 99L41 86L22 60ZM62 9L56-16L64-18L70 7Z';
 const plum = plumBranch + plumBloom + circle(-14, -31, 7) + 'M-14-45V-52M0-36L7-39M-5-19L0-13M-23-19L-28-12M-28-36L-35-39' + plumBuds;
 
 const bambooCanes = 'M-43 105Q-38 49-44-1Q-47-47-35-101M-24 104Q-19 49-27-3Q-32-49-18-97M23 105Q29 41 18-21Q14-59 24-94M40 105Q47 39 35-24Q31-63 41-92M-44 39L-23 38M-46-21L-29-23M-37-79L-20-76M26 45L44 44M18-22L36-25M20-74L37-72';
@@ -48,6 +49,7 @@ const bamboo = bambooCanes + bambooLeaves;
 const willowTrunk = 'M-42 108C-55 65-44 30-36 2C-30-23-34-51-47-76M-25 107C-39 62-27 30-17 4C-9-18-9-43-22-60M-36 2Q-5-53 38-70M-34-24Q-61-53-76-58';
 const willowBoughs = 'M-38-50C-13-103 54-106 80-77M-26-61C13-97 79-74 79 79M-16-65C18-69 44-27 41 104M-49-47C-85-63-96-21-99 57';
 const willowLeaves = 'M75-30Q98-30 97-5Q81-10 75-30ZM80 12Q103 16 100 41Q84 32 80 12ZM79 53Q99 61 90 85Q78 75 79 53ZM38 4Q58 7 61 28Q43 25 38 4ZM42 43Q63 48 61 70Q45 62 42 43ZM41 81Q62 87 55 108Q43 101 41 81ZM-89-17Q-107-15-110 7Q-94 5-89-17ZM-96 24Q-78 31-82 52Q-98 45-96 24Z';
+const willowBoughHoles = 'M-40-53C-14-106 55-110 83-80L78-73C49-103-11-97-35-47ZM-28-64C17-102 84-76 83 79L75 80C76-72 12-92-24-58ZM-17-69C22-72 49-27 45 106L37 105C40-24 15-65-14-61ZM-49-51C-90-67-99-22-103 59L-95 60C-92-18-80-58-48-43Z';
 const willow = willowTrunk + willowBoughs + willowLeaves;
 
 const grapeLeaf = 'M-16-21L-38-37L-64-32L-60-55L-88-72L-62-80L-56-106L-31-92L-10-105L-8-78L16-66L-3-50Z';
@@ -56,6 +58,7 @@ const grape = grapeLeaf + 'M-16-21Q-29-54-54-74M-8-30C10-70 20-85 47-84C87-85 89
 
 const wildflowerBlooms = blossom(-30,-51,30) + blossom(58,-22,25) + blossom(-74,14,21);
 const wildflowerLeaves = 'M-2 64C-21 27-53 28-64 40C-48 59-23 64-2 64ZM3 79C24 50 54 48 69 57C56 80 29 88 3 79ZM12 13C4-5-10-12-23-8C-23 11-5 18 12 13Z';
+const wildflowerStemHole = 'M-11 107C8 71 13 28-8-8L-26-23L-18-28L0-12C21 27 16 74-3 112ZM7 51C40 35 54 18 54 1L62 1C62 23 48 43 10 59ZM2 78C-42 70-60 45-66 31L-74 35C-68 53-49 79 0 86Z';
 const wildflower = 'M-7 109C12 72 17 26-4-10L-22-25M9 55C45 39 58 18 58 1M1 82C-47 74-64 47-70 33' + wildflowerBlooms + circle(-30,-51,4) + circle(58,-22,3.5) + circle(-74,14,3) + wildflowerLeaves;
 
 // A coherent 文 for 글자(문자). The reference bottle carries a poem; we do not
@@ -86,11 +89,11 @@ const lotus = lotusOuter + lotusCenter + 'M-99 6C-57 28-45 61 0 82M99 6C57 28 45
 const MOTIFS = {
   peony: {ink: peony, hole: peonyBloom + peonyLeaves},
   chrysanthemum: {ink: chrysanthemum, hole: chrysanthemumHole},
-  plum: {ink: plum, hole: plumBloom + plumBuds},
+  plum: {ink: plum, hole: plumBloom + plumBuds + plumBranchHole},
   bamboo: {ink: bamboo, hole: 'M-44 105L-24 105Q-20 42-29-19Q-33-65-18-97L-35-101Q-48-54-44-1Q-38 49-44 105ZM23 105H40Q48 41 35-24Q31-63 41-92L24-94Q14-59 18-21Q29 41 23 105Z' + bambooLeaves},
-  willow: {ink: willow, hole: 'M-42 108C-55 65-44 30-36 2C-30-23-34-51-47-76L-22-60C-9-43-9-18-17 4C-27 30-39 62-25 107Z' + willowLeaves},
+  willow: {ink: willow, hole: 'M-42 108C-55 65-44 30-36 2C-30-23-34-51-47-76L-22-60C-9-43-9-18-17 4C-27 30-39 62-25 107Z' + willowBoughHoles + willowLeaves},
   grape: {ink: grape, hole: grapeLeaf + grapeBerries},
-  wildflower: {ink: wildflower, hole: wildflowerBlooms + wildflowerLeaves},
+  wildflower: {ink: wildflower, hole: wildflowerBlooms + wildflowerLeaves + wildflowerStemHole},
   text: {ink: writing, hole: writingHole},
   crane: {ink: crane, hole: craneHole},
   cloud: {ink: cloud, hole: cloudUpper + cloudMiddle + cloudLower},
