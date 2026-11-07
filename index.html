@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#234d40">
+  <meta name="description" content="고려의 도공이 되어 주문을 읽고 청자를 만드는 사회 수업 게임. 쓰임을 생각하고, 상감 무늬를 만들고, 나의 작품을 설명해 보세요.">
+  <title>청자 공방 · 고려의 도공이 되는 시간</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='26' fill='%23234d40'/%3E%3Cpath d='M40 20h20v12c0 8 20 8 18 25L67 85H33L22 57c-2-17 18-17 18-25z' fill='%239ac8b1'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="./style.css">
+  <script type="module" src="./app.js"></script>
+</head>
+<body>
+  <header class="topbar"><a class="brand" href="#" aria-label="청자 공방 처음으로"><span class="brand-mark">靑</span><span>청자 공방<small>고려의 도공이 되는 시간</small></span></a><nav aria-label="주요 메뉴"><button data-nav="workshop" class="nav active">공방</button><button data-nav="gallery" class="nav">내 작품 <span id="count">0</span></button><button data-nav="guide" class="nav">수업 안내</button></nav><span class="class-badge">사회 · 5학년</span></header>
+  <main id="app"></main>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <dialog id="guide"><div class="dialog-head"><span class="eyebrow">TEACHER'S NOTE</span><button id="close-guide" class="icon-button" aria-label="수업 안내 닫기">×</button></div><h2>작은 공방에서 배우는<br>고려청자의 쓰임과 솜씨</h2><p>주문 속 단서를 읽고, 쓰임에 맞는 형태와 장식 방법을 선택하세요. 점검한 뒤 고쳐 만드는 것도 배움입니다.</p><div class="guide-grid"><section><h3>13분 활동</h3><p>시범 1분 → 주문·계획 2분 → 제작·점검 5분 → 설명 3분 → 작품 비교 2분</p><p>기본 목표는 주문 한 건 완성입니다. 여유가 있으면 다른 쓰임의 주문에 도전하세요.</p></section><section><h3>점수 읽는 법</h3><p>쓰임 40 + 제작 과정 30 + 주문 특징 10 + 설명 자기점검 20 = 100점</p><p>설명 20점은 학생의 자기점검입니다. 문장의 정확성과 우수성 이해는 교사가 확인합니다. 빠른 손놀림이나 미술 실력은 채점하지 않습니다.</p></section><section><h3>작품 보관·공유</h3><p>작품과 진행 상황은 이 기기의 브라우저에 저장됩니다. 사진 저장으로 작품 카드를 내려받아 선생님이 안내한 패들렛에 직접 올릴 수 있습니다.</p><p>다른 기기와 자동으로 공유되지 않습니다. 브라우저 기록을 지우면 저장 내용도 없어질 수 있습니다.</p></section><section><h3>역사와 게임</h3><p>등장인물과 주문은 학습을 위한 가상 상황이며, 작품은 유물의 형태를 참고한 단순화된 그림입니다. 모든 청자에 상감 기법을 사용한 것은 아닙니다.</p><p>말리고 굽는 시간은 게임에서 짧게 표현했습니다. 실제 제작은 훨씬 긴 시간과 정교한 기술이 필요합니다.</p></section></div><p class="source">내용 참고: <a href="https://contents.history.go.kr/mobile/eh/view.do?levelId=eh_r0140_0010" target="_blank" rel="noopener">국사편찬위원회 우리역사넷</a> · <a href="https://modu.museum.go.kr/explore/video/552" target="_blank" rel="noopener">국립중앙박물관</a>. 게임 그림은 직접 제작한 학습용 표현입니다.</p></dialog>
+</body>
+</html>
