@@ -64,20 +64,20 @@ export function explanationHints(work = {}) {
   const input=assessmentInput(work),names={cloud:'구름',crane:'학',lotus:'연꽃',peony:'모란',chrysanthemum:'국화',plum:'매화',bamboo:'대나무',willow:'버드나무',grape:'포도',wildflower:'풀꽃',text:'글자'};
   const motif=names[input.patterns[0]||input.drawingLabel]||'무늬',slip=input.slip==='dark'?'검은 흙':'흰 흙';
   const examples = {
-    pillow: '예: 머리를 놓는 곳이 오목해서 누웠을 때 머리를 안정적으로 받칠 수 있기 때문이다.',
-    stool: '예: 윗면이 평평하고 몸통이 튼튼해서 사람이 편하게 앉을 수 있기 때문이다.',
-    pitcher: '예: 손잡이를 잡고 가느다란 주둥이로 물을 흘려보낼 수 있기 때문이다.',
-    incense: '예: 몸통에 향을 담고 뚜껑을 열어 향을 피울 수 있기 때문이다.',
-    duckDropper: '예: 작은 구멍으로 물을 조금씩 떨어뜨려 벼루에서 먹을 갈 수 있기 때문이다.',
-    chrysanthemumCup: '예: 속이 오목하고 입이 넓어서 차를 담아 마시기 편하기 때문이다.',
-    cupStand: '예: 잔을 받침 위에 놓으면 뜨거운 잔을 옮기고 내려놓기 편하기 때문이다.',
-    gourdBottle: '예: 몸통이 넉넉하고 입이 좁아서 내용물을 담아 두기 좋기 때문이다.',
-    maebyeong: '예: 어깨와 몸통이 넓고 입이 좁아서 내용물을 담아 보관하기 좋기 때문이다.',
+    pillow: '예: 머리를 놓는 곳을 오목하게 빚은 베개예요. 누웠을 때 머리를 안정적으로 받쳐 주기 때문에 쉴 때 쓰면 좋아요.',
+    stool: '예: 윗면이 평평하고 몸통이 튼튼한 의자예요. 사람의 몸을 단단히 받쳐 주기 때문에 앉아서 쉬기 좋아요.',
+    pitcher: '예: 손잡이와 가느다란 주둥이가 있는 주전자예요. 손잡이를 잡고 주둥이로 물을 흘려보낼 수 있기 때문에 따르기 편해요.',
+    incense: '예: 몸통에 향을 담고 뚜껑을 덮는 향로예요. 뚜껑을 열고 향을 넣어 피울 수 있기 때문에 방을 향기롭게 할 때 좋아요.',
+    duckDropper: '예: 작은 구멍이 있는 연적이에요. 물을 조금씩 떨어뜨릴 수 있기 때문에 벼루에 먹을 갈 때 쓰면 좋아요.',
+    chrysanthemumCup: '예: 속이 오목하고 입이 넓은 잔이에요. 차를 담아 마시기 편하기 때문에 차를 대접할 때 좋아요.',
+    cupStand: '예: 잔과 받침을 함께 만들었어요. 받침 위에 잔을 놓으면 뜨거운 잔을 옮기고 내려놓기 편하기 때문에 차를 마실 때 좋아요.',
+    gourdBottle: '예: 몸통이 넉넉하고 입이 좁은 조롱박 병이에요. 담은 것이 잘 쏟아지지 않기 때문에 내용물을 보관하기 좋아요.',
+    maebyeong: '예: 어깨와 몸통이 넓고 입이 좁은 매병이에요. 넉넉히 담고 입을 막아 두기 쉽기 때문에 내용물을 보관하기 좋아요.',
   };
-  return {use: examples[work.shape] || '예: 이 부분을 이렇게 빚어서 알맞은 곳에 사용할 수 있기 때문이다.',
-    beauty: work.technique === 'openwork' ? `예: ${motif} 모양 구멍의 가장자리를 여러 번 다듬었어요. 빛과 그림자가 무늬를 드러내기 때문이다.`
-      : work.technique === 'plain' ? '예: 몸통을 천천히 빚고 표면을 고르게 다듬었어요. 부드러운 곡선과 맑은 푸른빛을 살리고 싶었기 때문이다.'
-      : `예: ${motif} 무늬를 파고 ${slip}을 채운 다음 여러 번 닦았어요. 무늬가 또렷하게 보이게 하기 때문이다.`};
+  return {use: examples[work.shape] || '예: 이 부분을 이렇게 빚은 그릇이에요. 그 모양이 쓰임을 돕기 때문에 이런 곳에 쓰면 좋아요.',
+    beauty: work.technique === 'openwork' ? `예: ${motif} 모양 구멍의 가장자리를 여러 번 다듬었어요. 빛과 그림자로 무늬가 또렷하게 드러나기 때문이에요.`
+      : work.technique === 'plain' ? '예: 몸통을 천천히 빚고 표면을 고르게 다듬었어요. 부드러운 곡선과 맑은 푸른빛을 살리고 싶었기 때문이에요.'
+      : `예: ${motif} 무늬를 파고 ${slip}을 채운 다음 여러 번 닦았어요. 무늬가 또렷하게 보이게 하고 싶었기 때문이에요.`};
 }
 export function rubricAssessment(work = {}, notice = '기본 기준 평가 · 모양과 쓰임, 공들인 부분과 만드는 과정을 살폈어요.') {
   const input = assessmentInput(work), useText = input.explanationUse, beautyText = input.explanationBeauty, rule = USE_RULES[input.shape];

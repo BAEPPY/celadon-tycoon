@@ -1,7 +1,7 @@
 /* Run against the real local /api/assess route; no mocked scoring response. */
 const assert = require('node:assert/strict');
 const {chromium} = require('playwright');
-const KEY = 'celadon-tycoon-v2', base = process.env.BASE_URL || 'http://127.0.0.1:4175';
+const KEY = 'celadon-tycoon-v2', base = process.env.BASE_URL || 'http://127.0.0.1:4173';
 const work = {
   id: 'assessment-browser', orderId: 'royal-rest', customerId: 'king', accepted: true,
   shape: 'pillow', modelId: 'pillow', step: 3, stationView: 'counter-delivery',

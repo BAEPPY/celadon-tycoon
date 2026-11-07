@@ -3,7 +3,7 @@ const assert=require('node:assert/strict');
 const {chromium}=require('playwright');
 const {pathToFileURL}=require('node:url');
 const path=require('node:path');
-const base=process.env.BASE_URL||'http://127.0.0.1:4175',KEY='celadon-tycoon-v2';
+const base=process.env.BASE_URL||'http://127.0.0.1:4173',KEY='celadon-tycoon-v2';
 (async()=>{
  const {ORDERS}=await import(pathToFileURL(path.resolve(__dirname,'../domain.js'))),{orderQuote}=await import(pathToFileURL(path.resolve(__dirname,'../dialogue.js')));
  const customers=['king','queen','noble','noblewoman','artisan'];

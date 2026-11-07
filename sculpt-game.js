@@ -84,7 +84,7 @@ export class SculptGame {
   this.canvas.dataset.current=JSON.stringify(this.points);this.canvas.dataset.coverage=String(fraction);this.canvas.dataset.selected=String(this.selected);this.canvas.dataset.matches=JSON.stringify(this.matches);
   this.craft.setSculptMesh(this.points,this.guide,fraction);this.craft.setSculptProgress(complete?1:fraction);
   if(notify)this.onProgress(this.work.sculpt);
-  if(complete&&!this.success){this.release();this.success=document.createElement('div');this.success.className='sculpt-success';this.success.setAttribute('role','status');this.success.innerHTML='<span class="success-sparkles" aria-hidden="true">✦ ✧ ✦</span><strong>통과!</strong><span>목표 모양 90% 이상 완성</span><small>다음 작업대에서 무늬를 넣어 보아요.</small>';this.craft.el.append(this.success);this.canvas.classList.add('completed');this.hint.hidden=true;}
+  if(complete&&!this.success){this.release();this.success=document.createElement('div');this.success.className='sculpt-success';this.success.setAttribute('role','status');this.success.innerHTML='<span class="success-sparkles" aria-hidden="true">✦ ✧ ✦</span><strong>통과!</strong><span>목표 모양 90% 이상 완성</span><small>다음 작업대에서 장식 방법을 골라요.</small>';this.craft.el.append(this.success);this.canvas.classList.add('completed');this.hint.hidden=true;}
  }
  release(){const id=this.drag?.id;this.drag=null;if(id!==undefined&&this.canvas.hasPointerCapture(id))this.canvas.releasePointerCapture(id);this.canvas.classList.remove('is-pulling');this.draw();}
  draw(){

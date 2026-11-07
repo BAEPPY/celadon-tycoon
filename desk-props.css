@@ -27,3 +27,5 @@
  .customer-review-scene:has(.desk-props) .review-score{padding:6px 10px}
 }
 @media(prefers-reduced-motion:reduce){.counter-order.reference-book{transition:none}}
+/* Delivery: reactions.css keeps the speech bubble at top:20%, so start the finished piece below the bubble instead of drawing tall vessels over its text. */
+.is-counter-delivery .counter-scene:has(.desk-props) .counter-piece{top:calc(20% + clamp(142px,23.2vh,182px) + 12px)}
