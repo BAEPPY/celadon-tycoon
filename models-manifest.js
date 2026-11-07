@@ -228,7 +228,7 @@ export const MODEL_ARTIFACTS = Object.freeze({
     referenceTint: false,
   }),
   poemGourdBottle: Object.freeze({
-    id: 'poemGourdBottle', shortName: '시문 조롱박 병', name: '시가 새겨진 청자 연꽃 넝쿨 무늬 조롱박 모양 병',
+    id: 'poemGourdBottle', shortName: '조롱박 병', name: '시가 새겨진 청자 연꽃 넝쿨 무늬 조롱박 모양 병',
     use: '내용물을 담아 두는 병입니다. 조롱박 주전자와 달리 따로 붙인 주둥이와 손잡이가 없습니다.',
     src: local('celadon-poem-gourd-bottle.glb'),
     sourceUrl: 'https://www.museum.go.kr/MUSEUM/contents/M0505000000.do?relicId=1213&schM=view&searchId=search',

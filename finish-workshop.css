@@ -1,0 +1,113 @@
+/* Chromebook type, visible process order, and uncluttered scene edges. */
+.game-window.shop-game,.game-window.shop-game.is-cover{grid-template-rows:54px minmax(0,1fr)}
+.shop-game .hud{height:54px;gap:12px}
+.shop-game .hud-tools button{font-size:14px;height:36px;padding:5px 9px}
+.shop-game .hud-stats,.shop-game .mini-logo span,.shift-status{font-size:14px}
+.game-footer{display:none}
+.shop-game :is(button,p,span,small,label,select),.popup :is(button,p,span,small,label,select){word-break:keep-all;overflow-wrap:break-word}
+.station-heading>span{font-size:18px;line-height:1.3}
+.station-heading>.small-button{font-size:14px;min-height:30px}
+.station-rack{height:108px;top:43px}
+.station-info{top:168px}
+.station-info p{font-size:18px;line-height:1.5}
+.station-info small,.station-info .text-button{font-size:15px}
+.station-info h2{font-size:23px}
+.station-nav .primary{font-size:20px;line-height:1.4;min-height:46px}
+.station-nav .small-button{font-size:16px;min-height:40px}
+.station-workspace,.shaping-scene .station-workspace,.decoration-scene .station-workspace,.inlay-scene .station-workspace{top:159px;bottom:58px}
+.order-summary{position:absolute;right:16px;top:168px;width:17%;padding:13px 14px;background:#fff3ddf0;border:2px solid #b28a77;border-radius:12px;z-index:9;color:#795650}
+.order-summary h3{font-size:20px;margin:0 0 9px}
+.order-summary dl{display:grid;grid-template-columns:35px 1fr;gap:7px 8px;margin:0;font-size:15px;line-height:1.4}
+.order-summary dt{color:#a17c6a}.order-summary dd{margin:0}
+.order-summary .text-button{font-size:14px;margin-top:9px}
+.hand-tools{top:365px;right:16px;width:17%;max-width:none}
+.hand-tools .tool-tile{font-size:17px;min-height:62px}
+.hand-tools .text-button,.hand-tools label,.hand-tools select{font-size:14px}
+.shape-trays{gap:6px}.shape-bin img{height:57px}
+.tray-bin span{font-size:14px;line-height:1.25;white-space:normal;text-align:center}
+.shape-family{width:165px;display:flex;flex-direction:column;justify-content:center;gap:8px;font-size:15px;line-height:1.4;padding:6px}
+.shape-family .small-button{font-size:14px;line-height:1.3;min-height:36px;padding:6px}
+.variant-shelf{position:absolute;left:25%;right:19%;top:165px;z-index:14;background:#fff1d6;border:3px solid #a17c67;border-radius:14px;padding:12px;box-shadow:0 6px 15px #704c3c30}
+.variant-shelf h3{font-size:21px;line-height:1.3;margin:0 0 10px}
+.variant-options{display:grid;grid-template-columns:repeat(auto-fit,minmax(85px,1fr));gap:7px}
+.variant-card{min-width:0;display:flex;flex-direction:column;align-items:center;gap:6px;padding:7px 5px;background:#f8e8c7;border:2px solid #b28d70;border-radius:8px;color:#79594e}
+.variant-card.selected{border-color:#7d9c6d;background:#e5e6bd}
+.variant-card img{height:91px;width:100%;object-fit:contain}
+.variant-card span{font-size:14px;line-height:1.35}
+.is-choosing-variant .station-workspace{opacity:.2;pointer-events:none}
+.decoration-scene .pattern-bin svg{height:48px;width:48px;flex-shrink:0}
+.decoration-scene .pattern-bin span{font-size:16px;line-height:1.2}
+.decoration-scene .pattern-bin small{font-size:14px;line-height:1.2}
+.decoration-scene .rack-techniques{width:144px;gap:6px;overflow:visible}
+.technique-option{display:flex;align-items:center;gap:7px}
+.decoration-scene .technique-option>.small-button{flex:1;font-size:18px;min-height:28px;padding:3px 6px;line-height:1.1}
+.technique-help{position:relative;display:flex}
+.help-dot{height:26px;width:26px;border:2px solid #9e7766;border-radius:50%;background:#fff8e9;color:#8c6756;font-size:18px;line-height:1;cursor:help}
+.technique-tooltip{display:none;pointer-events:none;position:absolute;right:0;top:32px;width:260px;padding:12px 14px;border:2px solid #a17b67;border-radius:9px;background:#fff8e8;box-shadow:0 4px 14px #634d3f35;color:#75534a;font-size:16px;line-height:1.5;z-index:30}
+.technique-help:hover .technique-tooltip,.technique-help:focus-within .technique-tooltip{display:block}
+.station-rack:has(.technique-help:focus-within),.station-rack:has(.technique-help:hover){z-index:30}
+.automatic-clay{justify-content:center;align-items:center;gap:24px}
+.automatic-clay strong{font-size:23px;display:block}.automatic-clay p{font-size:17px;margin-top:5px}
+.prepared-clay-icon{font-size:56px;color:#b69a81;text-shadow:2px 3px #8f6b58}
+.knead-counts{display:flex;gap:10px}.knead-counts i{font-style:normal;border-radius:50%;width:36px;height:36px;border:2px solid #af8c70;background:#ead3ae;color:#8f6f58;display:grid;place-items:center;font-size:18px}.knead-counts i.done{background:#b8c7a0;color:#516947}
+.inlay-choice small{font-size:15px;display:block;margin-top:3px}
+.inlay-scene .station-info,.decoration-scene .station-info,.shaping-scene .station-info{top:168px}
+.kiln-scene .station-info{width:22%;font-size:20px;padding:18px}
+.kiln-scene .station-info p{font-size:20px;line-height:1.7}
+.firing-bin strong{font-size:20px}.firing-bin small{font-size:15px;line-height:1.3}
+.explanation-popup{width:min(940px,calc(100vw - 30px));padding:22px 26px}
+.explanation-popup h2{font-size:28px;margin-bottom:12px}
+.name-workshop{background:#f4e4c6;border-radius:12px;padding:12px 15px}
+.name-workshop .field-label{margin:0 0 8px;font-size:18px}
+.name-scaffold{display:flex;align-items:center;gap:9px;font-size:18px;flex-wrap:wrap}
+.name-scaffold>span{padding:7px 10px;background:#fff6e2;border-radius:5px}
+.name-scaffold select{max-width:320px;min-width:100px;font:inherit;background:#fff8e9;border:1px solid #ad8b71;border-radius:5px;padding:6px}
+.name-scaffold .small-button{font-size:15px}
+#work-title{width:100%;font:inherit;font-size:20px;padding:9px 12px;margin-top:10px;border:1px solid #b59476;border-radius:7px;background:#fffcf2;color:#6d5049}
+.explanation-popup .naming-tip{font-size:14px;margin:7px 0 0;color:#92765e}
+.explanation-fields{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:14px}
+.explanation-fields .field-label{font-size:18px;line-height:1.4;margin:0 0 7px}
+.explanation-popup textarea{height:112px;font-size:18px;line-height:1.5;padding:10px;background:#fffdf4}
+.explanation-popup textarea::placeholder{color:rgb(105 78 68 / 40%);opacity:1}
+.explanation-popup .explanation-feedback{font-size:15px;line-height:1.45;margin:6px 0;min-height:42px;color:#806953}
+.needs-revision .explanation-feedback{color:#a45e46}
+.explanation-popup .assessment-notice{font-size:14px;margin:8px 0}
+.explanation-popup>.primary{font-size:20px;min-height:45px;width:100%}
+.review-score .text-button{margin-left:auto;font-size:14px}
+.counter-speech>span{font-size:16px}
+.counter-order{font-size:14px}
+.counter-plaque{display:none}
+#toast{font-size:16px}
+@media(max-height:650px){
+ .game-window.shop-game,.game-window.shop-game.is-cover{grid-template-rows:50px minmax(0,1fr)}.shop-game .hud{height:50px}
+ .station-rack{top:39px;height:94px;min-height:94px}.station-heading{height:29px;top:4px}
+ .station-info,.inlay-scene .station-info,.decoration-scene .station-info,.shaping-scene .station-info{top:145px}
+ .station-workspace,.shaping-scene .station-workspace,.decoration-scene .station-workspace,.inlay-scene .station-workspace{top:143px;bottom:55px}
+ .order-summary{top:145px;padding:10px;width:17%}.order-summary h3{font-size:18px}.order-summary dl{font-size:14px;gap:5px}.order-summary .text-button{margin-top:7px}
+ .hand-tools{top:315px;gap:7px}.hand-tools .tool-tile{min-height:49px;font-size:15px}.hand-tools .tool-tile i{font-size:22px}
+ .shape-bin img{height:43px}.shape-family{width:145px;font-size:14px}.shape-family .small-button{font-size:14px;min-height:32px}
+ .variant-shelf{top:147px}.variant-card img{height:75px}.variant-card span{font-size:14px}
+ .decoration-scene .pattern-bin svg{height:42px;width:46px}.decoration-scene .pattern-bin span{font-size:14px}.decoration-scene .pattern-bin small{font-size:14px}
+ .decoration-scene .rack-techniques{width:132px;gap:4px}.decoration-scene .technique-option>.small-button{font-size:17px;min-height:24px}.help-dot{height:24px;width:24px;font-size:17px}
+ .explanation-popup{padding:16px 20px}.explanation-popup h2{font-size:25px;margin-bottom:8px}.name-workshop{padding:10px 12px}.name-scaffold{font-size:16px;gap:6px}.name-scaffold>span{padding:5px 8px}
+ .explanation-fields{margin-top:11px;gap:16px}.explanation-fields .field-label{font-size:17px}.explanation-popup textarea{height:92px;font-size:17px}.explanation-popup .explanation-feedback{font-size:14px;min-height:40px;margin:4px 0}
+ .explanation-popup .naming-tip{font-size:14px}.explanation-popup .assessment-notice{font-size:14px;margin:5px 0}.explanation-popup>.primary{font-size:18px;min-height:41px}
+ .automatic-clay strong{font-size:21px}.automatic-clay p{font-size:16px}.knead-counts{gap:7px}.knead-counts i{width:32px;height:32px;font-size:17px}
+}
+
+.drawing-meaning{display:block;margin-top:12px;font-size:16px;line-height:1.4}
+.drawing-meaning select{display:block;width:100%;min-width:0;margin-top:5px;padding:8px;font:inherit;color:#795650;background:#fff8e9;border:1px solid #b28a77;border-radius:6px}
+@media(max-height:650px){.drawing-meaning{font-size:15px;margin-top:9px}.drawing-meaning select{padding:6px}}
+
+/* Original hanji artwork: the transparent deckle edge replaces the UI frame.
+   Include the previous border width in padding to keep the text area stable. */
+.order-summary{
+ padding:15px 16px;
+ background:transparent url('./assets/scenes/order-paper.webp') center/100% 100% no-repeat;
+ border:0;
+ border-radius:0;
+ box-shadow:none;
+ color:#6f4d3e;
+}
+.order-summary dt,.order-summary .text-button{color:#79533f}
+@media(max-height:650px){.order-summary{padding:12px}}

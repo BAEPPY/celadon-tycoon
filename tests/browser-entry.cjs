@@ -6,7 +6,7 @@ const TITLE = '좋은 청자 위대한 청자';
 const base = process.env.BASE_URL || 'http://127.0.0.1:4173';
 const sizes = [[1024, 600], [1280, 720], [1366, 768], [1536, 864]];
 const draft = {
-  id: 'entry-resume', orderId: 'royal-rest', accepted: true,
+  id: 'entry-resume', customerId: 'king', orderId: 'royal-rest', accepted: true,
   clay: { body: true, slip: 'dark', kneads: 6, prepared: true },
   shape: 'stool', modelId: 'stool', step: 1, stationView: 'game',
   knead: 3, width: 1.05, viewFrame: 5, technique: 'inlay', pattern: 'cloud',
@@ -92,7 +92,9 @@ async function checkCover(page, resumable) {
     assert.equal(first.history.length, 1);
     assert.equal(first.draft.step, 0);
     assert.equal(first.draft.shape, null);
-    assert.equal(await page.locator('.counter-plaque').innerText(), TITLE);
+    assert.equal(await page.locator('.counter-plaque').count(), 0);
+    assert.equal(await page.locator('.reference-book').count(), 1);
+    assert.ok(['king','queen','noble','noblewoman','artisan'].includes(first.draft.customerId));
     await noCharacterGallery(page);
 
     await seed(page, fixture);

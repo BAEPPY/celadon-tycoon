@@ -1,0 +1,29 @@
+/* Original, newly generated counter props. The centre remains a clear work surface. */
+@font-face{font-family:'UnGungseo Book';src:url('./assets/fonts/UnGungseo-BookTitle.woff2') format('woff2');font-style:normal;font-weight:400;font-display:swap;unicode-range:U+20,U+AC10,U+B3C4,U+C790,U+CCAD}
+.counter-scene .counter-front,.customer-review-scene .counter-front{height:24%;background:linear-gradient(#e8c7a8 0 58%,#b98c75 58% 61%,#d2ac93 61%);border-top:3px solid #a17663;box-shadow:0 -2px 0 #f3dfc5}
+.desk-props{position:absolute;inset:0;z-index:5;pointer-events:none;user-select:none;overflow:visible}
+.desk-props>img{position:absolute;display:block;height:auto;object-fit:contain;pointer-events:none;-webkit-user-drag:none}
+.counter-front .desk-ink{left:6%;right:auto;width:18%;bottom:42%;filter:drop-shadow(0 2px 1px #77574518)}
+/* The title is real Korean calligraphy, projected onto the blank top cover. */
+.counter-front .counter-order.reference-book{left:auto;right:6%;top:auto;bottom:42%;display:block;width:25.5%;height:auto;aspect-ratio:1000/225;border:0;padding:0;border-radius:6px;background:none;box-shadow:none;transform:none;overflow:visible;cursor:pointer;z-index:6;transition:filter .15s ease}
+.counter-order.reference-book>img{display:block;width:100%;height:100%;object-fit:contain;pointer-events:none;-webkit-user-drag:none}
+.counter-order.reference-book>span{position:absolute;left:21%;top:24%;width:63%;height:33%;display:grid;place-items:center;margin:0;padding:0;color:#665036;font:400 clamp(18px,1.8vw,25px)/1 'UnGungseo Book','Gungsuh',serif;letter-spacing:.12em;text-align:center;text-shadow:none;transform:perspective(380px) rotateX(18deg);transform-origin:center;pointer-events:none;white-space:nowrap}
+.counter-order.reference-book:hover{filter:brightness(1.07)}
+.counter-order.reference-book:active{filter:brightness(.96)}
+.counter-order.reference-book:focus-visible{outline:3px dashed #806441;outline-offset:5px}
+.counter-scene:has(.desk-props) .counter-piece{left:31%;right:31%;top:30%;bottom:9.5%}
+.customer-review-scene:has(.desk-props) .review-dialogue{top:4%;bottom:28%;gap:13px}
+.customer-review-scene:has(.desk-props) .review-speech{padding:20px 24px}
+.customer-review-scene:has(.desk-props) .review-speech h2{margin-bottom:12px}
+@media(max-height:650px){
+ .counter-front .desk-ink{left:5%;width:18%}
+ .counter-front .counter-order.reference-book{right:5%;width:27%}
+ .counter-order.reference-book>span{font-size:20px}
+ .customer-review-scene:has(.desk-props) .review-dialogue{top:3%;bottom:28%;gap:9px}
+ .customer-review-scene:has(.desk-props) .review-speech{padding:13px 17px}
+ .customer-review-scene:has(.desk-props) .review-speech h2{font-size:27px;margin-bottom:9px}
+ .customer-review-scene:has(.desk-props) .review-speech .review-quote{font-size:17px;line-height:1.45}
+ .customer-review-scene:has(.desk-props) .review-speech .review-detail{font-size:14px;margin-top:8px}
+ .customer-review-scene:has(.desk-props) .review-score{padding:6px 10px}
+}
+@media(prefers-reduced-motion:reduce){.counter-order.reference-book{transition:none}}

@@ -1,0 +1,42 @@
+{
+  "generator": "OpenAI image generation",
+  "revision": 2,
+  "purpose": "Newly generated tidy left calligraphy set and single right-side book; low counter perspective with an empty central workspace",
+  "reference": "counter.webp",
+  "assets": [
+    {
+      "id": "desk-reference-book",
+      "source": "source/desk-reference-book.png",
+      "src": "desk-reference-book.webp",
+      "sourceWidth": 2172,
+      "sourceHeight": 724,
+      "sourceCrop": {
+        "left": 39,
+        "top": 184,
+        "width": 2091,
+        "height": 471
+      },
+      "width": 1000,
+      "height": 225,
+      "sourceSha256": "0436dabe7b78f425a662d2440d92f1552b4822714a2223ac0768180077544f4a",
+      "runtimeSha256": "ce44390da77da8375ac0a5128466470a594b3a92f2148639304237a03644b48d"
+    },
+    {
+      "id": "desk-ink-tidy",
+      "source": "source/desk-ink-tidy.png",
+      "src": "desk-ink-tidy.webp",
+      "sourceWidth": 1774,
+      "sourceHeight": 887,
+      "sourceCrop": {
+        "left": 361,
+        "top": 181,
+        "width": 1031,
+        "height": 562
+      },
+      "width": 1000,
+      "height": 545,
+      "sourceSha256": "df27a560a4f936017f71e8c89f62901a0717f55e7cd79f9a23e91e92d224c16d",
+      "runtimeSha256": "11af98367c4a5b128d69f8fcc9373c6f542287a12bd406d00aad3055aa041c8d"
+    }
+  ]
+}

@@ -1,0 +1,258 @@
+{
+  "generator": "OpenAI image generation",
+  "style": "Original Goryeo pottery workshop illustrations; three half-body expressions matching the existing five character sheets. Uncertain expressions use individually edited, symmetrical kind-disappointed faces.",
+  "moods": [
+    "happy",
+    "uncertain",
+    "angry"
+  ],
+  "width": 512,
+  "height": 768,
+  "characters": [
+    {
+      "id": "king",
+      "source": "source/king.png",
+      "sourceSha256": "7c34f1e44744026a6938dd69fa1e3f559a74cccc30b2fc755769f82f8d99b9f4",
+      "sourceWidth": 2172,
+      "sourceHeight": 724,
+      "frames": [
+        {
+          "mood": "happy",
+          "src": "./assets/characters/reactions/king-happy.webp",
+          "sourceCell": 0,
+          "sourceCrop": {
+            "left": 149,
+            "top": 14,
+            "width": 428,
+            "height": 696
+          },
+          "sha256": "1f141e6f86dc371b42e123222299f499a6935f659aa0c7fbb064b47508aacc2f"
+        },
+        {
+          "mood": "uncertain",
+          "src": "./assets/characters/reactions/king-uncertain.webp",
+          "sourceCrop": {
+            "left": 0,
+            "top": 0,
+            "width": 1024,
+            "height": 1536
+          },
+          "sha256": "9eb6aed31495781eaaac651fdcaab55a2f4879421560f4d5ca34b78d9af27b4d",
+          "source": "source/king-uncertain-kind.png",
+          "sourceSha256": "52082bbb00b3cf1ba21ddcd7f80f66650994fb632ea50cb3e1a587afc9b4bb5a",
+          "sourceWidth": 1024,
+          "sourceHeight": 1536,
+          "expression": "Kind mild disappointment; symmetrical gently raised inner eyebrows, softly open eyes, level mouth corners. Facial edit preserves the original character and costume."
+        },
+        {
+          "mood": "angry",
+          "src": "./assets/characters/reactions/king-angry.webp",
+          "sourceCell": 2,
+          "sourceCrop": {
+            "left": 1597,
+            "top": 14,
+            "width": 428,
+            "height": 696
+          },
+          "sha256": "9eacb45afe992cf999709102ea1e7be869164a1c039183395c20b63dfa22df1f"
+        }
+      ]
+    },
+    {
+      "id": "queen",
+      "source": "source/queen.png",
+      "sourceSha256": "443eaba07f8dd72836e169dc450de57006c5f6d1d25977d0961cd24246c365ca",
+      "sourceWidth": 2172,
+      "sourceHeight": 724,
+      "frames": [
+        {
+          "mood": "happy",
+          "src": "./assets/characters/reactions/queen-happy.webp",
+          "sourceCell": 0,
+          "sourceCrop": {
+            "left": 143,
+            "top": 12,
+            "width": 459,
+            "height": 700
+          },
+          "sha256": "9fc14e702c8e33296d8b69d6f5d81ec9cdd4c4677b6d74744f69a834ad21a4a5"
+        },
+        {
+          "mood": "uncertain",
+          "src": "./assets/characters/reactions/queen-uncertain.webp",
+          "sourceCrop": {
+            "left": 0,
+            "top": 0,
+            "width": 1024,
+            "height": 1536
+          },
+          "sha256": "b3eb45346b7944792876f52e953cd1236da1558ef9a6c7e16c41108736a29b76",
+          "source": "source/queen-uncertain-kind.png",
+          "sourceSha256": "564f10ba0f380cdf63154b498e4a62a3570cdd2dfc52bb1e2869613e7229740f",
+          "sourceWidth": 1024,
+          "sourceHeight": 1536,
+          "expression": "Kind mild disappointment; symmetrical gently raised inner eyebrows, softly open eyes, level mouth corners. Facial edit preserves the original character and costume."
+        },
+        {
+          "mood": "angry",
+          "src": "./assets/characters/reactions/queen-angry.webp",
+          "sourceCell": 2,
+          "sourceCrop": {
+            "left": 1568,
+            "top": 13,
+            "width": 460,
+            "height": 700
+          },
+          "sha256": "9431d07df00eb37ba7f8cf866d6bbc72f558cb6dc56c93dc529831d990d7d756"
+        }
+      ]
+    },
+    {
+      "id": "noble",
+      "source": "source/noble.png",
+      "sourceSha256": "ec33f47813e37072b952d71612f74dd3383ce4ace5d17c31718ae4011180aa76",
+      "sourceWidth": 2172,
+      "sourceHeight": 724,
+      "frames": [
+        {
+          "mood": "happy",
+          "src": "./assets/characters/reactions/noble-happy.webp",
+          "sourceCell": 0,
+          "sourceCrop": {
+            "left": 127,
+            "top": 13,
+            "width": 471,
+            "height": 697
+          },
+          "sha256": "9c60ea31aa4cf4584d6f2a5cfe43a77a9594e9c924c98f121164b2f855e6fd94"
+        },
+        {
+          "mood": "uncertain",
+          "src": "./assets/characters/reactions/noble-uncertain.webp",
+          "sourceCrop": {
+            "left": 0,
+            "top": 0,
+            "width": 1024,
+            "height": 1536
+          },
+          "sha256": "eeab32b1257a4c19e8bb529cdd5a2eb21df60e68e37916d2d04f0e29d7f390d6",
+          "source": "source/noble-uncertain-kind.png",
+          "sourceSha256": "df0159d7dfc98bfb6467721b9e9e2ba8c633ceb90bf5eeabd4b33ab416c5d25f",
+          "sourceWidth": 1024,
+          "sourceHeight": 1536,
+          "expression": "Kind mild disappointment; symmetrical gently raised inner eyebrows, softly open eyes, level mouth corners. Facial edit preserves the original character and costume."
+        },
+        {
+          "mood": "angry",
+          "src": "./assets/characters/reactions/noble-angry.webp",
+          "sourceCell": 2,
+          "sourceCrop": {
+            "left": 1575,
+            "top": 13,
+            "width": 471,
+            "height": 697
+          },
+          "sha256": "959f6932ed14db49bf1a29fa60c69daa0721d05782ac0b8a50c0b0394633f148"
+        }
+      ]
+    },
+    {
+      "id": "noblewoman",
+      "source": "source/noblewoman.png",
+      "sourceSha256": "3d2a2e9e471b2f000eaa89364c5ea622bac2b078ba1817563dae72e0426c79c7",
+      "sourceWidth": 2172,
+      "sourceHeight": 724,
+      "frames": [
+        {
+          "mood": "happy",
+          "src": "./assets/characters/reactions/noblewoman-happy.webp",
+          "sourceCell": 0,
+          "sourceCrop": {
+            "left": 111,
+            "top": 11,
+            "width": 502,
+            "height": 705
+          },
+          "sha256": "e097fd692e679906fac813f617d45ff8505e2be19fda038db024876779461141"
+        },
+        {
+          "mood": "uncertain",
+          "src": "./assets/characters/reactions/noblewoman-uncertain.webp",
+          "sourceCrop": {
+            "left": 0,
+            "top": 0,
+            "width": 1024,
+            "height": 1536
+          },
+          "sha256": "04bd8dcd66cb7f0120ffa81e9f4267bb60c2cf080967420c673ccc1519060b67",
+          "source": "source/noblewoman-uncertain-kind.png",
+          "sourceSha256": "a711147465343a58e883394581c3913e01aedc8269e254fed6d264b4df24a54a",
+          "sourceWidth": 1024,
+          "sourceHeight": 1536,
+          "expression": "Kind mild disappointment; symmetrical gently raised inner eyebrows, softly open eyes, level mouth corners. Facial edit preserves the original character and costume."
+        },
+        {
+          "mood": "angry",
+          "src": "./assets/characters/reactions/noblewoman-angry.webp",
+          "sourceCell": 2,
+          "sourceCrop": {
+            "left": 1559,
+            "top": 11,
+            "width": 502,
+            "height": 705
+          },
+          "sha256": "cb8307705f0fd208816ff9005736b5759e5f90955283c4a5b28ec10c33edca3d"
+        }
+      ]
+    },
+    {
+      "id": "artisan",
+      "source": "source/artisan.png",
+      "sourceSha256": "141ecec145823b870626f928703407d9e94a857f518cb02d59a13e4a61e963ff",
+      "sourceWidth": 2172,
+      "sourceHeight": 724,
+      "frames": [
+        {
+          "mood": "happy",
+          "src": "./assets/characters/reactions/artisan-happy.webp",
+          "sourceCell": 0,
+          "sourceCrop": {
+            "left": 175,
+            "top": 4,
+            "width": 398,
+            "height": 714
+          },
+          "sha256": "170a2f303648ae86aea02cc3b12d017c6962ebd404e4d8d3bda9841f4a9029db"
+        },
+        {
+          "mood": "uncertain",
+          "src": "./assets/characters/reactions/artisan-uncertain.webp",
+          "sourceCrop": {
+            "left": 0,
+            "top": 0,
+            "width": 1024,
+            "height": 1536
+          },
+          "sha256": "ff59da9292600ff8f6770c86b31701b0807864e609ac1062ef5a61e9487cd1e8",
+          "source": "source/artisan-uncertain-kind.png",
+          "sourceSha256": "e2bd05badbdc742182973fd1f3e860da368bfde5571b52655120f8ce48aad454",
+          "sourceWidth": 1024,
+          "sourceHeight": 1536,
+          "expression": "Kind mild disappointment; symmetrical gently raised inner eyebrows, softly open eyes, level mouth corners. Facial edit preserves the original character and costume."
+        },
+        {
+          "mood": "angry",
+          "src": "./assets/characters/reactions/artisan-angry.webp",
+          "sourceCell": 2,
+          "sourceCrop": {
+            "left": 1623,
+            "top": 4,
+            "width": 398,
+            "height": 714
+          },
+          "sha256": "530cdd8d3405b2507e6caa49ce5239fa12ed052a0d12adb4f10b2011330172e1"
+        }
+      ]
+    }
+  ]
+}

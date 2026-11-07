@@ -7,5 +7,15 @@ export const CHARACTERS=Object.freeze([
 ]);
 export const DIRECTIONS=['front','back','left','right'];
 export const DIRECTION_NAMES=['앞','뒤','왼쪽','오른쪽'];
-export function castForOrder(order){let hash=0;for(const c of order.id)hash=(hash*31+c.charCodeAt(0))>>>0;const id=order.kind==='king'?(hash%2?'king':'queen'):order.kind==='noblewoman'?'noblewoman':hash%3===0?'artisan':'noble';return CHARACTERS.find(c=>c.id===id);}
+export function castForOrder(order,customerId){if(CHARACTERS.some(c=>c.id===customerId))return CHARACTERS.find(c=>c.id===customerId);let hash=0;for(const c of order.id)hash=(hash*31+c.charCodeAt(0))>>>0;const id=order.kind==='king'?(hash%2?'king':'queen'):order.kind==='noblewoman'?'noblewoman':hash%3===0?'artisan':'noble';return CHARACTERS.find(c=>c.id===id);}
 export function characterMarkup(id,direction='front',extra=''){const c=CHARACTERS.find(c=>c.id===id)||CHARACTERS[0],index=Math.max(0,DIRECTIONS.indexOf(direction));return `<div class="character-sprite ${extra}" data-character="${c.id}" data-direction="${DIRECTIONS[index]}" role="img" aria-label="${c.name} · ${DIRECTION_NAMES[index]} 모습" style="--character-sheet:url('./assets/characters/${c.id}.webp');--character-position:${index*100/3}%"></div>`;}
+
+export const REACTION_MOODS=Object.freeze(['happy','uncertain','angry']);
+const REACTION_LABELS={happy:'기쁘게 웃는',uncertain:'조금 아쉬워하는',angry:'화가 난'};
+export function reactionMarkup(id,mood='happy'){
+ const c=CHARACTERS.find(item=>item.id===id)||CHARACTERS[0];
+ const expression=REACTION_MOODS.includes(mood)?mood:'uncertain';
+ return `<img class="reaction-portrait" src="./assets/characters/reactions/${c.id}-${expression}.webp" alt="${REACTION_LABELS[expression]} ${c.name}의 반신상" data-character="${c.id}" data-mood="${expression}" width="512" height="768" draggable="false">`;
+}
+
+export function randomCustomerId(previous,rng=Math.random){const pool=CHARACTERS.filter(c=>c.id!==previous);const n=Number(rng());return pool[Math.max(0,Math.min(pool.length-1,Math.floor((Number.isFinite(n)?n:0)*pool.length)))].id;}

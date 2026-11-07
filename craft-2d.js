@@ -4,7 +4,6 @@ import {
   FRAME_COUNT,
   wrapFrame,
   surfaceAngle,
-  projectSurface,
 } from "./rotation-rules.js";
 import ROTATION_LAYOUTS from "./assets/vessels/rotations/layouts.json" with { type: "json" };
 import {
@@ -13,6 +12,22 @@ import {
   silhouetteRows,
   clamp,
 } from "./illustration-rules.js";
+import { surfaceAnchor, projectCurvedSurface, inlayCell } from './surface-warp.js';
+const motifSamples = new Map();
+function sampledPaths(data) {
+  if (!motifSamples.has(data)) {
+    const paths = (data.match(/[Mm][^Mm]*/g) || []).map(d => {
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', d);
+      const length = path.getTotalLength(), count = Math.max(2, Math.ceil(length / 3));
+      return { closed: /[Zz]\s*$/.test(d), points: Array.from({length: count + 1}, (_, i) => {
+        const p = path.getPointAtLength(length * i / count); return [p.x,p.y];
+      }) };
+    });
+    motifSamples.set(data, paths);
+  }
+  return motifSamples.get(data);
+}
 const makeCanvas = (w, h) =>
   Object.assign(document.createElement("canvas"), { width: w, height: h });
 const cache = new Map();
@@ -108,6 +123,7 @@ async function loadIllustration(id, frame = null) {
 export class Craft2D {
   constructor(onMark, onStroke, onError, onView) {
     this.onView = onView;
+    this.interactive = true;
     this.onMark = onMark;
     this.onStroke = onStroke;
     this.onError = onError;
@@ -157,6 +173,7 @@ export class Craft2D {
     this.canvas.addEventListener(
       "keydown",
       (e) => {
+        if (!this.interactive) return;
         if (e.code === "Space" && this.editable()) {
           e.preventDefault();
           if (!e.repeat) this.stamp();
@@ -209,7 +226,22 @@ export class Craft2D {
     this.glaze = 0;
     this.work = work;
     this.stage = stage;
-    if (work.step !== 0 || work.sculpt?.mode !== "stretch") this.sculptMesh = null;
+    // During firing the vessel is a display; only the mini-game controls take input.
+    this.interactive = work.step !== 2;
+    this.el.inert = !this.interactive;
+    this.el.dataset.interactive = String(this.interactive);
+    this.canvas.tabIndex = this.interactive ? 0 : -1;
+    this.canvas.setAttribute("aria-label", this.interactive
+      ? "손그림 도자기 작업대. 표면을 눌러 무늬를 찍거나 드래그해 그리세요."
+      : "가마 작업 중인 도자기");
+    if (!this.interactive) {
+      if (document.activeElement === this.canvas) this.canvas.blur();
+      this.drag = null;
+      this.stroke = null;
+      this.pulse = 0;
+      this.sway = 0;
+    }
+    if (work.step !== 0 || !["stretch", "free"].includes(work.sculpt?.mode)) this.sculptMesh = null;
     this.target =
       work.step === 0
         ? work.sculpt?.complete
@@ -222,6 +254,7 @@ export class Craft2D {
       key = id + ":" + frame;
     this.rotating = rotating;
     this.turns.hidden =
+      !this.interactive ||
       !rotating ||
       (work.step === 0 && work.knead < 3 && !work.sculpt?.complete);
     this.turns.querySelector(".turn-label").textContent =
@@ -333,6 +366,8 @@ export class Craft2D {
       c.drawImage(this.source.versions.biscuit, 0, 0);
       c.globalAlpha = 1;
     }
+    this.filledCells = new Set(this.work.inlay?.fill || []);
+    this.wipedCells = new Set(this.work.inlay?.wipe || []);
     const open = this.work.technique === "openwork",
       strokes = [
         ...(this.work.strokes || []),
@@ -382,29 +417,59 @@ export class Craft2D {
     this.dirty = true;
   }
   rowAt(v) {
-    const row =
-      this.source?.rows[Math.max(0, Math.min(55, Math.floor(v * 56)))];
-    return row || [0.22, 0.78];
+    const rows = this.source?.rows;
+    if (!rows) return [.22,.78];
+    const at = clamp(v * rows.length - .5, 0, rows.length - 1), low = Math.floor(at), high = Math.ceil(at);
+    const nearest = index => {
+      if (rows[index]) return rows[index];
+      for(let d = 1; d < rows.length; d++) if(rows[index-d] || rows[index+d]) return rows[index-d] || rows[index+d];
+      return [.22,.78];
+    };
+    const a=nearest(low), b=nearest(high), t=at-low;
+    return [a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t];
+  }
+  anchor(mark) {
+    const uv = illustrationUV(mark), value = surfaceAnchor(uv, mark.surfaceAngle, this.rowAt(uv[1]), this.work.viewFrame || 0);
+    // Store vessel-space coordinates once; changing rotation must not shift a motif's height or size.
+    mark.surfaceAngle ??= value.angle;
+    mark.surfaceV ??= value.level;
+    mark.surfaceRadius ??= value.radius;
+    return {angle: mark.surfaceAngle, level: mark.surfaceV, radius: mark.surfaceRadius};
+  }
+  surfacePoint(angle, level, back = this.layer === 'back') {
+    if (!this.rotating && back) return null;
+    return projectCurvedSurface(angle, level, this.rotating ? this.work.viewFrame || 0 : 0, v => this.rowAt(v), back);
   }
   project(mark) {
-    const uv = illustrationUV(mark),
-      angle = mark.surfaceAngle ?? surfaceAngle(uv[0], this.rowAt(uv[1]), 0);
-    if (!this.rotating) {
-      if (this.layer === "back") return null;
-      return { uv, squeeze: 1 };
-    }
-    const projection = projectSurface(
-      angle,
-      this.rowAt(uv[1]),
-      this.work.viewFrame || 0,
-      this.layer === "back",
-    );
-    return projection
-      ? { uv: [projection.u, uv[1]], squeeze: projection.squeeze }
-      : null;
+    const p=this.anchor(mark);
+    return this.surfacePoint(p.angle,p.level);
   }
+  motifSurfacePaths(mark, open = false) {
+    const a=this.anchor(mark), w=this.surface.width,h=this.surface.height, size=Math.min(w,h)*.00103;
+    return sampledPaths(open ? cutoutPath(mark.pattern || this.work.pattern) : motifPath(mark.pattern || this.work.pattern)).map(path=>({closed:path.closed,points:path.points.map(([x,y])=>({angle:a.angle+x*size/w/a.radius,level:a.level+y*size/h}))}));
+  }
+  getInlayTargets() {
+    if(!this.source)return [];
+    const cells=new Map(), add=p=>{const q=this.surfacePoint(p.angle,p.level,false)||this.surfacePoint(p.angle,p.level,true);if(!this.sampleOnBody(q))return;const key=inlayCell(p.angle,p.level);if(!cells.has(key))cells.set(key,{key,angle:p.angle,level:p.level});};
+    for(const mark of this.work.placements||[])for(const path of this.motifSurfacePaths(mark))for(const p of path.points)add(p);
+    for(const stroke of this.work.strokes||[])for(const p of stroke.points||[]){const a=this.anchor(p);add({angle:a.angle,level:a.level});}
+    return [...cells.values()];
+  }
+  inlayColor() { return (this.work.inlay?.slip || this.work.clay?.slip)==='dark' ? '#342d30' : '#fff0d3'; }
+  inlayState(point) {
+    const state=this.work.inlay;
+    if(!state)return {filled:this.work.decorPhase>0,clean:this.work.decorPhase>=2};
+    const key=inlayCell(point.angle,point.level);
+    return {filled:state.fillDone || this.filledCells?.has(key),clean:state.wipeDone || this.wipedCells?.has(key)};
+  }
+  // Public projector used by the brush activity and its keyboard cursor.
+  sampleOnBody(projection) {
+    if(!projection||!this.mask)return false;const [u,v]=projection.uv;if(u<0||u>=1||v<0||v>=1)return false;const x=Math.floor(u*this.mask.width),y=Math.floor(v*this.mask.height);return this.mask.data[(y*this.mask.width+x)*4+3]>64;
+  }
+  projectInlayTarget(target) {const p=this.surfacePoint(target.angle,target.level,false);return this.sampleOnBody(p)?p:null;}
   async setRotation(frame) {
     if (
+      !this.interactive ||
       !this.rotating ||
       (this.work.step === 0 &&
         this.work.knead < 3 &&
@@ -417,78 +482,45 @@ export class Craft2D {
     await this.update(this.work, this.stage);
   }
 
+  projectedPath(c, points, closed = false) {
+    const path=new Path2D();let active=false,visible=0;
+    for(const p of points){const q=this.surfacePoint(p.angle,p.level);if(!q){active=false;continue;}const [u,v]=q.uv;path[active?'lineTo':'moveTo'](u*c.canvas.width,v*c.canvas.height);active=true;visible++;}
+    if(closed&&visible)path.closePath();
+    return path;
+  }
+  drawInlaySegment(c, a, b, width) {
+    const pa=this.surfacePoint(a.angle,a.level),pb=this.surfacePoint(b.angle,b.level);
+    if(!pa||!pb)return;
+    const state=this.inlayState(a),clean=state.clean,filled=state.filled;
+    c.save();c.lineCap='round';c.lineJoin='round';
+    const line=()=>{c.beginPath();c.moveTo(pa.uv[0]*c.canvas.width,pa.uv[1]*c.canvas.height);c.lineTo(pb.uv[0]*c.canvas.width,pb.uv[1]*c.canvas.height);c.stroke();};
+    if(filled&&!clean){c.globalAlpha=.42;c.strokeStyle=this.inlayColor();c.lineWidth=width*3.4;line();c.globalAlpha=1;}
+    c.strokeStyle=filled?this.inlayColor():'#89624f';c.lineWidth=width*Math.max(.5,(pa.squeeze+pb.squeeze)/2);line();c.restore();
+  }
   mark(c, mark, open, erase = false) {
-    const projection = this.project(mark);
-    if (!projection) return;
-    const [u, v] = projection.uv,
-      size = Math.min(c.canvas.width, c.canvas.height) * 0.00103,
-      path = new Path2D(
-        open
-          ? cutoutPath(mark.pattern || this.work.pattern)
-          : motifPath(mark.pattern || this.work.pattern),
-      );
-    c.save();
-    c.translate(u * c.canvas.width, v * c.canvas.height);
-    c.scale(size * projection.squeeze, size);
-    c.lineJoin = "round";
-    c.lineCap = "round";
-    c.strokeStyle = open
-      ? "#71554b"
-      : this.work.decorPhase === 0
-        ? "#89624f"
-        : this.work.clay?.slip === "dark"
-          ? "#51434a"
-          : "#fff0d3";
-    c.fillStyle = c.strokeStyle;
-    c.lineWidth = open ? 10 : this.work.decorPhase === 1 ? 18 : 7;
-    if (open) {
-      if (erase) c.fill(path);
-      else {
-        c.stroke(path);
-        c.translate(3, 3);
-        c.lineWidth = 6;
-        c.strokeStyle = ["finished", "glazed"].includes(this.stage)
-          ? "#c3d0ae"
-          : "#dfb78e";
-        c.stroke(path);
+    const paths=this.motifSurfacePaths(mark,open),size=Math.min(c.canvas.width,c.canvas.height)*.00103;
+    c.save();c.lineJoin='round';c.lineCap='round';
+    for(const path of paths){
+      if(!open){for(let i=1;i<path.points.length;i++)this.drawInlaySegment(c,path.points[i-1],path.points[i],size*7);continue;}
+      const shape=this.projectedPath(c,path.points,path.closed);
+      if(erase){c.fillStyle='#000';c.fill(shape);}else{
+        c.strokeStyle='#71554b';c.lineWidth=size*10;c.stroke(shape);
+        c.save();c.translate(size*2.5,size*2.5);c.lineWidth=size*5;c.strokeStyle=['finished','glazed'].includes(this.stage)?'#c3d0ae':'#dfb78e';c.stroke(shape);c.restore();
       }
-    } else c.stroke(path);
+    }
     c.restore();
   }
   drawStroke(c, stroke, open, erase = false) {
-    if (stroke.points.length < 2) return;
-    c.save();
-    c.strokeStyle = open
-      ? "#71554b"
-      : this.work.decorPhase === 0
-        ? "#89624f"
-        : this.work.clay?.slip === "dark"
-          ? "#51434a"
-          : "#fff0d3";
-    c.lineWidth =
-      Math.min(c.canvas.width, c.canvas.height) *
-      (open
-        ? erase
-          ? 0.016
-          : 0.027
-        : this.work.decorPhase === 1
-          ? 0.019
-          : 0.01);
-    c.lineCap = "round";
-    c.lineJoin = "round";
-    c.beginPath();
-    let active = false;
-    for (const point of stroke.points) {
-      const projection = this.project(point);
-      if (!projection) {
-        active = false;
-        continue;
-      }
-      const [u, v] = projection.uv;
-      c[active ? "lineTo" : "moveTo"](u * c.canvas.width, v * c.canvas.height);
-      active = true;
+    if(stroke.points.length<2)return;
+    const points=[];
+    for(let i=0;i<stroke.points.length;i++){
+      const a=this.anchor(stroke.points[i]);
+      if(i){const prev=this.anchor(stroke.points[i-1]), delta=Math.atan2(Math.sin(a.angle-prev.angle),Math.cos(a.angle-prev.angle)), n=Math.max(1,Math.ceil(Math.hypot(delta*.25,a.level-prev.level)*c.canvas.height/3));for(let j=1;j<=n;j++)points.push({angle:prev.angle+delta*j/n,level:prev.level+(a.level-prev.level)*j/n});}
+      else points.push(a);
     }
-    c.stroke();
+    c.save();c.lineJoin='round';c.lineCap='round';
+    if(open){c.strokeStyle=erase?'#000':'#71554b';c.lineWidth=Math.min(c.canvas.width,c.canvas.height)*(erase?.016:.027);c.stroke(this.projectedPath(c,points));}
+    else for(let i=1;i<points.length;i++)this.drawInlaySegment(c,points[i-1],points[i],Math.min(c.canvas.width,c.canvas.height)*.01);
     c.restore();
   }
 
@@ -639,7 +671,7 @@ export class Craft2D {
     this.guide = guide;
   }
   setSculptProgress(fraction) {
-    if (fraction >= 1) this.turns.hidden = !this.rotating;
+    if (fraction >= 1) this.turns.hidden = !this.interactive || !this.rotating;
     this.target = fraction;
     this.pulse = 1;
     this.dirty = true;
@@ -652,6 +684,7 @@ export class Craft2D {
     return (
       this.el.dataset.status === "ready" &&
       this.work?.step === 1 &&
+      !this.work.inlayMode && !this.work.inlay &&
       this.work.decorPhase === 0 &&
       this.work.technique !== "plain"
     );
@@ -683,7 +716,7 @@ export class Craft2D {
       : null;
   }
   down(e) {
-    if (!this.source || this.el.dataset.status !== "ready") return;
+    if (!this.interactive || !this.source || this.el.dataset.status !== "ready") return;
     this.canvas.focus({ preventScroll: true });
     const hit = this.hit(e);
     if (!hit) return;
@@ -698,7 +731,7 @@ export class Craft2D {
     if (this.editable() && this.work.tool !== "rotate") this.stroke = [hit];
   }
   move(e) {
-    if (!this.drag) return;
+    if (!this.interactive || !this.drag) return;
     if (this.stroke && this.work.tool === "draw") {
       const hit = this.hit(e),
         last = this.stroke.at(-1);
@@ -721,7 +754,7 @@ export class Craft2D {
     }
   }
   up(e) {
-    if (!this.drag) return;
+    if (!this.interactive || !this.drag) return;
     const drag = this.drag,
       points = this.stroke;
     this.drag = null;

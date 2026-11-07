@@ -1,0 +1,41 @@
+{
+  "generator": "OpenAI image generation",
+  "purpose": "Original hand-drawn desktop props matching the counter background; generic old books and writing tools, not a historical facsimile",
+  "reference": "counter.webp",
+  "assets": [
+    {
+      "id": "desk-books",
+      "source": "source/desk-books.png",
+      "src": "desk-books.webp",
+      "sourceWidth": 1900,
+      "sourceHeight": 828,
+      "sourceCrop": {
+        "left": 238,
+        "top": 136,
+        "width": 1428,
+        "height": 623
+      },
+      "width": 900,
+      "height": 393,
+      "sourceSha256": "fcd031ee9ca43acd47510468dea1ffb63e312938a3bb368518d19b80d27659e5",
+      "runtimeSha256": "75a5233255901d1b267d4ff242206b1dae83f47a9ad097a25f38fb168b140bce"
+    },
+    {
+      "id": "desk-ink",
+      "source": "source/desk-ink.png",
+      "src": "desk-ink.webp",
+      "sourceWidth": 1902,
+      "sourceHeight": 827,
+      "sourceCrop": {
+        "left": 232,
+        "top": 96,
+        "width": 1455,
+        "height": 621
+      },
+      "width": 900,
+      "height": 384,
+      "sourceSha256": "17c6f2cc40354647e839d88e933322c66e0a21032b6d8fa6381c832f3f8ae590",
+      "runtimeSha256": "a1a069ce4854e39797fc41021a165e6987ccbea4cff33c705014f760fd6aa4f0"
+    }
+  ]
+}

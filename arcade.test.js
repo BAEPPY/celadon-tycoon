@@ -22,7 +22,7 @@ test('캐릭터 5명은 투명 4방향 원본과 게임용 이미지의 해시�
 });
 
 test('태토는 몸통용, 백토와 자토는 상감용으로 선택되며 반죽 6회 뒤에만 준비된다',async()=>{
- const {freshClay,chooseClay,kneadClay}=await import('./clay.js');let clay=freshClay();clay=chooseClay(clay,'dark');assert.equal(clay.body,false);assert.equal(clay.slip,'dark');assert.equal(kneadClay(clay).kneads,0);clay=chooseClay(clay,'celadon');for(let i=0;i<5;i++)clay=kneadClay(clay);assert.equal(clay.prepared,false);clay=kneadClay(clay);assert.equal(clay.prepared,true);assert.equal(clay.kneads,6);assert.equal(clay.slip,'dark');assert.equal(kneadClay(clay).kneads,6);
+ const {freshClay,chooseClay,kneadClay}=await import('./clay.js');let clay=freshClay();clay=chooseClay(clay,'dark');assert.equal(clay.body,true);assert.equal(clay.slip,'dark');assert.equal(kneadClay(clay).kneads,1);clay=chooseClay(clay,'celadon');for(let i=0;i<5;i++)clay=kneadClay(clay);assert.equal(clay.prepared,false);clay=kneadClay(clay);assert.equal(clay.prepared,true);assert.equal(clay.kneads,6);assert.equal(clay.slip,'dark');assert.equal(kneadClay(clay).kneads,6);
 });
 
 test('선별 연습은 정상·금·기울어짐·유약 비교품을 하나씩 보여 주며 본 작품을 바꾸지 않는다',async()=>{

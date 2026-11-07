@@ -1,10 +1,11 @@
+import {assessmentFingerprint} from './assessment-rules.js';
 import {EXAMPLE_DESIGNS} from './example-orders.js';
 import {MODEL_CATALOG} from './models-manifest.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { SHAPES, ORDERS, TECHNIQUES, PATTERNS, FIRING, drawNextOrder, evaluateWork } from './domain.js';
 
-const completedWork = (overrides = {}) => ({
+const completedWork = (overrides = {}) => {const work = {
   orderId: 'royal-rest', shape: 'pillow', technique: 'inlay', pattern: 'crane',
   placements: [{ x: 0.4, y: 0.5 }], decorDone: true,
   firing: ['dry', 'biscuit', 'glaze', 'fire'],
@@ -12,15 +13,22 @@ const completedWork = (overrides = {}) => ({
   explanationBeauty: '학 무늬를 다른 색의 흙으로 정교하게 나타냈습니다.',
   selfUse: true, selfBeauty: true,
   ...overrides,
-});
+};
+  if (!Object.hasOwn(overrides, 'assessment') && work.explanationUse.trim().length >= 6 && work.explanationBeauty.trim().length >= 6) work.assessment = {
+    version: 1, source: 'ai', fingerprint: assessmentFingerprint(work), accepted: true,
+    use: {score: 10, feedback: '모양과 쓰임의 이유가 알맞아요.'}, beauty: {score: 10, feedback: '기법의 특징과 효과를 잘 연결했어요.'},
+  };
+  return work;
+};
 
-test('완성한 주문은 객관 조건 80점과 자기 점검 20점을 따로 반환한다', () => {
+test('완성한 주문은 객관 조건 80점과 저장된 설명 평가 20점을 따로 반환한다', () => {
   const result = evaluateWork(completedWork());
   assert.equal(result.total, 100);
   assert.equal(result.objective, 80);
   assert.equal(result.self, 20);
   assert.equal(result.breakdown.reduce((sum, row) => sum + row.max, 0), 100);
-  assert.match(result.message, /자동으로 채점한 결과는 아니/);
+  assert.equal(result.assessmentSource, 'ai');
+  assert.equal(result.explanation, 20);
 });
 
 test('쓰임이 틀린 형태는 40점을 얻지 못하고 다시 고를 근거를 받는다', () => {
@@ -35,13 +43,14 @@ test('굽기 순서가 빠지거나 바뀌면 제작 과정 중 20점을 얻지 
   }
 });
 
-test('자기 점검 칸만 체크하고 설명이 없으면 자기 점검 20점을 얻지 못한다', () => {
+test('체크 표시만으로 설명 점수를 얻지 않고 유효한 평가 결과가 필요하다', () => {
   for (const explanation of ['', '    ', '좋아요']) {
     const result = evaluateWork(completedWork({ explanationUse: explanation, explanationBeauty: explanation }));
     assert.equal(result.self, 0);
     assert.equal(result.total, 80);
   }
-  assert.equal(evaluateWork(completedWork({ selfUse: false, selfBeauty: false })).self, 0);
+  assert.equal(evaluateWork(completedWork({ selfUse: false, selfBeauty: false })).self, 20);
+  assert.equal(evaluateWork(completedWork({assessment: null})).self, 0);
 });
 
 test('기존 30개와 예시 23개 주문은 모두 제작하고 만점 받을 수 있다', () => {
@@ -138,12 +147,12 @@ test('단층 몸통에 구멍을 뚫은 주전자는 물을 담는 쓰임에 맞
   assert.match(result.breakdown.find((row) => row.key === 'design').feedback, /물이 샐 수/);
 });
 
-test('사용자 설명 문장을 피드백에 다시 출력하거나 의미를 자동 판정하지 않는다', () => {
+test('평가받지 않은 사용자 HTML은 점수를 주거나 피드백에 그대로 출력하지 않는다', () => {
   const explanation = '<img src=x onerror=alert(1)>';
-  const result = evaluateWork(completedWork({ explanationUse: explanation }));
-  assert.equal(result.self, 20);
+  const result = evaluateWork(completedWork({ explanationUse: explanation, assessment: null }));
+  assert.equal(result.self, 0);
   assert.ok(!JSON.stringify(result).includes(explanation));
-  assert.match(result.breakdown.find((row) => row.key === 'selfUse').feedback, /선생님과 함께/);
+  assert.match(result.breakdown.find((row) => row.key === 'selfUse').feedback, /모양|문양|쓰임/);
 });
 
 test('빈 입력, 잘못된 입력, 여러 선택 조합에서도 항상 점수 범위를 지킨다', () => {

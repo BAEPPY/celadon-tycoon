@@ -21,11 +21,11 @@ export const EXAMPLE_DESIGNS = [
  {modelId:'wildflowerPitcher',shape:'pitcher',pattern:'wildflower',technique:'inlay',title:'풀꽃이 핀 차 자리',request:'풀꽃 주전자와 받침의 모양을 본떠 만들어 주세요. 이번 작품은 상감으로 풀꽃을 넣어 음료를 따를 때 쓰려고 합니다.'},
  {modelId:'qilinIncense',shape:'incense',pattern:'any',technique:'plain',title:'상상 속 동물을 관찰하다',request:'시기 미정으로 표시된 기린 향로의 모양을 참고해 새 향로를 만들어 주세요. 세 다리와 동물 형태를 살리고 새 무늬는 넣지 말아 주세요.'},
  {modelId:'qilinDecoratedIncense',shape:'incense',pattern:'cloud',technique:'inlay',title:'기린 곁을 흐르는 구름',request:'기린장식 향로를 본떠 향을 피울 그릇을 부탁하오. 상상 속 동물 아래 몸통에 구름무늬를 상감으로 넣어 주시오.'},
- {modelId:'duckIncense',shape:'incense',pattern:'any',technique:'plain',title:'향을 품은 오리',request:'향을 피울 그릇에 오리 모양 뚜껑을 올려 주세요. 서재에서 쓰는 오리 연적과 구별하고 새 무늬는 넣지 말아 주세요.'},
+ {modelId:'duckIncense',shape:'incense',pattern:'any',technique:'plain',title:'향을 품은 오리',request:'향로에서 오리 모양 뚜껑이 이미 달린 오리 향로 형태를 고르시오. 향을 피울 것이니 새 무늬는 넣지 마시오.'},
  {modelId:'peonyPitcher',shape:'pitcher',pattern:'peony',technique:'inlay',title:'모란을 담아 따르는 물',request:'모란 주전자의 조롱박 몸통을 본떠 물을 따를 그릇을 만들어 주세요. 새 작품에도 모란을 상감으로 넣어 주세요.'},
  {modelId:'lotusIncense',shape:'incense',pattern:'lotus',technique:'openwork',title:'연꽃 사이로 피어나는 향',request:'칠보 향로 대신 연꽃 향로의 꽃잎 같은 몸통을 골라 주세요. 향 연기가 통하도록 연꽃 구멍무늬도 넣어 주세요.'},
  {modelId:'gourdBottle',shape:'gourdBottle',pattern:'any',technique:'plain',title:'주둥이 없는 조롱박',request:'조롱박 모양의 병에 내용물을 담아 둘 거예요. 따로 붙인 손잡이와 주둥이 없이, 시문도 없는 병의 모양을 살려 주세요.'},
- {modelId:'poemGourdBottle',shape:'gourdBottle',pattern:'text',requiredPatterns:['text','lotus'],technique:'inlay',title:'시 한 구절과 연꽃',request:'시문 조롱박 병의 형태로 내용물을 담을 병을 부탁하오. 연꽃과 글자 무늬를 모두 상감으로 표현해 주시오.'},
+ {modelId:'poemGourdBottle',shape:'gourdBottle',pattern:'text',requiredPatterns:['text','lotus'],technique:'inlay',title:'시 한 구절과 연꽃',request:'조롱박 병의 형태로 내용물을 담을 병을 부탁하오. 연꽃과 글자 무늬를 모두 상감으로 표현해 주시오.'},
 ];
 
 export const EXAMPLE_ORDERS = EXAMPLE_DESIGNS.map((design,index)=>({

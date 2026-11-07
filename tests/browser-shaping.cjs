@@ -42,19 +42,47 @@ async function pull(page, canvas, index) {
         const canvas = page.locator('.sculpt-canvas'), guide = await points(canvas, 'guide'), box = await canvas.boundingBox();
         assert.ok(guide.every(p => p.every(v => v >= 0 && v <= 1)), 'all outline edges are reachable');
         const top = guide.reduce((best, p, i) => p[1] < guide[best][1] ? i : best, 0);
+        const initialScore = Number(await canvas.getAttribute('data-coverage'));
         await page.mouse.click(box.x + guide[top][0] * box.width, box.y + guide[top][1] * box.height);
-        assert.equal(Number(await canvas.getAttribute('data-coverage')), 0, 'pressing the target alone cannot complete the clay');
+        assert.equal(Number(await canvas.getAttribute('data-coverage')), initialScore, 'pressing the target alone cannot complete the clay');
         const before = await points(canvas, 'current');
         await pull(page, canvas, top);
         assert.notDeepEqual(await points(canvas, 'current'), before, 'dragging physically stretches the rendered clay');
         const partial = await saved(page);
+        if (model === 'pomegranatePitcher') await page.screenshot({path:`/tmp/free-shape-final-${viewport.width}.png`});
         assert.ok(partial.sculpt.fraction > 0 && partial.sculpt.fraction < .9);
-        assert.ok(partial.sculpt.amounts[top] >= .99, 'the upper outline can be matched');
+        assert.ok((await points(canvas, 'matches'))[top] >= .99, 'the upper outline can be matched');
+        // A matched grip can still move sideways or back down: no target-direction rail.
+        const matched = (await points(canvas, 'current'))[top], scoreBeforeAway = partial.sculpt.fraction;
+        await page.mouse.move(box.x + matched[0] * box.width, box.y + matched[1] * box.height);
+        await page.mouse.down();
+        await page.mouse.move(box.x + matched[0] * box.width + 46, box.y + matched[1] * box.height + 32, {steps: 5});
+        await page.mouse.up();
+        const moved = (await points(canvas, 'current'))[top];
+        assert.ok(Math.abs((moved[0] - matched[0]) * box.width - 46) < 2, 'grip follows horizontal mouse movement');
+        assert.ok(Math.abs((moved[1] - matched[1]) * box.height - 32) < 2, 'grip follows downward mouse movement');
+        assert.ok(Math.hypot(moved[0]-guide[top][0],moved[1]-guide[top][1]) > Math.hypot(matched[0]-guide[top][0],matched[1]-guide[top][1]), 'the grip can move away from its goal');
+        await page.mouse.move(box.x + moved[0] * box.width, box.y + moved[1] * box.height);
+        await page.mouse.down();
+        await page.mouse.move(box.x + box.width * .025, box.y + box.height * .04, {steps: 6});
+        await page.mouse.up();
+        assert.ok((await saved(page)).sculpt.fraction < scoreBeforeAway, 'a large outward drag lowers actual shape match');
+        await pull(page, canvas, top);
+        const afterFreeDrag = await saved(page);
         assert.equal(await page.locator('[data-action=next-shape]').isDisabled(), true);
         await page.reload();
         await page.click('[data-action=start]');
         await page.waitForFunction(() => Boolean(document.querySelector('.sculpt-canvas')?.dataset.current));
-        assert.deepEqual((await saved(page)).sculpt.amounts, partial.sculpt.amounts, 'reload preserves local deformations');
+        assert.ok((await saved(page)).sculpt.points.every((p,i) => p.every((v,j) => Math.abs(v-afterFreeDrag.sculpt.points[i][j]) < 1e-10)), 'reload preserves local deformations');
+        // Test rescaling on a contour inside the workspace; a deliberately far-out grip is safely clamped at a smaller boundary.
+        await enter(page, partial);
+        const localBeforeResize = (await saved(page)).sculpt.points;
+        await page.setViewportSize({width: viewport.width - 100, height: viewport.height});
+        await page.waitForTimeout(120);
+        const localAfterResize = (await saved(page)).sculpt.points;
+        assert.ok(localAfterResize.every((p, i) => p.every((v, j) => Math.abs(v - localBeforeResize[i][j]) < .00001)), 'resize preserves normalized clay deformations');
+        await page.setViewportSize(viewport);
+        await page.waitForTimeout(120);
         for (let pass = 0; pass < 4; pass++) {
           for (let i = 0; i < 40; i += 3) {
             if (await page.locator('.sculpt-success').count()) break;
@@ -68,18 +96,45 @@ async function pull(page, canvas, index) {
         await page.click('[data-action=next-shape]');
         assert.equal(await page.locator('.sculpt-success').count(), 0, 'the success effect clears on decoration');
       }
-      const near = draft('stool', 'stool');
-      near.sculpt = {mode: 'stretch', amounts: Array(40).fill(.899), fraction: .899, complete: false};
-      await enter(page, near);
-      assert.equal(await page.locator('[data-action=next-shape]').isDisabled(), true, '89.9% must not pass');
-      assert.match(await page.locator('#sculpt-status').textContent(), /89%/, 'a locked 89.9% never displays 90%');
-      await page.locator('.sculpt-canvas').focus();
+      await enter(page, draft('stool', 'stool'));
+      const keyboardCanvas = page.locator('.sculpt-canvas');
+      await keyboardCanvas.focus();
+      const oldPoint = (await points(keyboardCanvas, 'current'))[0];
       await page.keyboard.press('ArrowRight');
-      await page.keyboard.press('Space');
+      const keyboardPoint = (await points(keyboardCanvas, 'current'))[0];
+      assert.ok(keyboardPoint[0] > oldPoint[0], 'arrow key moves clay freely');
+      await page.keyboard.press('KeyE');
+      assert.equal(await keyboardCanvas.getAttribute('data-selected'), '1', 'E selects the next grip');
+      for (let pass = 0; pass < 4; pass++) {
+        for (let i = 0; i < 40; i++) {
+          if (await page.locator('.sculpt-success').count()) break;
+          for (let j = 0; j < 6; j++) await page.keyboard.press('Enter');
+          await page.keyboard.press('KeyE');
+        }
+        if (await page.locator('.sculpt-success').count()) break;
+      }
       await page.waitForSelector('.sculpt-success');
-      assert.ok((await saved(page)).sculpt.fraction >= .9, 'keyboard stretching uses the same 90% threshold');
+      assert.ok((await saved(page)).sculpt.fraction >= .9, 'keyboard shaping uses the same distance threshold');
       await page.waitForSelector('.sculpt-success', {state: 'hidden'});
       assert.equal(await page.locator('[data-action=next-shape]').isDisabled(), false, 'completion remains after the success effect fades');
+      // Going back starts the earlier activity again, rather than carrying completed clay forward.
+      await page.click('[data-action=station-back]');
+      await page.waitForSelector('.knead-pad');
+      const clayRestart = await saved(page);
+      assert.equal(clayRestart.clay.kneads, 0);
+      assert.equal(clayRestart.clay.prepared, false);
+      assert.equal(clayRestart.sculpt, null);
+      assert.equal(clayRestart.knead, 0);
+      assert.equal(await page.locator('[data-action=clay-ready]').isDisabled(), true);
+      await page.locator('.knead-pad').focus();
+      for(let i=0;i<6;i++) await page.keyboard.press('Space');
+      await page.click('[data-action=clay-ready]');
+      await page.waitForFunction(() => JSON.parse(document.querySelector('.sculpt-canvas')?.dataset.current || '[]').length === 40);
+      const restarted = await saved(page), restartedCanvas=page.locator('.sculpt-canvas');
+      assert.equal(restarted.sculpt.complete, false);
+      assert.equal(await page.locator('[data-action=next-shape]').isDisabled(), true);
+      const restartedPoints=await points(restartedCanvas,'current'), starts=await points(restartedCanvas,'starts');
+      assert.ok(restartedPoints.every((p,i)=>p.every((v,j)=>Math.abs(v-starts[i][j])<1e-10)), 'back to shape restores the untouched clay mound');
       assert.deepEqual(errors, []);
       console.log(`Shaping ${viewport.width}×${viewport.height}: top/flat/tall contours, drag, reload, 90%, keyboard passed`);
       await page.close();

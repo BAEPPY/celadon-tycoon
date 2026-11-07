@@ -1,8 +1,9 @@
+import {explanationScores} from './assessment-rules.js';
 import {EXAMPLE_ORDERS} from './example-orders.js';
 /**
  * 수업용 고려청자 공방의 내용과 평가 규칙.
  * 주문은 학습을 위해 구성한 가상 상황이며 유물의 실제 주문 기록이 아니다.
- * 객관적 조건 80점과 학생의 자기 점검 20점을 구분한다.
+ * 객관적 조건 80점과 쓰임·솜씨 설명 평가 20점을 구분한다.
  */
 export const SHAPES = [
   {id:'chrysanthemumCup',name:'청자 잔',use:'음료를 담아 마십니다.',feature:'넓은 입과 속이 빈 공간을 살펴보세요.'},
@@ -209,18 +210,17 @@ export const TECHNIQUES = [
 ];
 
 export const PATTERNS = [
-  {id:'peony',name:'모란'},
-  {id:'chrysanthemum',name:'국화'},
-  {id:'plum',name:'매화'},
-  {id:'bamboo',name:'대나무'},
-  {id:'willow',name:'버드나무'},
-  {id:'grape',name:'포도'},
-  {id:'wildflower',name:'풀꽃'},
-  {id:'text',name:'글자'},
-
-  { id: 'crane', name: '학' },
-  { id: 'cloud', name: '구름' },
-  { id: 'lotus', name: '연꽃' },
+  {id:'peony',name:'모란',reading:'목단',hanja:'牡丹'},
+  {id:'chrysanthemum',name:'국화',reading:'국화',hanja:'菊花'},
+  {id:'plum',name:'매화',reading:'매',hanja:'梅'},
+  {id:'bamboo',name:'대나무',reading:'죽',hanja:'竹'},
+  {id:'willow',name:'버드나무',reading:'류',hanja:'柳'},
+  {id:'grape',name:'포도',reading:'포도',hanja:'葡萄'},
+  {id:'wildflower',name:'풀꽃',reading:'초화',hanja:'草花'},
+  {id:'text',name:'글자',reading:'문자',hanja:'文字'},
+  {id:'crane',name:'학',reading:'학',hanja:'鶴'},
+  {id:'cloud',name:'구름',reading:'운',hanja:'雲'},
+  {id:'lotus',name:'연꽃',reading:'연',hanja:'蓮'},
 ];
 
 export const FIRING = [
@@ -288,9 +288,7 @@ export function evaluateWork(work = {}) {
     ? Boolean(order && order.pattern === 'any')
     : Boolean(validTechnique && (validPlacements || drawn) && (patternById.has(input.pattern) || patternById.has(drawingPattern))));
   const designCorrect = patternCorrect && techniqueCorrect && decorationAppropriate && modelCorrect;
-  const hasExplanation = (value) => typeof value === 'string' && value.trim().length >= 6;
-  const selfUse = input.selfUse === true && hasExplanation(input.explanationUse);
-  const selfBeauty = input.selfBeauty === true && hasExplanation(input.explanationBeauty);
+  const explanation = explanationScores(input);
 
   const designFeedback = [];
   if (!order) designFeedback.push('먼저 주문을 선택해 주세요.');
@@ -328,23 +326,19 @@ export function evaluateWork(work = {}) {
       feedback: designCorrect ? '주문의 기법과 무늬 조건을 충족했어요. 아름다움의 순위를 매긴 점수는 아니에요.' : designFeedback.join(' '),
     },
     {
-      key: 'selfUse', label: '자기 점검: 쓰임 설명', score: selfUse ? 10 : 0, max: 10,
-      feedback: selfUse
-        ? '쓰임을 설명하고 스스로 확인했어요. 설명의 정확성은 선생님과 함께 살펴봐요.'
-        : '어떤 때 어떻게 쓰는지 여섯 글자 이상으로 설명하고, 내용을 읽은 뒤 자기 점검에 표시해 주세요.',
+      key: 'selfUse', label: '이유 설명: 쓰임과 모양', score: explanation.use.score, max: 10,
+      feedback: explanation.use.feedback,
     },
     {
-      key: 'selfBeauty', label: '자기 점검: 우수성 설명', score: selfBeauty ? 10 : 0, max: 10,
-      feedback: selfBeauty
-        ? '빛깔·형태·제작 기법 중 우수한 점을 설명하고 스스로 확인했어요. 설명의 정확성은 선생님과 함께 살펴봐요.'
-        : '빛깔·형태·제작 기법에서 찾은 우수성을 여섯 글자 이상으로 설명하고 자기 점검에 표시해 주세요.',
+      key: 'selfBeauty', label: '이유 설명: 솜씨와 효과', score: explanation.beauty.score, max: 10,
+      feedback: explanation.beauty.feedback,
     },
   ];
   const objective = breakdown.slice(0, 3).reduce((sum, item) => sum + item.score, 0);
   const self = breakdown.slice(3).reduce((sum, item) => sum + item.score, 0);
   const total = objective + self;
   const message = total === 100
-    ? '주문 조건과 제작 과정을 모두 확인했어요! 자기 점검 20점은 설명을 쓰고 확인한 기록이며, 설명의 뜻을 자동으로 채점한 결과는 아니에요.'
-    : '주문과 제작 과정을 다시 살펴보고 고쳐 볼 수 있어요. 아래 의견을 읽고 필요한 부분을 수정해 보세요. 자기 점검 점수는 설명의 뜻을 자동 채점하지 않아요.';
-  return { total, objective, self, breakdown, message };
+    ? '주문과 제작 과정을 맞추고, 쓰임과 솜씨의 이유도 명확하게 설명했어요!'
+    : '주문과 제작 과정, 설명의 이유를 살펴보고 더 알맞게 고쳐 볼 수 있어요.';
+  return { total, objective, self, explanation: self, assessmentSource: explanation.source, breakdown, message };
 }
