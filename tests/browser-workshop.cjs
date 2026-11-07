@@ -142,7 +142,7 @@ async function fire(page, kind, length) {
       if (r.url().includes(".glb")) glb.push(r.url());
     });
     await page.goto(base);
-    await page.click("[data-action=start]");
+    await page.click("[data-action=new-order]");
     await page.waitForSelector(".counter-scene");
     await page.click("[data-action=accept]");
     await page.click("[data-clay=celadon]");
@@ -157,24 +157,23 @@ async function fire(page, kind, length) {
           document.querySelector(".sculpt-canvas")?.dataset.guide || "[]",
         ).length > 5,
     );
-    const guide = JSON.parse(
-        await page.locator(".sculpt-canvas").getAttribute("data-guide"),
-      ),
-      box = await page.locator(".sculpt-canvas").boundingBox();
-    await page.mouse.move(
-      box.x + guide[0][0] * box.width,
-      box.y + guide[0][1] * box.height,
-    );
-    await page.mouse.down();
-    for (const point of [...guide, guide[0]])
-      await page.mouse.move(
-        box.x + point[0] * box.width,
-        box.y + point[1] * box.height,
-      );
-    await page.mouse.up();
-    await page.waitForFunction(
-      () => !document.querySelector("[data-action=next-shape]").disabled,
-    );
+    const sculptCanvas = page.locator(".sculpt-canvas");
+    const box = await sculptCanvas.boundingBox();
+    // Pull actual clay points towards their outline; visiting the outline alone is insufficient.
+    for (let pass = 0; pass < 3; pass++) {
+      if (!(await page.locator("[data-action=next-shape]").isDisabled())) break;
+      const guide = JSON.parse(await sculptCanvas.getAttribute("data-guide"));
+      for (let i = 0; i < guide.length; i += 3) {
+        if (!(await page.locator("[data-action=next-shape]").isDisabled())) break;
+        const current = JSON.parse(await sculptCanvas.getAttribute("data-current"));
+        await page.mouse.move(box.x + current[i][0] * box.width, box.y + current[i][1] * box.height);
+        await page.mouse.down();
+        await page.mouse.move(box.x + guide[i][0] * box.width, box.y + guide[i][1] * box.height, { steps: 5 });
+        await page.mouse.up();
+      }
+    }
+    await page.waitForSelector(".sculpt-success");
+    assert.ok((await saved(page)).sculpt.fraction >= .9);
     await page.click("[data-action=next-shape]");
     await page.click("[data-technique=openwork]");
     await page.click("[data-pattern=cloud]");

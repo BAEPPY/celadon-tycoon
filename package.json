@@ -7,7 +7,9 @@
     "start": "node server.mjs",
     "test": "node --test domain.test.js models.test.js arcade.test.js illustration.test.js",
     "build": "node build.mjs",
-    "test:browser": "node tests/browser-workshop.cjs"
+    "test:browser": "node tests/browser-workshop.cjs",
+    "test:entry": "node tests/browser-entry.cjs",
+    "test:shaping": "node tests/browser-shaping.cjs"
   },
   "dependencies": {
     "three": "0.180.0",

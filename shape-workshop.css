@@ -1,0 +1,22 @@
+/* Stretching clay stays on a bright drawing desk, with a clear, reachable outline. */
+.shaping-scene::before{content:'';position:absolute;inset:139px 0 0;pointer-events:none;background:#fff5dc30}
+.shaping-scene .station-info{width:23%;max-width:295px;padding:16px;gap:11px}
+.shaping-scene .station-info h2{font-size:22px}
+.shaping-scene .station-info p{font-size:17px;line-height:1.55;word-break:keep-all}
+.shaping-scene #sculpt-status{font-size:18px;color:#567a55}
+.shaping-scene .width-control{font-size:15px}
+.shaping-scene .station-workspace{left:23%;right:18%;top:148px;bottom:68px}
+.shaping-scene .sculpt-canvas{cursor:grab;touch-action:none}
+.shaping-scene .sculpt-canvas.is-pulling{cursor:grabbing}
+.shaping-scene .sculpt-canvas:focus-visible{outline:2px dashed #b89361;outline-offset:-3px;border-radius:18px}
+.shaping-scene .station-nav .primary{font-size:20px;min-height:46px}
+.shaping-scene .station-nav .small-button{font-size:16px;min-height:40px}
+.sculpt-success{position:absolute;inset:12% 5% auto;z-index:11;display:flex;flex-direction:column;align-items:center;gap:7px;padding:18px 20px;background:#fff5d8f5;border:3px solid #b79862;border-radius:24px;box-shadow:0 5px 0 #b89b6730,0 0 40px #ffeab4a0;text-align:center;pointer-events:none;animation:clay-success-in .5s cubic-bezier(.2,1.5,.45,1),clay-success-out .35s ease-in 2.5s forwards}
+.sculpt-success strong{font-size:clamp(40px,5vw,66px);line-height:1.15;color:#699660;text-shadow:0 3px #dfdfb1}
+.sculpt-success>span:not(.success-sparkles){font-size:20px;color:#80634a}
+.sculpt-success small{font-size:16px;color:#947557}
+.success-sparkles{font-size:26px;letter-spacing:14px;color:#d5a644}
+@keyframes clay-success-in{from{opacity:0;transform:scale(.75) translateY(15px)}to{opacity:1;transform:scale(1) translateY(0)}}
+@media(max-height:650px){.shaping-scene::before{inset:119px 0 0}.shaping-scene .station-info{padding:12px;gap:8px}.shaping-scene .station-info h2{font-size:19px}.shaping-scene .station-info p{font-size:16px;line-height:1.4}.shaping-scene #sculpt-status{font-size:16px}.shaping-scene .station-workspace{top:126px;bottom:57px}.shaping-scene .station-nav .primary{font-size:18px;min-height:40px}.sculpt-success{padding:12px;gap:5px}.sculpt-success strong{font-size:44px}.sculpt-success>span:not(.success-sparkles){font-size:17px}.sculpt-success small{font-size:14px}.success-sparkles{font-size:21px}}
+@keyframes clay-success-out{to{opacity:0;visibility:hidden}}
+@media(prefers-reduced-motion:reduce){.sculpt-success{animation:clay-success-out 0s 2.5s forwards!important}}

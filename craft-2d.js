@@ -209,6 +209,7 @@ export class Craft2D {
     this.glaze = 0;
     this.work = work;
     this.stage = stage;
+    if (work.step !== 0 || work.sculpt?.mode !== "stretch") this.sculptMesh = null;
     this.target =
       work.step === 0
         ? work.sculpt?.complete
@@ -507,6 +508,11 @@ export class Craft2D {
     c.rotate(this.tilt + (this.motion ? 0 : this.sway));
     c.scale(1 + squash, 1 - squash);
     c.translate(-anchor[0], -anchor[1]);
+    if (this.sculptMesh && this.work.step === 0 && !this.work.sculpt?.complete) {
+      this.drawStretchClay(c, w, h);
+      c.restore();
+      return;
+    }
     if (p >= 0.995) {
       c.drawImage(this.surface, b.x, b.y, b.width, b.height);
       c.restore();
@@ -582,6 +588,32 @@ export class Craft2D {
         Math.max(1, dy + 0.7),
       );
     }
+    c.restore();
+  }
+
+  setSculptMesh(points, guide, fraction) {
+    this.sculptMesh = { points, guide, fraction };
+    this.dirty = true;
+  }
+  drawStretchClay(c, w, h) {
+    const { points, fraction } = this.sculptMesh;
+    if (!points.length) return;
+    const px = points.map(p => [p[0] * w, p[1] * h]);
+    const xs = px.map(p => p[0]), ys = px.map(p => p[1]);
+    const left = Math.min(...xs), right = Math.max(...xs), top = Math.min(...ys), bottom = Math.max(...ys);
+    c.save();
+    c.fillStyle = '#846a5040';
+    c.beginPath();c.ellipse((left + right) / 2, bottom, (right - left) * .43, Math.max(5, h * .018), 0, 0, Math.PI * 2);c.fill();
+    c.beginPath();
+    const last = px[px.length - 1], first = px[0];
+    c.moveTo((last[0] + first[0]) / 2, (last[1] + first[1]) / 2);
+    px.forEach((p, i) => {const next = px[(i + 1) % px.length];c.quadraticCurveTo(p[0], p[1], (p[0] + next[0]) / 2, (p[1] + next[1]) / 2);});
+    c.closePath();c.fillStyle = '#c7a587';c.strokeStyle = '#8c6b54';c.lineWidth = Math.max(2, w / 270);c.fill();c.stroke();c.clip();
+    // Small clay flecks and soft folds follow the deforming silhouette.
+    c.fillStyle = '#e5c9a250';
+    for (let i = 0; i < 48; i++) {const x = left + ((i * 73) % 101) / 101 * (right - left), y = top + ((i * 47) % 103) / 103 * (bottom - top);c.beginPath();c.ellipse(x, y, w * .004, h * .003, 0, 0, Math.PI * 2);c.fill();}
+    c.globalAlpha = .32 * (1 - fraction);c.strokeStyle = '#8f6e56';c.lineWidth = Math.max(2, w / 250);c.lineCap = 'round';
+    for (const f of [.38, .66]) {const y = top + (bottom - top) * f;c.beginPath();c.moveTo(left + (right-left)*.22, y);c.quadraticCurveTo((left+right)/2, y - (bottom-top)*.12, right - (right-left)*.2, y + (bottom-top)*.035);c.stroke();}
     c.restore();
   }
 
