@@ -5,3 +5,11 @@
 
 /* A fine warm silhouette keeps the rendered vessel in the illustrated world. */
 .station-scene .craft-viewport>canvas,.counter-scene .craft-viewport>canvas{filter:drop-shadow(1px 0 0 #6e5149) drop-shadow(-1px 0 0 #6e5149) drop-shadow(0 1px 0 #6e5149);}
+
+/* One outlined triangular tail; overlap hides the body border at the join. */
+.counter-speech{overflow:visible;isolation:isolate}
+.counter-speech:before,.counter-speech:after{content:'';position:absolute;transform:none;border:0;border-radius:0;pointer-events:none;clip-path:polygon(0 0,100% 0,0 100%)}
+.counter-speech:before{left:30px;bottom:-29px;width:35px;height:30px;background:#86585a}
+.counter-speech:after{left:33px;bottom:-22px;width:28px;height:26px;background:#fff7e7}
+.counter-speech>p{margin:0;word-break:keep-all;overflow-wrap:anywhere}
+.counter-responses{margin-top:8px}
