@@ -39,6 +39,10 @@ const definitions = [
   {id:'jng007282', output:'celadon-qilin-incense.glb', zUp:false, parts:['jng007282_001_30000','jng007282_002_30000'], triangles:22000, archiveName:'jng007282_000_30000.zip'},
   {id:'duk003063', output:'celadon-qilin-decorated-incense.glb', zUp:false, parts:['duk003063_001_30000','duk003063_002_30000'], triangles:20000, archiveName:'duk003063_000_30000.zip'},
   {id:'ssu010352', output:'celadon-duck-incense.glb', zUp:false, parts:['ssu010352_001_30000','ssu010352_002_30000'], triangles:18000, archiveName:'ssu010352_000_30000.zip'},
+  {id:'bon010075', output:'celadon-peony-gourd-ewer.glb', zUp:false, parts:['bon010075-000-30000'], triangles:32000},
+  {id:'duk000045', output:'celadon-lotus-incense.glb', zUp:false, parts:['duk000045_001_30000','duk000045_002_30000'], triangles:28000, archiveName:'duk000045_000_30000.zip'},
+  {id:'bon000219', output:'celadon-gourd-bottle.glb', zUp:false, parts:['bon000219_000_30000'], triangles:17570, archiveName:'bon000219_000_30000.zip', textures:{bon000219_000_30000:'bon000219-000-30000.jpg'}},
+  {id:'duk002857', output:'celadon-poem-gourd-bottle.glb', zUp:false, parts:['duk002857_000_30000'], triangles:22000, archiveName:'duk002857_000_30000.zip'},
 ];
 const settings = {
   meshoptimizer:'1.1.1', sharp:'0.35.5', textureSize:1024, jpegQuality:86,
@@ -48,6 +52,7 @@ const settings = {
   textureCoordinates:'OBJ v flipped to glTF convention',
   material:'JPEG base color from supplied matching JPG; metallic 0; roughness 0.7; no normal map',
   simplification:'attribute-aware, UV and normal seams preserved; vertices compacted after simplification',
+  // Default rule; per-model filename overrides are recorded as sourceTexture.
   materialPathRepair:'use same-basename JPG; ignore broken source MTL absolute paths and su/ssu typos',
 };
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
@@ -153,9 +158,10 @@ for(const def of definitions.filter(d=>!onlyIds.length || onlyIds.includes(d.id)
   for(const name of def.parts) {
     const obj=await fs.readFile(path.join(sourceDir,name+'.obj'),'utf8');
     const mesh=simplify(loadObj(obj,def.zUp,def.smoothNormals),def.triangles);
-    const texture=await sharp(path.join(sourceDir,name+'.jpg')).resize(settings.textureSize,settings.textureSize,{fit:'inside'}).jpeg({quality:settings.jpegQuality,chromaSubsampling:'4:4:4',mozjpeg:false}).toBuffer();
+    const textureFile=def.textures?.[name] || name+'.jpg';
+    const texture=await sharp(path.join(sourceDir,textureFile)).resize(settings.textureSize,settings.textureSize,{fit:'inside'}).jpeg({quality:settings.jpegQuality,chromaSubsampling:'4:4:4',mozjpeg:false}).toBuffer();
     parts.push({name,mesh,texture});
-    details.push({name,sourceVertices:mesh.sourceVertices,sourceTriangles:mesh.sourceFaces,outputVertices:mesh.positions.length/3,outputTriangles:mesh.indices.length/3,relativeSimplificationError:mesh.error,textureResolution:[settings.textureSize,settings.textureSize],textureBytes:texture.length});
+    details.push({name,sourceVertices:mesh.sourceVertices,sourceTriangles:mesh.sourceFaces,outputVertices:mesh.positions.length/3,outputTriangles:mesh.indices.length/3,relativeSimplificationError:mesh.error,sourceTexture:textureFile,textureResolution:[settings.textureSize,settings.textureSize],textureBytes:texture.length});
   }
   const archiveName=def.archiveName || def.id+'-000-30000.zip';
   const glb=makeGlb(parts,def.id),sourceZip=def.stagedArchive ? path.join(sourceDir,def.stagedArchive) : path.join(archiveRoot,def.id,'디지털콘텐츠_OBJ',archiveName);

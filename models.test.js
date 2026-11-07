@@ -43,6 +43,7 @@ for (const artifact of MODEL_CATALOG) {
     const {document: doc, binaryLength} = parseGLB(data);
     assert.ok(doc.scenes[doc.scene ?? 0].nodes.length);
     assert.ok(doc.meshes.length);
+    if (record.parts) assert.equal(doc.meshes.length, record.parts.length, 'all source parts are retained');
     assert.deepEqual(doc.extensionsRequired || [], [], 'no missing decoder dependency');
     assert.equal(doc.buffers.length, 1);
     assert.ok(!doc.buffers[0].uri, 'geometry must be embedded');

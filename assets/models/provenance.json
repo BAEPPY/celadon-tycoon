@@ -678,6 +678,145 @@
           "textureBytes": 106900
         }
       ]
+    },
+    {
+      "name": "celadon-peony-gourd-ewer.glb",
+      "bytes": 994236,
+      "sha256": "ec07c1dbf2a4d02b9e713a9efc9a84a1d2309cc1298624f85bf946342d7563c4",
+      "extensionsRequired": [],
+      "meshes": 1,
+      "materials": 1,
+      "sourceProvider": "국립중앙박물관",
+      "sourceUrl": "https://www.museum.go.kr/MUSEUM/contents/M0505000000.do?relicId=655&schM=view&searchId=search",
+      "license": "공공누리 제1유형(출처표시)",
+      "artifactId": "bon010075",
+      "sourceArchive": "bon010075/디지털콘텐츠_OBJ/bon010075-000-30000.zip",
+      "sourceArchiveSha256": "bd09bfe7391c10b08e5b1809511a5ef5dce0d05ced003c186a3488433f9424d5",
+      "rotation": "unchanged Y-up",
+      "normals": "source normals preserved",
+      "parts": [
+        {
+          "name": "bon010075-000-30000",
+          "sourceVertices": 53563,
+          "sourceTriangles": 107100,
+          "outputVertices": 18696,
+          "outputTriangles": 32000,
+          "relativeSimplificationError": 0.00019772832456510514,
+          "textureResolution": [
+            1024,
+            1024
+          ],
+          "textureBytes": 201717
+        }
+      ]
+    },
+    {
+      "name": "celadon-lotus-incense.glb",
+      "bytes": 1764584,
+      "sha256": "eeb0bb222773d40d5a5adc6479f9e73e70f9cda1ba130110a2e856dd77d8e9a3",
+      "extensionsRequired": [],
+      "meshes": 2,
+      "materials": 2,
+      "sourceProvider": "국립중앙박물관",
+      "sourceUrl": "https://www.museum.go.kr/MUSEUM/contents/M0505000000.do?relicId=123489&schM=view&searchId=search",
+      "license": "공공누리 제1유형(출처표시)",
+      "artifactId": "duk000045",
+      "sourceArchive": "duk000045/디지털콘텐츠_OBJ/duk000045_000_30000.zip",
+      "sourceArchiveSha256": "4111439536053ee3cf37fc16a5803bae647b017cb2e6e4de032bef4af93c9d1f",
+      "rotation": "unchanged Y-up",
+      "normals": "source normals preserved",
+      "parts": [
+        {
+          "name": "duk000045_001_30000",
+          "sourceVertices": 42658,
+          "sourceTriangles": 85412,
+          "outputVertices": 16622,
+          "outputTriangles": 28000,
+          "relativeSimplificationError": 0.0011708352249115705,
+          "textureResolution": [
+            1024,
+            1024
+          ],
+          "textureBytes": 165753
+        },
+        {
+          "name": "duk000045_002_30000",
+          "sourceVertices": 48253,
+          "sourceTriangles": 96658,
+          "outputVertices": 16355,
+          "outputTriangles": 28000,
+          "relativeSimplificationError": 0.0012684992980211973,
+          "textureResolution": [
+            1024,
+            1024
+          ],
+          "textureBytes": 204182
+        }
+      ]
+    },
+    {
+      "name": "celadon-gourd-bottle.glb",
+      "bytes": 503612,
+      "sha256": "ebf0d930969d809798e99bfda8e40b064a399a880b33c42af3c3e505d95ee4e5",
+      "extensionsRequired": [],
+      "meshes": 1,
+      "materials": 1,
+      "sourceProvider": "국립중앙박물관",
+      "sourceUrl": "https://www.museum.go.kr/MUSEUM/contents/M0505000000.do?relicId=7167&schM=view&searchId=search",
+      "license": "공공누리 제1유형(출처표시)",
+      "artifactId": "bon000219",
+      "sourceArchive": "bon000219/디지털콘텐츠_OBJ/bon000219_000_30000.zip",
+      "sourceArchiveSha256": "c97283575372f38354f3806c1ec7ad1332589e616cbbbe479d0378a6ced46418",
+      "rotation": "unchanged Y-up",
+      "normals": "source normals preserved",
+      "parts": [
+        {
+          "name": "bon000219_000_30000",
+          "sourceVertices": 8787,
+          "sourceTriangles": 17570,
+          "outputVertices": 9328,
+          "outputTriangles": 17570,
+          "relativeSimplificationError": 0,
+          "sourceTexture": "bon000219-000-30000.jpg",
+          "textureResolution": [
+            1024,
+            1024
+          ],
+          "textureBytes": 97459
+        }
+      ]
+    },
+    {
+      "name": "celadon-poem-gourd-bottle.glb",
+      "bytes": 628812,
+      "sha256": "3273a3be806427504118ec608518f762b8fa135cb2c1d706ea98d7f9266f2f46",
+      "extensionsRequired": [],
+      "meshes": 1,
+      "materials": 1,
+      "sourceProvider": "국립중앙박물관",
+      "sourceUrl": "https://www.museum.go.kr/MUSEUM/contents/M0505000000.do?relicId=1213&schM=view&searchId=search",
+      "license": "공공누리 제1유형(출처표시)",
+      "artifactId": "duk002857",
+      "sourceArchive": "duk002857/디지털콘텐츠_OBJ/duk002857_000_30000.zip",
+      "sourceArchiveSha256": "ec1e51e7ca5ec9de0435f545e7a47163e4c5027b05caab2561857be6f31163e8",
+      "rotation": "unchanged Y-up",
+      "normals": "source normals preserved",
+      "parts": [
+        {
+          "name": "duk002857_000_30000",
+          "sourceVertices": 14399,
+          "sourceTriangles": 28798,
+          "outputVertices": 11674,
+          "outputTriangles": 22000,
+          "relativeSimplificationError": 0.00012204961240058765,
+          "sourceTexture": "duk002857_000_30000.jpg",
+          "textureResolution": [
+            1024,
+            1024
+          ],
+          "textureBytes": 121003
+        }
+      ]
     }
   ],
   "conversion": {

@@ -1,6 +1,6 @@
 # 청자 3D 자료 출처
 
-이 폴더의 GLB 19개 중 기존 다섯 개는 사용자 소유 `BAEPPY/minichungjamuseum` 저장소의 `public/models/map/` 경량 자료를 변경 없이 복사했습니다. 추가 14개는 사용자가 제공한 국립중앙박물관 OBJ 자료를 변환했습니다. 각 파일의 크기와 SHA-256, 추가 자료의 원본과 변환 정보는 `provenance.json`에 기록했습니다.
+이 폴더의 GLB 23개 중 기존 다섯 개는 사용자 소유 `BAEPPY/minichungjamuseum` 저장소의 `public/models/map/` 경량 자료를 변경 없이 복사했습니다. 추가 18개는 사용자가 제공한 국립중앙박물관 OBJ 자료를 변환했습니다. 각 파일의 크기와 SHA-256, 추가 자료의 원본과 변환 정보는 `provenance.json`에 기록했습니다.
 
 원래 박물관의 경량화는 Blender에서 면 수를 줄이고 질감을 최대 512픽셀로 축소한 작업입니다. 여기서는 전체 형태를 돌려 보는 참고 자료로 사용하며, 정밀 측정이나 원본의 세부 문양을 판단하는 근거로 사용하지 않습니다.
 
@@ -32,6 +32,10 @@
 | `celadon-qilin-incense.glb` | [청자 기린모양 향로 · 증7282](https://www.museum.go.kr/MUSEUM/contents/M0505000000.do?relicId=185757&schM=view&searchId=search) | 상상 속 동물 기린의 모습과 아래쪽 세 다리를 찾아보세요. 투각 향로와 모양은 달라도 쓰임은 어떻게 비슷한가요? |
 | `celadon-qilin-decorated-incense.glb` | [청자 기린장식 향로 · 덕수3063](https://www.museum.go.kr/MUSEUM/contents/M0505000000.do?relicId=1233&schM=view&searchId=search) | 상상 속 동물 기린의 모습을 찾아보세요. 다른 향로의 뚜껑과 장식은 어떻게 다른가요? |
 | `celadon-duck-incense.glb` | [청자 오리모양 향로 · 신수10352](https://www.museum.go.kr/MUSEUM/contents/M0505000000.do?relicId=223244&schM=view&searchId=search) | 오리 모양의 뚜껑과 아래쪽 세 다리를 찾아보세요. 오리 연적과 생김새와 쓰임을 비교해 보세요. |
+| `celadon-peony-gourd-ewer.glb` | [청자 상감 모란당초문 표형 주자 · 본관10075](https://www.museum.go.kr/MUSEUM/contents/M0505000000.do?relicId=655&schM=view&searchId=search) | 잘록한 조롱박 모양의 몸통과 모란무늬를 찾아보세요. 위쪽에는 구름과 학이 어디에 있나요? |
+| `celadon-lotus-incense.glb` | [청자 연화형 향로 · 덕수45](https://www.museum.go.kr/MUSEUM/contents/M0505000000.do?relicId=123489&schM=view&searchId=search) | 연꽃을 닮은 몸통과 뚜껑의 뚫린 무늬를 찾아보세요. 칠보 향로와 모양을 비교해 보세요. |
+| `celadon-gourd-bottle.glb` | [청자 조롱박 모양 병 · 본관219](https://www.museum.go.kr/MUSEUM/contents/M0505000000.do?relicId=7167&schM=view&searchId=search) | 몸통의 둥글고 잘록한 부분과 입의 모양을 살펴보세요. 조롱박 주전자에는 있고 이 병에는 없는 부분은 무엇인가요? |
+| `celadon-poem-gourd-bottle.glb` | [시가 새겨진 청자 연꽃 넝쿨 무늬 조롱박 모양 병 · 덕수2857](https://www.museum.go.kr/MUSEUM/contents/M0505000000.do?relicId=1213&schM=view&searchId=search) | 연꽃 넝쿨 무늬와 시가 새겨진 부분을 찾아보세요. 다른 조롱박 병과 몸통, 입, 표면 장식을 비교해 보세요. |
 
 출처: **국립중앙박물관**, 공공누리 제1유형(출처표시). 각 공식 소장품 페이지와 [3D 데이터 이용안내](https://www.museum.go.kr/MUSEUM/contents/M0505000000.do)를 2026-11-07에 확인했습니다. 원본 스캔과 사진 질감은 박물관 자료이며, 이 저장소의 변환본은 전체 형태 관찰을 위해 형상·질감을 경량화한 자료입니다. 표면 광택과 조명은 화면의 참고 표현입니다.
 
