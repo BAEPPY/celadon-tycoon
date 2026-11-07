@@ -1,7 +1,7 @@
 /* Run after build against the actual app; isolated storage, pointer-only filling and wiping. */
 const assert=require('node:assert/strict');
 const {chromium}=require('playwright');
-const KEY='celadon-tycoon-v2',base=process.env.BASE_URL||'http://127.0.0.1:4175';
+const KEY='celadon-tycoon-v2',base=process.env.BASE_URL||'http://127.0.0.1:4173';
 const draft=extra=>({id:'decoration-browser-check',orderId:'royal-rest',customerId:'king',accepted:true,clay:{body:true,slip:'white',kneads:6,prepared:true},shape:'stool',modelId:'stool',width:1,knead:3,step:1,stationView:'game',technique:'inlay',pattern:'cloud',tool:'stamp',placements:[],strokes:[],decorPhase:0,decorDone:false,firing:[],viewFrame:0,...extra});
 async function saved(page){return page.evaluate(key=>JSON.parse(localStorage.getItem(key)).draft,KEY);}
 async function seed(page,work){await page.goto(base);await page.evaluate(({key,work})=>localStorage.setItem(key,JSON.stringify({history:['royal-rest'],gallery:[],draft:work})),{key:KEY,work});await page.reload();await page.click('[data-action=start]');await page.waitForSelector('.illustration-viewport[data-status=ready]');await page.evaluate(()=>document.fonts.ready);}

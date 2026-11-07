@@ -111,3 +111,13 @@
 }
 .order-summary dt,.order-summary .text-button{color:#79533f}
 @media(max-height:650px){.order-summary{padding:12px}}
+/* Disabled controls that sit on the scene art stay opaque, so the brushes and tool roll behind them do not show through. */
+.station-nav .primary:disabled,.hand-tools .tool-tile:disabled{opacity:1;filter:none;background:#e8dccb;border-color:#bfa899;color:#a28c83;box-shadow:0 2px #cbb6a5}
+.hand-tools .tool-tile:disabled i{color:#bfaca1}
+/* Inspection captions sit on the wooden floor and ornaments; give them a readable plate. */
+.inspection-note{left:50%;right:auto;width:max-content;max-width:52%;transform:translateX(-50%);padding:4px 16px;background:#fff5e2eb;border:1.5px solid #c9a891;border-radius:999px}
+.inspection-navigation>span:not(:empty){padding:5px 12px;background:#fff5e2eb;border:1.5px solid #c9a891;border-radius:999px;color:#7a5a4c;text-shadow:none}
+.kiln-scene .station-info p.firing-order{white-space:nowrap}
+.popup .order-reference{margin-top:12px}
+.confirm-popup p{line-height:1.7}
+.confirm-popup .popup-actions>button{flex:1;min-height:42px;font-size:15px}

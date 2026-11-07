@@ -107,6 +107,15 @@ async function checkCover(page, resumable) {
     await noCharacterGallery(page);
     await page.click('[data-action=home]');
     await page.click('[data-action=new-order]');
+    await page.waitForSelector('.confirm-popup [data-action=confirm-new-order]');
+    assert.deepEqual(await saved(page), fixture, 'Asking to replace the work must not change it yet');
+    await page.click('.confirm-popup [data-action=start]');
+    await page.waitForSelector('.illustration-viewport[data-status=ready]');
+    assert.equal(await page.locator('#popup[open]').count(), 0);
+    assert.deepEqual(await saved(page), fixture, 'Choosing to continue keeps the saved work');
+    await page.click('[data-action=home]');
+    await page.click('[data-action=new-order]');
+    await page.click('.confirm-popup [data-action=confirm-new-order]');
     await page.waitForSelector('.counter-scene');
     const fresh = await saved(page);
     assert.notEqual(fresh.draft.id, draft.id);

@@ -12,7 +12,7 @@ const work={id:'inspection-browser',orderId:'royal-rest',accepted:true,shape:'st
   assert.equal(new Set(await page.locator('.inspection-pot-art img').evaluateAll(imgs=>imgs.map(img=>img.src))).size,4,'each defect changes the actual pictured vessel');
   await page.locator('[data-sample-kind=sound]').click();await page.waitForSelector('.is-shattering');
   assert.equal(await page.locator('.inspection-pot:not([disabled])').count(),0,'hammer impact locks additional strikes');
-  await page.waitForSelector('.inspection-outcome');assert.match(await page.locator('.inspection-outcome').innerText(),/실패\.\.[\s\S]*다시 골라볼까요/);
+  await page.waitForSelector('.inspection-outcome');assert.match(await page.locator('.inspection-outcome').innerText(),/실패…[\s\S]*다시 골라볼까요/);
   const failed=await page.evaluate(key=>JSON.parse(localStorage.getItem(key)).draft,KEY);assert.equal(failed.inspection.failed,true);assert.equal(failed.preview,work.preview,'breaking a sample never destroys the original artwork');
   await page.reload();await page.click('[data-action=start]');await page.waitForSelector('.inspection-outcome');
   await page.click('[data-inspection-retry]');await page.waitForSelector('[data-inspection-ready=true]');assert.equal(await page.locator('.is-broken').count(),0);
