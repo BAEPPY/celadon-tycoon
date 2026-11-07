@@ -1,4 +1,4 @@
-/** Models copied unchanged from the user's minichungjamuseum map collection.
+/** Reference models from minichungjamuseum and user-provided museum OBJ files.
  * These lightweight derivatives are for observing overall form, not measurements.
  * Original rights and reconstruction qualifications remain attached to each file.
  */
@@ -8,7 +8,8 @@ const local = name => `./assets/models/${name}`;
 
 export const MODEL_ARTIFACTS = Object.freeze({
   pillow: Object.freeze({
-    id: 'pillow', name: '청자 상감 모란·구름·학무늬 베개',
+    id: 'pillow', shortName: '베개', name: '청자 상감 모란·구름·학무늬 베개',
+    use: '누워서 쉴 때 머리를 받칩니다.',
     src: local('celadon-pillow-reconstruction.glb'),
     sourceUrl: 'https://www.museum.go.kr/MUSEUM/contents/M0502000000.do?relicId=970&schM=view&searchId=search',
     source: '국립중앙박물관 소장품의 사용자 제공 다각도 사진 참고',
@@ -17,7 +18,8 @@ export const MODEL_ARTIFACTS = Object.freeze({
     referenceTint: false, repository, collection,
   }),
   pitcher: Object.freeze({
-    id: 'pitcher', name: '청자 어룡형 주전자',
+    id: 'pitcher', shortName: '어룡 주전자', name: '청자 어룡형 주전자',
+    use: '물이나 술 같은 액체를 담아 따릅니다.',
     src: local('celadon-ewer.glb'),
     sourceUrl: 'https://www.museum.go.kr/MUSEUM/contents/M0504000000.do?relicId=858&schM=view',
     source: '국립중앙박물관 소장 · 사용자 제공 OBJ 스캔 형상과 사진 질감',
@@ -26,7 +28,8 @@ export const MODEL_ARTIFACTS = Object.freeze({
     referenceTint: false, repository, collection,
   }),
   incense: Object.freeze({
-    id: 'incense', name: '청자 투각 칠보문 뚜껑 향로',
+    id: 'incense', shortName: '향로', name: '청자 투각 칠보문 뚜껑 향로',
+    use: '향을 피울 때 사용합니다.',
     src: local('celadon-incense.glb'),
     sourceUrl: 'https://www.museum.go.kr/MUSEUM/contents/M0201020000.do?relicId=1227&schM=search',
     source: '국립중앙박물관 소장 · 사용자 제공 PLY 스캔 형상',
@@ -35,7 +38,8 @@ export const MODEL_ARTIFACTS = Object.freeze({
     referenceTint: true, repository, collection,
   }),
   stool: Object.freeze({
-    id: 'stool', name: '청자 투각 의자',
+    id: 'stool', shortName: '의자', name: '청자 투각 의자',
+    use: '사람이 앉을 때 사용합니다.',
     src: local('celadon-stool-wrl.glb'),
     sourceUrl: 'https://www.3dbank.xyz/contents/view_contents.jsp?cuid=2989',
     source: '사용자 제공 3D 원본의 형상·색상 · 3DBank 자료',
@@ -44,7 +48,8 @@ export const MODEL_ARTIFACTS = Object.freeze({
     referenceTint: false, repository, collection,
   }),
   maebyeong: Object.freeze({
-    id: 'maebyeong', name: '청자 상감 운학문 매병',
+    id: 'maebyeong', shortName: '구름·학 매병 (재현)', name: '청자 상감 운학문 매병',
+    use: '내용물을 담아 두는 데 사용합니다.',
     src: local('celadon-maebyeong-v2.glb'),
     sourceUrl: 'https://firefoxcat.booth.pm/items/6118090',
     source: '사용자 제공 청자매병 GLB · 모델 내부 출처 firefoxcat',
@@ -52,8 +57,151 @@ export const MODEL_ARTIFACTS = Object.freeze({
     clue: '작은 입, 넓은 어깨, 아래로 좁아지는 곡선과 학 무늬를 살펴보세요.',
     referenceTint: false, repository, collection,
   }),
+  cupStand: Object.freeze({
+    id: 'cupStand', shortName: '잔과 잔받침', name: '청자 상감 잔과 잔받침',
+    use: '잔에 음료를 담아 마시고, 잔받침 위에 잔을 올려 둡니다.',
+    src: local('celadon-cup-stand.glb'),
+    sourceUrl: 'https://www.museum.go.kr/MUSEUM/contents/M0505000000.do?relicId=141452&schM=view&searchId=search',
+    source: '국립중앙박물관 소장 · 신수15485 · 사용자 제공 OBJ 스캔 형상과 사진 질감 · 공공누리 제1유형(출처표시)',
+    note: '잔과 잔받침 두 부분을 함께 보여 줍니다. 원본의 사진 질감을 사용하고, 웹 관찰용으로 형상과 질감을 경량화했습니다.',
+    clue: '꽃잎을 닮은 잔과 그 아래 받침을 찾아보세요. 잔만 있을 때와 어떤 차이가 있을까요?',
+    referenceTint: false,
+  }),
+  chrysanthemumCup: Object.freeze({
+    id: 'chrysanthemumCup', shortName: '국화무늬 잔', name: '청자 상감 국화문 잔',
+    use: '음료를 담아 마시는 잔입니다.',
+    src: local('celadon-chrysanthemum-cup.glb'),
+    sourceUrl: 'https://www.museum.go.kr/MUSEUM/contents/M0505000000.do?relicId=4262&schM=view&searchId=search',
+    source: '국립중앙박물관 소장 · 신수548 · 사용자 제공 OBJ 스캔 형상과 사진 질감 · 공공누리 제1유형(출처표시)',
+    note: '통 모양의 잔에 국화무늬를 상감으로 표현했습니다. 원본의 사진 질감을 사용하고, 웹 관찰용으로 형상과 질감을 경량화했습니다.',
+    clue: '넓은 입과 속이 빈 공간, 몸통의 국화무늬를 찾아보세요. 주전자와는 쓰임이 어떻게 다를까요?',
+    referenceTint: false,
+  }),
+  willowMaebyeong: Object.freeze({
+    id: 'willowMaebyeong', shortName: '물가무늬 매병', name: '청자 상감 포류수금문 매병',
+    use: '내용물을 담아 두는 병입니다. 물가의 풀과 버드나무, 물새 무늬로 꾸몄습니다.',
+    src: local('celadon-willow-maebyeong.glb'),
+    sourceUrl: 'https://www.museum.go.kr/MUSEUM/contents/M0502000000.do?relicId=29351&schM=view&searchId=search',
+    source: '국립중앙박물관 소장 · 덕수5382 · 사용자 제공 OBJ 스캔 형상과 사진 질감 · 공공누리 제1유형(출처표시)',
+    note: '물가의 풍경을 상감으로 표현한 매병입니다. 원본의 사진 질감을 사용하고, 웹 관찰용으로 형상과 질감을 경량화했습니다.',
+    clue: '작은 입과 넓은 어깨를 살펴보세요. 구름·학무늬 매병과 모양과 무늬를 비교해 보세요.',
+    referenceTint: false,
+  }),
+  pomegranatePitcher: Object.freeze({
+    id: 'pomegranatePitcher', shortName: '석류 주전자', name: '청자 석류 모양 주전자',
+    use: '물이나 술 같은 액체를 담아 따르는 주전자입니다.',
+    src: local('celadon-pomegranate-ewer.glb'),
+    sourceUrl: 'https://www.museum.go.kr/MUSEUM/contents/M0505000000.do?relicId=1124&schM=view&searchId=search',
+    source: '국립중앙박물관 소장 · 덕수2170 · 사용자 제공 OBJ 스캔 형상과 사진 질감 · 공공누리 제1유형(출처표시)',
+    note: '석류 열매의 모습을 본떠 만든 주전자입니다. 원본의 사진 질감을 사용하고, 웹 관찰용으로 형상과 질감을 경량화했습니다.',
+    clue: '아래쪽 석류 세 개와 위쪽 석류 한 개를 찾아보세요. 어룡형 주전자와 주둥이, 손잡이의 모양을 비교해 보세요.',
+    referenceTint: false,
+  }),
+  plumBambooMaebyeong: Object.freeze({
+    id: 'plumBambooMaebyeong', shortName: '매화·대나무 매병', name: '청자 상감 매죽학문 매병',
+    use: '내용물을 담아 두는 병입니다. 매화와 대나무, 학 무늬로 꾸몄습니다.',
+    src: local('celadon-plum-bamboo-maebyeong.glb'),
+    sourceUrl: 'https://www.museum.go.kr/MUSEUM/contents/M0505000000.do?relicId=35820012&schM=view&searchId=search',
+    source: '국립중앙박물관 소장 · 구10256 · 사용자 제공 OBJ 스캔 형상과 사진 질감 · 공공누리 제1유형(출처표시)',
+    note: '매화·대나무·학 무늬를 상감으로 표현한 매병입니다. 원본의 사진 질감을 사용하고, 웹 관찰용으로 형상과 질감을 경량화했습니다.',
+    clue: '작은 입과 넓은 어깨, 몸통의 매화·대나무·학을 찾아보세요. 다른 매병과 같은 점과 다른 점은 무엇일까요?',
+    referenceTint: false,
+  }),
+  cloudCraneMaebyeong: Object.freeze({
+    id: 'cloudCraneMaebyeong', shortName: '구름·학 매병 (스캔)', name: '청자 상감 구름 학무늬 매병 · 덕수2182',
+    use: '내용물을 담아 두는 병입니다. 구름 사이를 나는 학 무늬로 꾸몄습니다.',
+    src: local('celadon-cloud-crane-maebyeong.glb'),
+    sourceUrl: 'https://www.museum.go.kr/MUSEUM/contents/M0505000000.do?relicId=1126&schM=view&searchId=search',
+    source: '국립중앙박물관 소장 · 덕수2182 · 사용자 제공 OBJ 스캔 형상과 사진 질감 · 공공누리 제1유형(출처표시)',
+    note: '국립중앙박물관 소장품 덕수2182의 스캔 자료입니다. 원본의 사진 질감을 사용하고, 웹 관찰용으로 형상과 질감을 경량화했습니다. 도감의 사진 기반 재현 매병과 자료의 제작 방법이 다릅니다.',
+    clue: '작은 입, 넓은 어깨, 잘록한 허리와 구름 사이의 학을 찾아보세요. 다른 매병의 곡선과도 비교해 보세요.',
+    referenceTint: false,
+  }),
+  pomegranateDropper: Object.freeze({
+    id: 'pomegranateDropper', shortName: '석류 연적', name: '청자 석류 모양 연적',
+    use: '먹을 갈 때 벼루에 조금씩 부을 물을 담는 연적입니다.',
+    src: local('celadon-pomegranate-waterdropper.glb'),
+    sourceUrl: 'https://www.museum.go.kr/MUSEUM/contents/M0505000000.do?relicId=4220&schM=view&searchId=search',
+    source: '국립중앙박물관 소장 · 덕수510 · 사용자 제공 OBJ 스캔 형상과 사진 질감 · 공공누리 제1유형(출처표시)',
+    note: '원숭이가 석류를 안고 있는 모양의 연적입니다. 원본의 사진 질감을 사용하고, 웹 관찰용으로 형상과 질감을 경량화했습니다.',
+    clue: '석류를 안은 원숭이를 찾아보세요. 위쪽 꽃 모양의 물 넣는 구멍과 원숭이 입의 물 나오는 구멍은 각각 어떤 일을 할까요?',
+    referenceTint: false,
+  }),
+  duckDropper: Object.freeze({
+    id: 'duckDropper', shortName: '오리 연적', name: '청자 오리 모양 연적',
+    use: '먹을 갈 때 벼루에 조금씩 부을 물을 담는 연적입니다.',
+    src: local('celadon-duck-waterdropper.glb'),
+    sourceUrl: 'https://www.museum.go.kr/MUSEUM/contents/M0505000000.do?relicId=6952&schM=view&searchId=search',
+    source: '국립중앙박물관 소장 · 덕수648 · 사용자 제공 OBJ 스캔 형상과 사진 질감 · 공공누리 제1유형(출처표시)',
+    note: '오리의 모습을 본떠 만든 연적입니다. 원본의 사진 질감을 사용하고, 웹 관찰용으로 형상과 질감을 경량화했습니다.',
+    clue: '오리의 몸과 날개를 살펴보세요. 석류 연적과 같은 쓰임을 가지면서도 모양은 어떻게 다른가요?',
+    referenceTint: false,
+  }),
+  gourdPitcher: Object.freeze({
+    id: 'gourdPitcher', shortName: '조롱박 주전자', name: '청자 상감 동화 포도·동자무늬 조롱박 모양 주전자와 받침',
+    use: '물이나 술 같은 액체를 담아 따르는 주전자입니다.',
+    src: local('celadon-gourd-ewer.glb'),
+    sourceUrl: 'https://www.museum.go.kr/MUSEUM/contents/M0505000000.do?relicId=957&schM=view&searchId=search',
+    source: '국립중앙박물관 소장 · 덕수19 · 사용자 제공 OBJ 스캔 형상과 사진 질감 · 공공누리 제1유형(출처표시)',
+    note: '포도와 아이 무늬를 표현한 주전자 몸통과 뚜껑, 받침 세 부분을 함께 보여 줍니다. 원본의 사진 질감을 사용하고, 웹 관찰용으로 형상과 질감을 경량화했습니다.',
+    clue: '잘록한 몸통과 주둥이, 손잡이를 찾아보세요. 포도와 아이 무늬는 어디에 있나요? 다른 주전자의 모양과도 비교해 보세요.',
+    referenceTint: false,
+  }),
+  bambooShootPitcher: Object.freeze({
+    id: 'bambooShootPitcher', shortName: '죽순 주전자', name: '청자 죽순모양 주전자',
+    use: '물이나 술 같은 액체를 담아 따르는 주전자입니다.',
+    src: local('celadon-bamboo-shoot-ewer.glb'),
+    sourceUrl: 'https://www.museum.go.kr/MUSEUM/contents/M0505000000.do?relicId=1351&schM=view&searchId=search',
+    source: '국립중앙박물관 소장 · 덕수4499 · 사용자 제공 OBJ 스캔 형상과 사진 질감 · 공공누리 제1유형(출처표시)',
+    note: '죽순의 모습을 본떠 만든 순청자 주전자입니다. 원본의 사진 질감을 사용하고, 웹 관찰용으로 형상과 질감을 경량화했습니다.',
+    clue: '죽순을 닮은 몸통과 주둥이, 손잡이를 찾아보세요. 석류 주전자와 식물을 표현한 방법이 어떻게 다른가요?',
+    referenceTint: false,
+  }),
+  wildflowerPitcher: Object.freeze({
+    id: 'wildflowerPitcher', shortName: '풀꽃 주전자', name: '청자 상감 퇴화 풀꽃무늬 조롱박모양 주전자와 받침',
+    use: '물이나 술 같은 액체를 담아 따르는 주전자입니다.',
+    src: local('celadon-wildflower-gourd-ewer.glb'),
+    sourceUrl: 'https://www.museum.go.kr/MUSEUM/contents/M0505000000.do?relicId=1476&schM=view&searchId=search',
+    source: '국립중앙박물관 소장 · 덕수6236 · 사용자 제공 OBJ 스캔 형상과 사진 질감 · 공공누리 제1유형(출처표시)',
+    note: '상감과 퇴화 기법으로 꾸민 주전자와 받침입니다. 풀꽃무늬에는 검고 흰 흙으로 그린 표현을 볼 수 있습니다. 원본의 사진 질감을 사용하고, 웹 관찰용으로 형상과 질감을 경량화했습니다.',
+    clue: '조롱박을 닮은 몸통과 검고 흰 풀꽃무늬를 찾아보세요. 포도·아이 무늬의 조롱박 주전자와 어떤 점이 같고 다른가요?',
+    referenceTint: false,
+  }),
+  qilinIncense: Object.freeze({
+    id: 'qilinIncense', shortName: '기린 향로 (시기 미정)', name: '청자 기린모양 향로',
+    use: '향을 피울 때 사용하는 향로입니다. 상상 속 동물인 기린의 모습을 표현했습니다.',
+    src: local('celadon-qilin-incense.glb'),
+    sourceUrl: 'https://www.museum.go.kr/MUSEUM/contents/M0505000000.do?relicId=185757&schM=view&searchId=search',
+    source: '국립중앙박물관 소장 · 증7282 · 사용자 제공 OBJ 스캔 형상과 사진 질감 · 공공누리 제1유형(출처표시)',
+    note: '제작 시기에 견해 차이가 있어 고려시대 작품으로 단정하지 않습니다. 여기서 기린은 목이 긴 동물이 아니라 상상 속 동물입니다. 원본의 사진 질감을 사용하고, 뿔 끝의 결손은 새로 복원하지 않았습니다. 웹 관찰용으로 형상과 질감을 경량화했습니다.',
+    clue: '상상 속 동물 기린의 모습과 아래쪽 세 다리를 찾아보세요. 투각 향로와 모양은 달라도 쓰임은 어떻게 비슷한가요?',
+    referenceTint: false,
+  }),
+  qilinDecoratedIncense: Object.freeze({
+    id: 'qilinDecoratedIncense', shortName: '기린장식 향로', name: '청자 기린장식 향로',
+    use: '향을 피울 때 사용하는 향로입니다. 상상 속 동물인 기린을 장식했습니다.',
+    src: local('celadon-qilin-decorated-incense.glb'),
+    sourceUrl: 'https://www.museum.go.kr/MUSEUM/contents/M0505000000.do?relicId=1233&schM=view&searchId=search',
+    source: '국립중앙박물관 소장 · 덕수3063 · 사용자 제공 OBJ 스캔 형상과 사진 질감 · 공공누리 제1유형(출처표시)',
+    note: '고려시대의 기린장식 향로입니다. 여기서 기린은 상상 속 동물입니다. 원본의 사진 질감을 사용하고, 웹 관찰용으로 형상과 질감을 경량화했습니다.',
+    clue: '상상 속 동물 기린의 모습을 찾아보세요. 다른 향로의 뚜껑과 장식은 어떻게 다른가요?',
+    referenceTint: false,
+  }),
+  duckIncense: Object.freeze({
+    id: 'duckIncense', shortName: '오리 향로', name: '청자 오리모양 향로',
+    use: '향을 피울 때 사용하는 향로입니다. 오리의 모습을 뚜껑에 표현했습니다.',
+    src: local('celadon-duck-incense.glb'),
+    sourceUrl: 'https://www.museum.go.kr/MUSEUM/contents/M0505000000.do?relicId=223244&schM=view&searchId=search',
+    source: '국립중앙박물관 소장 · 신수10352 · 사용자 제공 OBJ 스캔 형상과 사진 질감 · 공공누리 제1유형(출처표시)',
+    note: '고려시대의 오리모양 향로입니다. 오리 연적과 닮은 동물을 표현했지만 쓰임이 다릅니다. 원본의 사진 질감을 사용하고, 웹 관찰용으로 형상과 질감을 경량화했습니다.',
+    clue: '오리 모양의 뚜껑과 아래쪽 세 다리를 찾아보세요. 오리 연적과 생김새와 쓰임을 비교해 보세요.',
+    referenceTint: false,
+  }),
 });
 
-export function getModelArtifact(shape) {
-  return MODEL_ARTIFACTS[shape] || null;
+// Catalog examples can grow independently of the game's five crafting shapes.
+export const MODEL_CATALOG = Object.freeze(Object.values(MODEL_ARTIFACTS));
+
+export function getModelArtifact(id) {
+  return MODEL_ARTIFACTS[id] || null;
 }

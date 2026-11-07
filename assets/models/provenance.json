@@ -42,6 +42,664 @@
       "extensionsRequired": [],
       "meshes": 1,
       "materials": 1
+    },
+    {
+      "name": "celadon-cup-stand.glb",
+      "bytes": 1099796,
+      "sha256": "c3fc14360813028bcff3befc481db70f3f571841a91c9784b0ce84096ae11960",
+      "extensionsRequired": [],
+      "meshes": 2,
+      "materials": 2,
+      "sourceProvider": "국립중앙박물관",
+      "sourceUrl": "https://www.museum.go.kr/MUSEUM/contents/M0505000000.do?relicId=141452&schM=view&searchId=search",
+      "license": "공공누리 제1유형(출처표시)",
+      "artifactId": "ssu015485",
+      "sourceArchive": "ssu015485/디지털콘텐츠_OBJ/ssu015485-000-30000.zip",
+      "sourceArchiveSha256": "28df4889f793777c34c9f2e65de18a80a3448de79cc1a237ad14c1e642a2a477",
+      "rotation": "X -90 degrees",
+      "normals": "source normals preserved",
+      "parts": [
+        {
+          "name": "ssu015485-001-30000",
+          "sourceVertices": 23892,
+          "sourceTriangles": 47780,
+          "outputVertices": 9164,
+          "outputTriangles": 16000,
+          "relativeSimplificationError": 0.0007114330655895174,
+          "textureResolution": [
+            1024,
+            1024
+          ],
+          "textureBytes": 176882
+        },
+        {
+          "name": "ssu015485-002-30000",
+          "sourceVertices": 25254,
+          "sourceTriangles": 50504,
+          "outputVertices": 8853,
+          "outputTriangles": 16000,
+          "relativeSimplificationError": 0.0007115910411812365,
+          "textureResolution": [
+            1024,
+            1024
+          ],
+          "textureBytes": 151001
+        }
+      ]
+    },
+    {
+      "name": "celadon-chrysanthemum-cup.glb",
+      "bytes": 598084,
+      "sha256": "e9bd5c547bc94160501c40c92cc3ac8f2431a5e40157600bfbd3cfdef7744f0e",
+      "extensionsRequired": [],
+      "meshes": 1,
+      "materials": 1,
+      "sourceProvider": "국립중앙박물관",
+      "sourceUrl": "https://www.museum.go.kr/MUSEUM/contents/M0505000000.do?relicId=4262&schM=view&searchId=search",
+      "license": "공공누리 제1유형(출처표시)",
+      "artifactId": "ssu000548",
+      "sourceArchive": "ssu000548/디지털콘텐츠_OBJ/ssu000548-000-30000.zip",
+      "sourceArchiveSha256": "366f05fd5142de47be48bc6dc1af0c335fa57969f602b81849ca63d26c6c52f7",
+      "rotation": "unchanged Y-up",
+      "normals": "area-weighted smooth normals at shared source positions",
+      "parts": [
+        {
+          "name": "ssu000548-000-30000",
+          "sourceVertices": 17782,
+          "sourceTriangles": 35560,
+          "outputVertices": 9724,
+          "outputTriangles": 18000,
+          "relativeSimplificationError": 0.0004548572760540992,
+          "textureResolution": [
+            1024,
+            1024
+          ],
+          "textureBytes": 176676
+        }
+      ]
+    },
+    {
+      "name": "celadon-willow-maebyeong.glb",
+      "bytes": 840888,
+      "sha256": "ffd81f252a52e7e1ef1598fe8b16895856e85fc1141b9357a45027da0fb5ea06",
+      "extensionsRequired": [],
+      "meshes": 1,
+      "materials": 1,
+      "sourceProvider": "국립중앙박물관",
+      "sourceUrl": "https://www.museum.go.kr/MUSEUM/contents/M0502000000.do?relicId=29351&schM=view&searchId=search",
+      "license": "공공누리 제1유형(출처표시)",
+      "artifactId": "duk005382",
+      "sourceArchive": "duk005382/디지털콘텐츠_OBJ/duk005382-000-30000.zip",
+      "sourceArchiveSha256": "3fae5d980db629b602e9d5cc1d37402e0b5535365147132657be168c0c091c93",
+      "rotation": "X -90 degrees",
+      "normals": "source normals preserved",
+      "parts": [
+        {
+          "name": "duk005382-000-30000",
+          "sourceVertices": 160789,
+          "sourceTriangles": 321248,
+          "outputVertices": 15035,
+          "outputTriangles": 27998,
+          "relativeSimplificationError": 0.0003719853120855987,
+          "textureResolution": [
+            1024,
+            1024
+          ],
+          "textureBytes": 189539
+        }
+      ]
+    },
+    {
+      "name": "celadon-pomegranate-ewer.glb",
+      "bytes": 1012100,
+      "sha256": "fca65a4946164184078be040e6db92c31194b4521490c000f84d40c0b2c9163c",
+      "extensionsRequired": [],
+      "meshes": 1,
+      "materials": 1,
+      "sourceProvider": "국립중앙박물관",
+      "sourceUrl": "https://www.museum.go.kr/MUSEUM/contents/M0505000000.do?relicId=1124&schM=view&searchId=search",
+      "license": "공공누리 제1유형(출처표시)",
+      "artifactId": "duk002170",
+      "sourceFiles": [
+        {
+          "path": "duk002170/디지털콘텐츠_OBJ/duk002170-000-30000.obj",
+          "sha256": "19112b273beb820b6f296ccfc419b5d759f335a6fed6745bc7f7862df790776a"
+        },
+        {
+          "path": "duk002170/디지털콘텐츠_OBJ/duk002170-000-30000.mtl",
+          "sha256": "fdd0399f0e38abf56ce5dc2c0e10dfa3ab090d744b33360ccd11ac31b29ac24e"
+        },
+        {
+          "path": "duk002170/디지털콘텐츠_OBJ/duk002170-000-30000.jpg",
+          "sha256": "37ac82540f2fc431b74a7b07b32a8c0739c11a2ac47c3803c0925d70e61b97b1"
+        }
+      ],
+      "rotation": "unchanged Y-up",
+      "normals": "area-weighted smooth normals at shared source positions",
+      "parts": [
+        {
+          "name": "duk002170-000-30000",
+          "sourceVertices": 89645,
+          "sourceTriangles": 179294,
+          "outputVertices": 20392,
+          "outputTriangles": 36000,
+          "relativeSimplificationError": 0.00044848292600363493,
+          "textureResolution": [
+            1024,
+            1024
+          ],
+          "textureBytes": 141311
+        }
+      ]
+    },
+    {
+      "name": "celadon-plum-bamboo-maebyeong.glb",
+      "bytes": 786756,
+      "sha256": "792377a73269544d9bcc0235cc03a1d33afa9666e1db3930a4868ebf6c27cacc",
+      "extensionsRequired": [],
+      "meshes": 1,
+      "materials": 1,
+      "sourceProvider": "국립중앙박물관",
+      "sourceUrl": "https://www.museum.go.kr/MUSEUM/contents/M0505000000.do?relicId=35820012&schM=view&searchId=search",
+      "license": "공공누리 제1유형(출처표시)",
+      "artifactId": "koo010256",
+      "sourceFiles": [
+        {
+          "path": "koo010256/디지털콘텐츠_OBJ/koo010256-000-30000.obj",
+          "sha256": "cd73b0f6c3aae35a8faa9358f654e0a2d516c83a6e2dd9a723bd3d48cc1ab77b"
+        },
+        {
+          "path": "koo010256/디지털콘텐츠_OBJ/koo010256-000-30000.mtl",
+          "sha256": "5c40e330adc7e13079d19cb01577ff7e3a5cbb822f14dc001b56bb5459e94c94"
+        },
+        {
+          "path": "koo010256/디지털콘텐츠_OBJ/koo010256-000-30000.jpg",
+          "sha256": "41326e0de6826164bf64eece9e8ce8eee3f4cd45f9dffc09efaf02bdd86df42e"
+        }
+      ],
+      "rotation": "unchanged Y-up",
+      "normals": "area-weighted smooth normals at shared source positions",
+      "parts": [
+        {
+          "name": "koo010256-000-30000",
+          "sourceVertices": 105143,
+          "sourceTriangles": 207228,
+          "outputVertices": 15700,
+          "outputTriangles": 30000,
+          "relativeSimplificationError": 0.0002023526467382908,
+          "textureResolution": [
+            1024,
+            1024
+          ],
+          "textureBytes": 102109
+        }
+      ]
+    },
+    {
+      "name": "celadon-cloud-crane-maebyeong.glb",
+      "bytes": 510580,
+      "sha256": "e7f0c315520aff7c2f2c6b9efe078c31364ddcdc070f457bbd7c0ec51edc613e",
+      "extensionsRequired": [],
+      "meshes": 1,
+      "materials": 1,
+      "sourceProvider": "국립중앙박물관",
+      "sourceUrl": "https://www.museum.go.kr/MUSEUM/contents/M0505000000.do?relicId=1126&schM=view&searchId=search",
+      "license": "공공누리 제1유형(출처표시)",
+      "artifactId": "duk002182",
+      "sourceArchive": "duk002182_000_30000.zip",
+      "sourceArchiveSha256": "22c621601d652679ad3445f686ca8b8e5b22d8c8d13d8b20347a557f06dbfb65",
+      "rotation": "unchanged Y-up",
+      "normals": "source normals preserved",
+      "parts": [
+        {
+          "name": "duk002182_000_30000",
+          "sourceVertices": 11296,
+          "sourceTriangles": 22588,
+          "outputVertices": 9647,
+          "outputTriangles": 18000,
+          "relativeSimplificationError": 0.00014632134116254747,
+          "textureResolution": [
+            1024,
+            1024
+          ],
+          "textureBytes": 91639
+        }
+      ]
+    },
+    {
+      "name": "celadon-pomegranate-waterdropper.glb",
+      "bytes": 742764,
+      "sha256": "cac9654062c56888d98772f8824024bd99c35d307bd0095d9335b41339936e01",
+      "extensionsRequired": [],
+      "meshes": 1,
+      "materials": 1,
+      "sourceProvider": "국립중앙박물관",
+      "sourceUrl": "https://www.museum.go.kr/MUSEUM/contents/M0505000000.do?relicId=4220&schM=view&searchId=search",
+      "license": "공공누리 제1유형(출처표시)",
+      "artifactId": "duk000510",
+      "sourceFiles": [
+        {
+          "path": "duk000510-000-30000 (1).obj",
+          "sha256": "0bbba3a66cd79f681746b1c9e1ccccffd36a04c747a563f93d4cd71b8237d2fe"
+        },
+        {
+          "path": "duk000510-000-30000 (1).mtl",
+          "sha256": "3af2f44e30df809390c1c84c03e4919466642b19df29e7f1ffbab6a54edf41ea"
+        },
+        {
+          "path": "duk000510-000-30000 (1).jpg",
+          "sha256": "68f6063d980b196ec6ac727729cb33a19d0d6645c6e137bd63c455cd9aba386e"
+        }
+      ],
+      "rotation": "unchanged Y-up",
+      "normals": "area-weighted smooth normals at shared source positions",
+      "parts": [
+        {
+          "name": "duk000510-000-30000 (1)",
+          "sourceVertices": 172627,
+          "sourceTriangles": 334946,
+          "outputVertices": 15850,
+          "outputTriangles": 24000,
+          "relativeSimplificationError": 0.0009296348434872925,
+          "textureResolution": [
+            1024,
+            1024
+          ],
+          "textureBytes": 89305
+        }
+      ]
+    },
+    {
+      "name": "celadon-duck-waterdropper.glb",
+      "bytes": 883144,
+      "sha256": "2bcd48116ccdc8a7c3da9848d9c9b69e08e2c9c2b6c2f667e8c8a9fd8a97a61a",
+      "extensionsRequired": [],
+      "meshes": 1,
+      "materials": 1,
+      "sourceProvider": "국립중앙박물관",
+      "sourceUrl": "https://www.museum.go.kr/MUSEUM/contents/M0505000000.do?relicId=6952&schM=view&searchId=search",
+      "license": "공공누리 제1유형(출처표시)",
+      "artifactId": "duk000648",
+      "sourceFiles": [
+        {
+          "path": "duk000648/디지털콘텐츠_OBJ/duk000648-000-30000.obj",
+          "sha256": "2c7d25c5c0f9a7f723039eebdb344fa96c10ec73e4599b51d8b25aa7b39a0109"
+        },
+        {
+          "path": "duk000648/디지털콘텐츠_OBJ/duk000648-000-30000.mtl",
+          "sha256": "6424bf181b122b95eadc65225abbdbe17ce27ba4813b493338429f9c511625ce"
+        },
+        {
+          "path": "duk000648/디지털콘텐츠_OBJ/duk000648-000-30000.jpg",
+          "sha256": "ee818a19087bc3902de002efebd013621e73c01b8221979ce7d5034896308659"
+        }
+      ],
+      "rotation": "unchanged Y-up",
+      "normals": "area-weighted smooth normals at shared source positions",
+      "parts": [
+        {
+          "name": "duk000648-000-30000",
+          "sourceVertices": 84499,
+          "sourceTriangles": 162349,
+          "outputVertices": 17234,
+          "outputTriangles": 30000,
+          "relativeSimplificationError": 0.00040476935100741684,
+          "textureResolution": [
+            1024,
+            1024
+          ],
+          "textureBytes": 149409
+        }
+      ]
+    },
+    {
+      "name": "celadon-gourd-ewer.glb",
+      "bytes": 1915408,
+      "sha256": "e2b36a0caf68cc6c19e1e8f569e430a2f4f04c092caa0fbb4a95bca13f70bbb4",
+      "extensionsRequired": [],
+      "meshes": 3,
+      "materials": 3,
+      "sourceProvider": "국립중앙박물관",
+      "sourceUrl": "https://www.museum.go.kr/MUSEUM/contents/M0505000000.do?relicId=957&schM=view&searchId=search",
+      "license": "공공누리 제1유형(출처표시)",
+      "artifactId": "duk000019",
+      "sourceFiles": [
+        {
+          "path": "duk000019/디지털콘텐츠_OBJ/duk000019-001-30000.obj",
+          "sha256": "5e52904c24a682a679641c66f44e2d2726ed373a704405713eedd966f674b3fa"
+        },
+        {
+          "path": "duk000019/디지털콘텐츠_OBJ/duk000019-001-30000.mtl",
+          "sha256": "9a2120525aa73976f4a224e1016759c172214ba4fd812e3f91caf9e2b1e4740a"
+        },
+        {
+          "path": "duk000019/디지털콘텐츠_OBJ/duk000019-001-30000.jpg",
+          "sha256": "f6e7440c77825d23ec8441c572dea2c6d6d62c18142c7d8fff7c55622af4d3a7"
+        },
+        {
+          "path": "duk000019/디지털콘텐츠_OBJ/duk000019-002-30000.obj",
+          "sha256": "116a60520d13de9bcadcd25e0994d10630cb5d523e2f9970882a2ed5dfcf6570"
+        },
+        {
+          "path": "duk000019/디지털콘텐츠_OBJ/duk000019-002-30000.mtl",
+          "sha256": "cbde1a0ca1610bb38da7f655871eaeb7eed7dad92a1125e5e4dd05629978413e"
+        },
+        {
+          "path": "duk000019/디지털콘텐츠_OBJ/duk000019-002-30000.jpg",
+          "sha256": "bd3cdd2a2e5452dabcd440bb8ecefdc0161e8c64a3bef7914fc53dd9f7e6661e"
+        },
+        {
+          "path": "duk000019/디지털콘텐츠_OBJ/duk000019-003-30000.obj",
+          "sha256": "42b831f6c2fde966ead15b725d5f1fa3ecc1cfe8459e89a51731c63fe9448d6b"
+        },
+        {
+          "path": "duk000019/디지털콘텐츠_OBJ/duk000019-003-30000.mtl",
+          "sha256": "70c47b76c885d77111b9e0ac1f5efb5cf82ba76d3eef42259395461e89549e7e"
+        },
+        {
+          "path": "duk000019/디지털콘텐츠_OBJ/duk000019-003-30000.jpg",
+          "sha256": "8139305719e69c2b18650a8dcd279839dc7a70f8239d11726351bee707e1796a"
+        }
+      ],
+      "rotation": "unchanged Y-up",
+      "normals": "area-weighted smooth normals at shared source positions",
+      "parts": [
+        {
+          "name": "duk000019-001-30000",
+          "sourceVertices": 157534,
+          "sourceTriangles": 315064,
+          "outputVertices": 11926,
+          "outputTriangles": 22000,
+          "relativeSimplificationError": 0.00048051594058051705,
+          "textureResolution": [
+            1024,
+            1024
+          ],
+          "textureBytes": 150556
+        },
+        {
+          "name": "duk000019-002-30000",
+          "sourceVertices": 122034,
+          "sourceTriangles": 244072,
+          "outputVertices": 12202,
+          "outputTriangles": 22000,
+          "relativeSimplificationError": 0.00031714787473902106,
+          "textureResolution": [
+            1024,
+            1024
+          ],
+          "textureBytes": 130601
+        },
+        {
+          "name": "duk000019-003-30000",
+          "sourceVertices": 172123,
+          "sourceTriangles": 344246,
+          "outputVertices": 11721,
+          "outputTriangles": 21998,
+          "relativeSimplificationError": 0.00084543670527637,
+          "textureResolution": [
+            1024,
+            1024
+          ],
+          "textureBytes": 86578
+        }
+      ]
+    },
+    {
+      "name": "celadon-bamboo-shoot-ewer.glb",
+      "bytes": 855068,
+      "sha256": "b39b420d9f1b6eb339de3a260b6c496f0058fb67d548d02e991b2e5c95f56f55",
+      "extensionsRequired": [],
+      "meshes": 2,
+      "materials": 2,
+      "sourceProvider": "국립중앙박물관",
+      "sourceUrl": "https://www.museum.go.kr/MUSEUM/contents/M0505000000.do?relicId=1351&schM=view&searchId=search",
+      "license": "공공누리 제1유형(출처표시)",
+      "artifactId": "duk004499",
+      "sourceArchive": "duk004499/디지털콘텐츠_OBJ/duk004499_000_30000.zip",
+      "sourceArchiveSha256": "e27ba890f62459b5e7f172543de29c2566f07186b156afc4f10529b955c93bd5",
+      "rotation": "unchanged Y-up",
+      "normals": "source normals preserved",
+      "parts": [
+        {
+          "name": "duk004499_001_30000",
+          "sourceVertices": 11698,
+          "sourceTriangles": 23400,
+          "outputVertices": 8572,
+          "outputTriangles": 16000,
+          "relativeSimplificationError": 0.0002962120051961392,
+          "textureResolution": [
+            1024,
+            1024
+          ],
+          "textureBytes": 81636
+        },
+        {
+          "name": "duk004499_002_30000",
+          "sourceVertices": 6714,
+          "sourceTriangles": 13428,
+          "outputVertices": 7085,
+          "outputTriangles": 13428,
+          "relativeSimplificationError": 0,
+          "textureResolution": [
+            1024,
+            1024
+          ],
+          "textureBytes": 92473
+        }
+      ]
+    },
+    {
+      "name": "celadon-wildflower-gourd-ewer.glb",
+      "bytes": 1417168,
+      "sha256": "ca5a47707fa3ef8c0fb9cf43eef7a268448e4fdf90b29aab97d315fdc431318a",
+      "extensionsRequired": [],
+      "meshes": 3,
+      "materials": 3,
+      "sourceProvider": "국립중앙박물관",
+      "sourceUrl": "https://www.museum.go.kr/MUSEUM/contents/M0505000000.do?relicId=1476&schM=view&searchId=search",
+      "license": "공공누리 제1유형(출처표시)",
+      "artifactId": "duk006236",
+      "sourceArchive": "duk006236/디지털콘텐츠_OBJ/duk006236_000_30000.zip",
+      "sourceArchiveSha256": "3d4409140b8007e0138cb78a1f9ec79edc3606cf7bfd2b61fa902d509bd8adba",
+      "rotation": "unchanged Y-up",
+      "normals": "source normals preserved",
+      "parts": [
+        {
+          "name": "duk006236_001_30000",
+          "sourceVertices": 10907,
+          "sourceTriangles": 21810,
+          "outputVertices": 9557,
+          "outputTriangles": 18000,
+          "relativeSimplificationError": 0.000211399034014903,
+          "textureResolution": [
+            1024,
+            1024
+          ],
+          "textureBytes": 102392
+        },
+        {
+          "name": "duk006236_002_30000",
+          "sourceVertices": 15850,
+          "sourceTriangles": 31704,
+          "outputVertices": 9915,
+          "outputTriangles": 18000,
+          "relativeSimplificationError": 0.00037604555836878717,
+          "textureResolution": [
+            1024,
+            1024
+          ],
+          "textureBytes": 129706
+        },
+        {
+          "name": "duk006236_003_30000",
+          "sourceVertices": 4586,
+          "sourceTriangles": 9172,
+          "outputVertices": 5022,
+          "outputTriangles": 9172,
+          "relativeSimplificationError": 0,
+          "textureResolution": [
+            1024,
+            1024
+          ],
+          "textureBytes": 125730
+        }
+      ]
+    },
+    {
+      "name": "celadon-qilin-incense.glb",
+      "bytes": 1319208,
+      "sha256": "f12ccfddd3072bd77447b6379655a0dfd8292b3121dab7053061826be22850fb",
+      "extensionsRequired": [],
+      "meshes": 2,
+      "materials": 2,
+      "sourceProvider": "국립중앙박물관",
+      "sourceUrl": "https://www.museum.go.kr/MUSEUM/contents/M0505000000.do?relicId=185757&schM=view&searchId=search",
+      "license": "공공누리 제1유형(출처표시)",
+      "artifactId": "jng007282",
+      "sourceArchive": "jng007282/디지털콘텐츠_OBJ/jng007282_000_30000.zip",
+      "sourceArchiveSha256": "c18bb0d14d0bfab41ece106509b2e00967ccb821ef7df5fe9468a27a80761a98",
+      "rotation": "unchanged Y-up",
+      "normals": "source normals preserved",
+      "parts": [
+        {
+          "name": "jng007282_001_30000",
+          "sourceVertices": 21268,
+          "sourceTriangles": 42532,
+          "outputVertices": 11947,
+          "outputTriangles": 22000,
+          "relativeSimplificationError": 0.00030510235228575766,
+          "textureResolution": [
+            1024,
+            1024
+          ],
+          "textureBytes": 117163
+        },
+        {
+          "name": "jng007282_002_30000",
+          "sourceVertices": 20236,
+          "sourceTriangles": 40480,
+          "outputVertices": 12504,
+          "outputTriangles": 22000,
+          "relativeSimplificationError": 0.0006571662961505353,
+          "textureResolution": [
+            1024,
+            1024
+          ],
+          "textureBytes": 152239
+        }
+      ],
+      "datingCaution": "고려 12세기작과 근래 모방작이라는 견해가 있어 제작 시기를 단정하지 않습니다."
+    },
+    {
+      "name": "celadon-qilin-decorated-incense.glb",
+      "bytes": 1196580,
+      "sha256": "cfd1f6bb25f410eb43fd4382e5c21a14fcea8377cb42dc586101c6c322055595",
+      "extensionsRequired": [],
+      "meshes": 2,
+      "materials": 2,
+      "sourceProvider": "국립중앙박물관",
+      "sourceUrl": "https://www.museum.go.kr/MUSEUM/contents/M0505000000.do?relicId=1233&schM=view&searchId=search",
+      "license": "공공누리 제1유형(출처표시)",
+      "artifactId": "duk003063",
+      "sourceArchive": "duk003063/디지털콘텐츠_OBJ/duk003063_000_30000.zip",
+      "sourceArchiveSha256": "f591aa99d0b3b5f726ae3ac9d14c017725722dbbddc98ccc095a367e07c09f80",
+      "rotation": "unchanged Y-up",
+      "normals": "source normals preserved",
+      "parts": [
+        {
+          "name": "duk003063_001_30000",
+          "sourceVertices": 16116,
+          "sourceTriangles": 32228,
+          "outputVertices": 11052,
+          "outputTriangles": 20000,
+          "relativeSimplificationError": 0.0003375550440978259,
+          "textureResolution": [
+            1024,
+            1024
+          ],
+          "textureBytes": 107632
+        },
+        {
+          "name": "duk003063_002_30000",
+          "sourceVertices": 17329,
+          "sourceTriangles": 34666,
+          "outputVertices": 11543,
+          "outputTriangles": 20000,
+          "relativeSimplificationError": 0.0006090684910304844,
+          "textureResolution": [
+            1024,
+            1024
+          ],
+          "textureBytes": 122532
+        }
+      ]
+    },
+    {
+      "name": "celadon-duck-incense.glb",
+      "bytes": 1039984,
+      "sha256": "1282b57bb00e337ead3769279cbfbfe3e22aaa692eb80dc75a2d109b0c985f64",
+      "extensionsRequired": [],
+      "meshes": 2,
+      "materials": 2,
+      "sourceProvider": "국립중앙박물관",
+      "sourceUrl": "https://www.museum.go.kr/MUSEUM/contents/M0505000000.do?relicId=223244&schM=view&searchId=search",
+      "license": "공공누리 제1유형(출처표시)",
+      "artifactId": "ssu010352",
+      "sourceArchive": "ssu010352/디지털콘텐츠_OBJ/ssu010352_000_30000.zip",
+      "sourceArchiveSha256": "e618d70346d0aa6d4e16573c73a2daf879731173c3a28d3737c57a107519abbc",
+      "rotation": "unchanged Y-up",
+      "normals": "source normals preserved",
+      "parts": [
+        {
+          "name": "ssu010352_001_30000",
+          "sourceVertices": 11297,
+          "sourceTriangles": 22590,
+          "outputVertices": 9588,
+          "outputTriangles": 18000,
+          "relativeSimplificationError": 0.00025889702374115586,
+          "textureResolution": [
+            1024,
+            1024
+          ],
+          "textureBytes": 89042
+        },
+        {
+          "name": "ssu010352_002_30000",
+          "sourceVertices": 12451,
+          "sourceTriangles": 24898,
+          "outputVertices": 9933,
+          "outputTriangles": 18000,
+          "relativeSimplificationError": 0.00031121468055061996,
+          "textureResolution": [
+            1024,
+            1024
+          ],
+          "textureBytes": 106900
+        }
+      ]
     }
-  ]
+  ],
+  "conversion": {
+    "date": "2026-11-07",
+    "script": "tools/convert-reference-models.mjs",
+    "meshoptimizer": "1.1.1",
+    "sharp": "0.35.5",
+    "textureSize": 1024,
+    "jpegQuality": 86,
+    "maxRelativeError": 0.003,
+    "attributeWeights": [
+      0.25,
+      0.25,
+      0.05,
+      0.05,
+      0.05
+    ],
+    "sourceUnits": "source coordinates preserved; viewer normalizes displayed size",
+    "zUpTransform": "(x, y, z) -> (x, z, -y); applied to positions and normals",
+    "textureCoordinates": "OBJ v flipped to glTF convention",
+    "material": "JPEG base color from supplied matching JPG; metallic 0; roughness 0.7; no normal map",
+    "simplification": "attribute-aware, UV and normal seams preserved; vertices compacted after simplification",
+    "materialPathRepair": "use same-basename JPG; ignore broken source MTL absolute paths and su/ssu typos"
+  }
 }

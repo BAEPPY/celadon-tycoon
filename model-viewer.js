@@ -100,6 +100,15 @@ export async function openArtifact(container, shape) {
   container.dataset.shape = shape;
   container.style.position = 'relative';
 
+  const title = create('h3', 'artifact-title', artifact.name);
+  Object.assign(title.style, {margin:'0 0 7px', fontSize:'20px', lineHeight:'1.4', color:'#284b33'});
+  container.append(title);
+  if (artifact.use) {
+    const use = create('p', 'artifact-use', `쓰임: ${artifact.use}`);
+    Object.assign(use.style, {margin:'0 0 12px', fontSize:'14px', lineHeight:'1.6', color:'#53644b'});
+    container.append(use);
+  }
+
   const viewport = create('div', 'artifact-viewport');
   Object.assign(viewport.style, {
     position: 'relative', width: '100%', height: 'min(48vh, 430px)', minHeight: '260px',
