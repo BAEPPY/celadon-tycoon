@@ -58,6 +58,12 @@ const SHAPES = {
   },
 };
 
+// Additional learning silhouettes; actual construction uses the catalog GLBs.
+SHAPES.chrysanthemumCup={label:'잔',body:'M100 135 Q180 160 260 135 L240 260 Q180 295 120 260 Z',rim:'<ellipse cx="180" cy="135" rx="80" ry="22"/><ellipse cx="180" cy="135" rx="67" ry="14" fill="#5e684c"/>',foot:'',lines:'',shine:'M135 170 L145 240',shadow:[180,310,85,12]};
+SHAPES.cupStand={...SHAPES.chrysanthemumCup,label:'잔과 받침',before:'<ellipse cx="180" cy="275" rx="120" ry="32"/>',body:'M120 125 Q180 145 240 125 L225 240 Q180 263 135 240 Z',rim:'<ellipse cx="180" cy="125" rx="60" ry="17"/>'};
+SHAPES.duckDropper={label:'연적',body:'M106 170 Q65 240 145 265 Q235 290 266 224 Q284 177 250 165 Q233 151 239 128 Q242 95 214 94 Q180 95 186 131 Q186 163 160 167 Z',rim:'<path d="M236 110 L274 125 L238 132Z"/>',foot:'',lines:'<path d="M115 200 Q176 160 228 215 Q180 249 125 224Z"/>',shine:'M125 185 Q95 210 120 230',shadow:[180,305,100,12]};
+SHAPES.gourdBottle={label:'조롱박 병',body:'M163 60 L197 60 L198 84 Q240 95 225 140 Q206 170 222 187 Q275 220 246 275 Q180 318 114 275 Q85 220 138 187 Q154 170 135 140 Q120 95 162 84Z',rim:'<ellipse cx="180" cy="60" rx="20" ry="7"/>',foot:'',lines:'<path d="M143 180 Q180 194 217 180"/>',shine:'M155 102 Q140 120 155 140 M130 220 Q116 250 140 266',shadow:[180,324,80,12]};
+
 const PALETTES = {
   clay: ['#e2ba83', '#bb8758', '#86613f'],
   carved: ['#dfb67e', '#b78051', '#815d3c'],

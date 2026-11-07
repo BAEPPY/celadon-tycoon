@@ -10,7 +10,7 @@ export const MODEL_ARTIFACTS = Object.freeze({
   pillow: Object.freeze({
     id: 'pillow', shortName: '베개', name: '청자 상감 모란·구름·학무늬 베개',
     use: '누워서 쉴 때 머리를 받칩니다.',
-    src: local('celadon-pillow-reconstruction.glb'),
+    src: local('celadon-pillow-reconstruction.glb'), detailedSrc: local('detail/celadon-pillow-reconstruction.glb'),
     sourceUrl: 'https://www.museum.go.kr/MUSEUM/contents/M0502000000.do?relicId=970&schM=view&searchId=search',
     source: '국립중앙박물관 소장품의 사용자 제공 다각도 사진 참고',
     note: '사진 기반 3D 재현입니다. 밑면 등 일부 형상에 추정·보정이 있으며 실측 스캔이 아닙니다.',
@@ -20,7 +20,7 @@ export const MODEL_ARTIFACTS = Object.freeze({
   pitcher: Object.freeze({
     id: 'pitcher', shortName: '어룡 주전자', name: '청자 어룡형 주전자',
     use: '물이나 술 같은 액체를 담아 따릅니다.',
-    src: local('celadon-ewer.glb'),
+    src: local('celadon-ewer.glb'), detailedSrc: local('detail/celadon-ewer.glb'),
     sourceUrl: 'https://www.museum.go.kr/MUSEUM/contents/M0504000000.do?relicId=858&schM=view',
     source: '국립중앙박물관 소장 · 사용자 제공 OBJ 스캔 형상과 사진 질감',
     note: '박물관 게임의 경량 모델입니다. 용을 닮은 머리와 물고기를 닮은 몸통을 확인해 보세요.',
@@ -30,7 +30,7 @@ export const MODEL_ARTIFACTS = Object.freeze({
   incense: Object.freeze({
     id: 'incense', shortName: '칠보 향로', name: '청자 투각 칠보문 뚜껑 향로',
     use: '향을 피울 때 사용합니다.',
-    src: local('celadon-incense.glb'),
+    src: local('celadon-incense.glb'), detailedSrc: local('detail/celadon-incense.glb'),
     sourceUrl: 'https://www.museum.go.kr/MUSEUM/contents/M0201020000.do?relicId=1227&schM=search',
     source: '국립중앙박물관 소장 · 사용자 제공 PLY 스캔 형상',
     note: '형상은 스캔 자료이며, 청자색은 참고 표현입니다. 원본 스캔에 기록된 색을 복원한 것은 아닙니다.',
@@ -40,7 +40,7 @@ export const MODEL_ARTIFACTS = Object.freeze({
   stool: Object.freeze({
     id: 'stool', shortName: '의자', name: '청자 투각 의자',
     use: '사람이 앉을 때 사용합니다.',
-    src: local('celadon-stool-wrl.glb'),
+    src: local('celadon-stool-wrl.glb'), detailedSrc: local('detail/celadon-stool-wrl.glb'),
     sourceUrl: 'https://www.3dbank.xyz/contents/view_contents.jsp?cuid=2989',
     source: '사용자 제공 3D 원본의 형상·색상 · 3DBank 자료',
     note: '박물관 게임의 경량 모델입니다. 표면의 광택은 관찰을 돕기 위한 참고 표현입니다.',
@@ -50,7 +50,7 @@ export const MODEL_ARTIFACTS = Object.freeze({
   maebyeong: Object.freeze({
     id: 'maebyeong', shortName: '구름·학 매병 (재현)', name: '청자 상감 운학문 매병',
     use: '내용물을 담아 두는 데 사용합니다.',
-    src: local('celadon-maebyeong-v2.glb'),
+    src: local('celadon-maebyeong-v2.glb'), detailedSrc: local('detail/celadon-maebyeong-v2.glb'),
     sourceUrl: 'https://firefoxcat.booth.pm/items/6118090',
     source: '사용자 제공 청자매병 GLB · 모델 내부 출처 firefoxcat',
     note: '사진을 참고한 3D 재현으로 보이지 않는 면은 근사했습니다. 특정 소장품의 실측 스캔이 아닙니다.',
@@ -239,7 +239,7 @@ export const MODEL_ARTIFACTS = Object.freeze({
   }),
 });
 
-// Catalog examples can grow independently of the game's five crafting shapes.
+// Catalog geometry is shared by observation and the example-order design choices.
 export const MODEL_CATALOG = Object.freeze(Object.values(MODEL_ARTIFACTS));
 
 export function getModelArtifact(id) {

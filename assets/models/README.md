@@ -47,3 +47,8 @@ STL·PLY·OBJ는 같은 유물의 다른 제공 형식이므로 별도 예시로
 - https://github.com/BAEPPY/minichungjamuseum/blob/main/public/models/README.md
 - https://github.com/BAEPPY/minichungjamuseum/blob/main/public/models/map/README.md
 - https://github.com/BAEPPY/minichungjamuseum/blob/main/src/artifacts.js
+
+
+## 상세 도감과 제작
+
+`detail/`의 기존 다섯 상세 원본은 유지합니다. 새 18개 예시는 출처 기록의 GLB를 도감과 3D 제작에 사용합니다. 제작 화면의 흙 재질·성형·새 문양은 학습용 표현입니다.

@@ -1,9 +1,15 @@
+import {EXAMPLE_ORDERS} from './example-orders.js';
 /**
  * 수업용 고려청자 공방의 내용과 평가 규칙.
  * 주문은 학습을 위해 구성한 가상 상황이며 유물의 실제 주문 기록이 아니다.
  * 객관적 조건 80점과 학생의 자기 점검 20점을 구분한다.
  */
 export const SHAPES = [
+  {id:'chrysanthemumCup',name:'청자 잔',use:'음료를 담아 마십니다.',feature:'넓은 입과 속이 빈 공간을 살펴보세요.'},
+  {id:'cupStand',name:'청자 잔과 받침',use:'잔에 음료를 담아 마시고 받침에 올려 둡니다.',feature:'잔과 아래 받침을 함께 살펴보세요.'},
+  {id:'duckDropper',name:'청자 연적',use:'먹을 갈 때 벼루에 조금씩 부을 물을 담습니다.',feature:'물 넣는 구멍과 물 나오는 구멍을 찾아보세요.'},
+  {id:'gourdBottle',name:'청자 조롱박 병',use:'내용물을 담아 둡니다.',feature:'잘록한 몸통과 입, 별도 손잡이·주둥이가 없는 점을 살펴보세요.'},
+
   { id: 'pillow', name: '청자 베개', use: '누워서 쉴 때 머리를 받칩니다.', feature: '머리를 받칠 수 있는 형태와 표면의 무늬를 살펴보세요.' },
   { id: 'pitcher', name: '청자 주전자', use: '물이나 술 같은 액체를 담아 따릅니다.', feature: '몸통, 손잡이, 주둥이가 하는 일을 살펴보세요.' },
   { id: 'incense', name: '청자 향로', use: '향을 피웁니다.', feature: '뚜껑의 뚫린 부분은 향 연기가 나오는 통로가 됩니다.' },
@@ -194,6 +200,8 @@ export const ORDERS = [
   },
 ];
 
+ORDERS.push(...EXAMPLE_ORDERS);
+
 export const TECHNIQUES = [
   { id: 'inlay', name: '상감', description: '표면에 무늬를 파고 다른 색의 흙을 채운 뒤 표면을 정리해 무늬를 나타냅니다.' },
   { id: 'openwork', name: '투각', description: '표면을 뚫어 무늬를 나타냅니다. 향로에서는 뚫린 부분이 향 연기의 통로가 되기도 합니다.' },
@@ -201,6 +209,15 @@ export const TECHNIQUES = [
 ];
 
 export const PATTERNS = [
+  {id:'peony',name:'모란'},
+  {id:'chrysanthemum',name:'국화'},
+  {id:'plum',name:'매화'},
+  {id:'bamboo',name:'대나무'},
+  {id:'willow',name:'버드나무'},
+  {id:'grape',name:'포도'},
+  {id:'wildflower',name:'풀꽃'},
+  {id:'text',name:'글자'},
+
   { id: 'crane', name: '학' },
   { id: 'cloud', name: '구름' },
   { id: 'lotus', name: '연꽃' },
@@ -220,9 +237,9 @@ const patternById = new Map(PATTERNS.map((item) => [item.id, item]));
 const firingOrder = FIRING.map((item) => item.id);
 
 /**
- * Draw one order from a 30-order bag without changing the caller's history.
+ * Draw one order from the current catalog bag without changing the caller's history.
  * History must be oldest first; append the returned id once when accepting it.
- * Each consecutive group of 30 valid ids forms a cycle. A new cycle avoids
+ * Each consecutive group of ORDERS.length valid ids forms a cycle. A new cycle avoids
  * the last two orders so the customer does not immediately repeat at its edge.
  */
 export function drawNextOrder(history = [], rng = Math.random) {
@@ -235,7 +252,10 @@ export function drawNextOrder(history = [], rng = Math.random) {
   const recent = new Set(previous.slice(-2));
   const remaining = ORDERS.filter((item) => !used.has(item.id));
   const preferred = remaining.filter((item) => !recent.has(item.id));
-  const pool = preferred.length ? preferred : remaining;
+  const options = preferred.length ? preferred : remaining;
+  const lastShape = orderById.get(previous.at(-1))?.shape;
+  const differentUse = options.filter(item => item.shape !== lastShape);
+  const pool = differentUse.length ? differentUse : options;
   const value = typeof rng === 'function' ? Number(rng()) : Math.random();
   const unit = Number.isFinite(value) ? Math.min(1 - Number.EPSILON, Math.max(0, value)) : 0;
   return pool[Math.floor(unit * pool.length)];
@@ -253,16 +273,21 @@ export function evaluateWork(work = {}) {
   const validTechnique = techniqueById.has(input.technique);
   const validPlacements = Array.isArray(input.placements) && input.placements.some((point) =>
     point && Number.isFinite(point.x) && Number.isFinite(point.y));
-  const patternCorrect = Boolean(order && (order.pattern === 'any' || input.pattern === order.pattern));
+  const drawn = Array.isArray(input.strokes) && input.strokes.some(s => Array.isArray(s.points) && s.points.length > 1);
+  const stamped = validPlacements;
+  const drawingPattern = patternById.has(input.drawingLabel) ? input.drawingLabel : null;
+  const requiredPatterns = order?.requiredPatterns || (order?.pattern === 'any' ? [] : [order?.pattern]);
+  const patternCorrect = Boolean(order && requiredPatterns.every(pattern => (stamped && input.placements.some(p => p && (p.pattern || input.pattern) === pattern)) || (drawn && drawingPattern === pattern)));
+  const modelCorrect = !order?.modelId || (input.modelId || input.shape) === order.modelId;
   const techniqueCorrect = Boolean(order && validTechnique
     && (order.technique === 'any' || input.technique === order.technique));
-  // This game's pitcher has one wall: piercing its body would let water escape.
+  // This game's liquid containers have one wall: piercing its body would let water escape.
   // This does not rule out historical openwork vessels with a separate inner wall.
-  const holdsWater = !(input.shape === 'pitcher' && input.technique === 'openwork');
+  const holdsWater = !(['pitcher','gourdBottle','duckDropper','chrysanthemumCup','cupStand','maebyeong'].includes(input.shape) && input.technique === 'openwork');
   const decorationAppropriate = holdsWater && (input.technique === 'plain'
     ? Boolean(order && order.pattern === 'any')
-    : Boolean(validTechnique && validPlacements && patternById.has(input.pattern)));
-  const designCorrect = patternCorrect && techniqueCorrect && decorationAppropriate;
+    : Boolean(validTechnique && (validPlacements || drawn) && (patternById.has(input.pattern) || patternById.has(drawingPattern))));
+  const designCorrect = patternCorrect && techniqueCorrect && decorationAppropriate && modelCorrect;
   const hasExplanation = (value) => typeof value === 'string' && value.trim().length >= 6;
   const selfUse = input.selfUse === true && hasExplanation(input.explanationUse);
   const selfBeauty = input.selfBeauty === true && hasExplanation(input.explanationBeauty);
@@ -270,12 +295,13 @@ export function evaluateWork(work = {}) {
   const designFeedback = [];
   if (!order) designFeedback.push('먼저 주문을 선택해 주세요.');
   else {
-    if (!patternCorrect) designFeedback.push(`주문에 있는 ${patternById.get(order.pattern)?.name ?? '무늬'}를 다시 확인해 보세요.`);
+    if (!modelCorrect) designFeedback.push('같은 쓰임의 다른 형태를 골랐어요. 주문의 참고 예시와 내가 고른 세부 형태를 다시 비교해 보세요.');
+    if (!patternCorrect) designFeedback.push(`주문에 있는 ${requiredPatterns.map(id => patternById.get(id)?.name).join('·') ?? '무늬'}를 다시 확인해 보세요.`);
     if (!techniqueCorrect) designFeedback.push(order.technique === 'any'
       ? '표현할 제작 기법을 선택해 주세요.'
       : `이 주문에는 ${techniqueById.get(order.technique).name} 기법이 필요해요.`);
     if (!decorationAppropriate) designFeedback.push(!holdsWater
-      ? '지금 만든 주전자 몸통의 구멍으로 물이 샐 수 있어요. 물을 담을 수 있게 상감이나 무늬 없는 표현을 골라 보세요.'
+      ? '지금 만든 그릇의 몸통 구멍으로 물이 샐 수 있어요. 물을 담을 수 있게 상감이나 무늬 없는 표현을 골라 보세요.'
       : input.technique === 'plain'
         ? '이 주문에는 무늬가 필요해요. 무늬를 표현할 기법을 선택해 보세요.'
         : '무늬와 배치를 선택해 주문에 맞게 표현해 보세요.');
@@ -298,7 +324,7 @@ export function evaluateWork(work = {}) {
           !firingCorrect ? '건조 → 초벌구이 → 유약 바르기 → 재벌구이 순서로 다시 확인해 보세요.' : ''].filter(Boolean).join(' '),
     },
     {
-      key: 'design', label: '주문의 기법·무늬 조건', score: designCorrect ? 10 : 0, max: 10,
+      key: 'design', label: '주문의 세부 형태·기법·무늬', score: designCorrect ? 10 : 0, max: 10,
       feedback: designCorrect ? '주문의 기법과 무늬 조건을 충족했어요. 아름다움의 순위를 매긴 점수는 아니에요.' : designFeedback.join(' '),
     },
     {
