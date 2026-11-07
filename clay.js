@@ -1,0 +1,14 @@
+export const CLAYS=Object.freeze([
+ {id:'celadon',name:'태토',label:'몸통을 빚는 흙',color:'#b59a86',description:'그릇의 몸통을 빚는 바탕 흙이에요. 청자용 태토를 고르고 공기를 빼며 고르게 반죽해요.'},
+ {id:'white',name:'백토',label:'밝은 상감용 흙',color:'#f3e9d2',description:'흰 상감무늬에 사용할 흙이에요. 물에 개어 파인 무늬를 채울 때 사용해요.'},
+ {id:'dark',name:'자토',label:'짙은 상감용 색흙',color:'#815958',description:'색이 다른 상감무늬에 사용할 흙이에요. 실제 흙과 가마 조건에 따라 구운 뒤의 색은 달라져요.'},
+]);
+export function freshClay(){return {body:false,slip:'white',kneads:0,prepared:false};}
+export function chooseClay(state,id){if(!CLAYS.some(c=>c.id===id))return {...state};return id==='celadon'?{...state,body:true}:{...state,slip:id};}
+export function kneadClay(state){if(!state.body||state.prepared)return {...state};const kneads=Math.min(6,state.kneads+1);return {...state,kneads,prepared:kneads>=6};}
+export class ClayKneading {
+ constructor(element,work,onProgress){this.element=element;this.work=work;this.onProgress=onProgress;this.abort=new AbortController();let last=null,distance=0;const signal=this.abort.signal;element.addEventListener('pointerdown',e=>{if(!work.clay?.body)return;e.preventDefault();element.focus();element.setPointerCapture(e.pointerId);last=[e.clientX,e.clientY];distance=0;},{signal});element.addEventListener('pointermove',e=>{if(!last)return;distance+=Math.hypot(e.clientX-last[0],e.clientY-last[1]);last=[e.clientX,e.clientY];element.style.setProperty('--squash',String(.88+Math.min(.14,distance/600)));if(distance>element.clientWidth*.17){distance=0;this.press();}},{signal});for(const name of ['pointerup','pointercancel'])element.addEventListener(name,()=>{last=null;element.style.setProperty('--squash','1');},{signal});element.addEventListener('keydown',e=>{if(e.code==='Space'&&!e.repeat){e.preventDefault();this.press();}},{signal});}
+ press(){const before=this.work.clay.kneads;this.work.clay=kneadClay(this.work.clay);if(before!==this.work.clay.kneads){this.element.classList.remove('knead-tap');void this.element.offsetWidth;this.element.classList.add('knead-tap');this.element.dataset.kneads=String(this.work.clay.kneads);this.element.classList.toggle('prepared',this.work.clay.prepared);this.onProgress(this.work.clay);}}
+ dispose(){this.abort.abort();}
+}
+export function clayLumpSVG(){return `<svg viewBox="0 0 400 260" aria-hidden="true"><ellipse cx="200" cy="218" rx="135" ry="19" fill="#9b796d" opacity=".16"/><g class="knead-lump"><path d="M72 177C52 129 91 83 131 77C137 39 227 36 253 71C302 63 342 111 331 158C355 191 301 224 247 218C190 238 100 225 72 177Z" fill="#baa18e" stroke="#72584f" stroke-width="4"/><path d="M112 148C155 107 253 110 295 151M120 176C165 152 241 151 282 175" fill="none" stroke="#917364" stroke-width="5" stroke-linecap="round"/><path d="M145 78C183 58 227 65 244 82" fill="none" stroke="#d6c0a8" stroke-width="9" stroke-linecap="round"/><g fill="#6b4c44" opacity=".25"><circle cx="162" cy="127" r="4"/><circle cx="247" cy="165" r="3"/><circle cx="203" cy="93" r="3"/></g></g></svg>`;}

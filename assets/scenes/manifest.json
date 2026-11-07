@@ -1,0 +1,27 @@
+{
+  "generator": "OpenAI image generation",
+  "purpose": "Original Goryeo pottery shop backgrounds; counter, workbench and kiln; generic flat 2D reference style",
+  "assets": [
+    {
+      "id": "counter",
+      "width": 1672,
+      "height": 941,
+      "sourceSha256": "bc5a3969b0d41c34588824e57a77f342873a078cf6af1ea391316c18955601c5",
+      "runtimeSha256": "a37d7f02b37facd6734e8ebb7806123419f119fa68557010cc50fd848b778363"
+    },
+    {
+      "id": "workbench",
+      "width": 1672,
+      "height": 941,
+      "sourceSha256": "567b2ca4b67ba7d27342efa640d1caeb7d786334c24dcb5ebb9ceae62c469e04",
+      "runtimeSha256": "ccd66926d736cf92d59e2737cc4f5bf76a9373225696888288956089b44c68cb"
+    },
+    {
+      "id": "kiln",
+      "width": 1672,
+      "height": 941,
+      "sourceSha256": "888b0245a3f0717dc7a49ca0c2c36a3c07e57723749e3620d76a672931772c56",
+      "runtimeSha256": "63ab15fdf51869c745d89381e750875c7cc828bc79f7366620bb27480b9b38f1"
+    }
+  ]
+}
