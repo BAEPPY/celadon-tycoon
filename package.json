@@ -1,7 +1,17 @@
 {
   "name": "celadon-tycoon",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
   "type": "module",
-  "scripts": {"start": "node server.mjs", "test": "node --test domain.test.js", "build": "node build.mjs"}
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test domain.test.js",
+    "build": "node build.mjs"
+  },
+  "dependencies": {
+    "three": "0.180.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.12"
+  }
 }

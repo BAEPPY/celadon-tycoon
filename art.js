@@ -130,28 +130,36 @@ export function vesselSVG({ shape = 'maebyeong', stage = 'finished', pattern = '
 export function customerSVG(kind = 'king', size = 100) {
   const king = kind === 'king';
   const lady = ['lady', 'noblewoman', 'queen'].includes(kind);
-  const robe = king ? '#a74f3b' : lady ? '#b78371' : '#557d82';
-  const bg = king ? '#ead8b0' : lady ? '#e6d6cc' : '#d7e4d7';
+  const robe = king ? '#ed6846' : lady ? '#ee85ad' : '#47b5c0';
+  const shade = king ? '#c64432' : lady ? '#cd5689' : '#218b9c';
+  const outline = '#573b31';
   const hat = king
-    ? '<path d="M39 39 L36 18 Q60 9 84 18 L81 39Z" fill="#253b34"/><path d="M38 25 L21 20 L20 28 L39 32 M82 25 L99 20 L100 28 L81 32" fill="#253b34"/><path d="M40 32 H81" stroke="#d4b572" stroke-width="4"/><circle cx="60" cy="27" r="4" fill="#d4b572"/>'
+    ? '<path d="M31 27 L9 20 Q5 26 9 32 L32 36 M89 27 L111 20 Q115 26 111 32 L88 36" fill="#3c4e4a"/><path d="M30 40 L34 16 Q60 8 86 16 L90 40Z" fill="#344844"/><path d="M37 21 Q60 16 82 21" stroke="#6f8880" stroke-width="4"/><path d="M31 34 Q60 28 89 34 L90 42 Q60 36 30 42Z" fill="#ffd76b"/><circle cx="60" cy="32" r="6" fill="#ec6b49" stroke="#ffdf7a" stroke-width="3"/>'
     : lady
-      ? '<path d="M35 45 Q28 17 60 18 Q92 17 85 45 L77 32 Q64 41 43 31Z" fill="#333a32"/><ellipse cx="60" cy="17" rx="15" ry="9" fill="#333a32"/><path d="M37 25 L86 20" stroke="#b89b5e" stroke-width="3"/><circle cx="87" cy="20" r="4" fill="#e0b9a2"/>'
-      : '<path d="M36 39 L39 16 Q59 9 80 16 L84 39Z" fill="#304b47"/><path d="M38 29 Q60 36 82 29" stroke="#9bb6a6" stroke-width="2"/>';
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="${Math.max(24, finite(size,100))}" height="${Math.max(24, finite(size,100))}" role="img" aria-label="${king ? '왕' : lady ? '귀족 손님' : '귀족 손님'}" class="customer-svg">
-    <circle cx="60" cy="60" r="57" fill="${bg}"/>
-    <path d="M20 118 L25 93 Q31 78 46 78 H74 Q90 78 96 93 L102 118" fill="${robe}" stroke="#465844" stroke-width="2"/>
-    <path d="M46 77 L60 94 L75 77 L79 84 L61 108 L41 84Z" fill="#f5ead2"/>
-    <path d="M60 94 L50 118 M61 108 L76 118" stroke="#e2c29c" stroke-width="2"/>
-    <rect x="51" y="66" width="18" height="17" rx="6" fill="#dca77d"/>
-    <ellipse cx="35" cy="52" rx="5" ry="8" fill="#e4b48c"/><ellipse cx="85" cy="52" rx="5" ry="8" fill="#e4b48c"/>
-    <path d="M36 36 Q60 23 84 36 L82 59 Q79 78 60 81 Q41 78 38 59Z" fill="#f2c9a0" stroke="#a57e58" stroke-width="1.4"/>
+      ? '<ellipse cx="60" cy="17" rx="18" ry="11" fill="#51413a"/><path d="M26 49 Q21 19 60 21 Q99 19 94 49 L84 36 Q72 42 64 31 Q48 46 34 35Z" fill="#51413a"/><path d="M39 27 Q49 22 58 24" stroke="#887066" stroke-width="4"/><path d="M78 25 L104 16" stroke="#eeb94f" stroke-width="4"/><path d="M94 16 Q95 5 103 10 Q113 8 110 17 Q114 26 104 26 Q97 31 94 22 Q88 21 94 16" fill="#f5a2bd" stroke-width="2.5"/><circle cx="102" cy="19" r="3.5" fill="#fff0a4" stroke="none"/>'
+      : '<path d="M28 41 L33 15 Q60 5 86 15 L93 42Z" fill="#35585d"/><path d="M36 22 Q60 14 83 23" stroke="#5c8783" stroke-width="5"/><path d="M29 35 Q60 28 91 35 L93 43 Q61 37 28 43Z" fill="#82ceb4"/><path d="M51 15 L49 32 M69 15 L71 32" stroke="#243f44" stroke-width="2.5"/>';
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="${Math.max(24, finite(size,100))}" height="${Math.max(24, finite(size,100))}" role="img" aria-label="${king ? '왕' : '귀족 손님'}" class="customer-svg" data-art-version="tycoon-v2">
+  <g stroke="${outline}" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round">
+    <ellipse cx="60" cy="115" rx="40" ry="4" fill="#775139" opacity=".15" stroke="none"/>
+    <path d="M39 85 Q25 87 20 102 L31 112 L43 101 M81 85 Q95 85 103 100 L94 111 L80 101" fill="${robe}"/>
+    <path d="M41 83 Q60 76 80 83 L88 115 Q60 122 32 115Z" fill="${robe}"/>
+    <path d="M36 104 Q60 111 84 103 L87 115 Q60 120 33 115Z" fill="${shade}" stroke="none"/>
+    <path d="M45 81 L60 94 L75 81 L80 87 L61 107 L40 87Z" fill="#fff3cc" stroke-width="2.8"/>
+    <path d="M60 94 L50 116" fill="none" stroke-width="2.4"/>
+    <path d="M26 100 Q20 93 15 97 Q10 103 17 110 Q24 117 30 110Z" fill="#ffd1a6"/><path d="M94 99 Q98 90 104 93 Q111 97 105 106 Q100 113 94 108Z" fill="#ffd1a6"/>
+    <ellipse cx="25" cy="58" rx="7" ry="9" fill="#f5ba91"/><ellipse cx="95" cy="58" rx="7" ry="9" fill="#f5ba91"/>
+    <path d="M27 41 Q35 26 60 26 Q85 26 93 41 L95 64 Q96 80 80 86 Q60 95 40 86 Q24 80 25 64Z" fill="#ffd7b2"/>
+    <path d="M28 69 Q35 87 60 88 Q84 86 92 69 Q93 80 80 86 Q60 95 40 86 Q26 80 28 69Z" fill="#efaf88" opacity=".65" stroke="none"/>
     ${hat}
-    <path d="M45 47 Q49 44 54 47 M66 47 Q71 44 76 47" stroke="#544635" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-    <path d="M47 53 Q50 50 53 53 M67 53 Q70 50 73 53" stroke="#443e32" stroke-width="2.6" fill="none" stroke-linecap="round"/>
-    <ellipse cx="44" cy="59" rx="5" ry="3" fill="#d98d74" opacity=".4"/><ellipse cx="76" cy="59" rx="5" ry="3" fill="#d98d74" opacity=".4"/>
-    <path d="M59 54 L57 61 H61" fill="none" stroke="#c3916e" stroke-width="1.6" stroke-linecap="round"/>
-    <path d="M54 68 Q60 72 67 67" stroke="#8f5645" stroke-width="2" fill="none" stroke-linecap="round"/>
-    ${king ? '<path d="M49 66 Q55 61 60 66 Q66 61 71 66 M52 75 Q60 89 68 75" stroke="#5c4c39" stroke-width="2" fill="none"/><circle cx="60" cy="112" r="8" fill="#d8b86f"/><path d="M57 109 L63 115 M63 109 L57 115" stroke="#986e42" stroke-width="1.4"/>' : ''}
+    <path d="M36 49 Q42 45 49 48 M71 48 Q78 45 84 49" fill="none" stroke-width="3"/>
+    <ellipse cx="43" cy="59" rx="6.5" ry="9" fill="#52392f" stroke-width="1.3"/><ellipse cx="77" cy="59" rx="6.5" ry="9" fill="#52392f" stroke-width="1.3"/>
+    <ellipse cx="41" cy="55" rx="2.6" ry="3.2" fill="#fffdf0" stroke="none"/><ellipse cx="75" cy="55" rx="2.6" ry="3.2" fill="#fffdf0" stroke="none"/>
+    <circle cx="45" cy="63" r="1.3" fill="#dfb48a" stroke="none"/><circle cx="79" cy="63" r="1.3" fill="#dfb48a" stroke="none"/>
+    <ellipse cx="34" cy="70" rx="8" ry="5" fill="#f28c81" opacity=".72" stroke="none"/><ellipse cx="86" cy="70" rx="8" ry="5" fill="#f28c81" opacity=".72" stroke="none"/>
+    <path d="M59 64 Q56 68 61 68" fill="none" stroke="#d99b72" stroke-width="2"/>
+    <path d="M51 74 Q60 80 69 74 Q68 86 60 86 Q52 85 51 74Z" fill="#7c4540" stroke-width="2"/><path d="M55 82 Q60 78 65 82 L63 85 H57Z" fill="#f79591" stroke="none"/>
+    ${king ? '<path d="M48 71 Q54 67 59 71 M61 71 Q67 67 72 71" fill="none" stroke-width="2.4"/><circle cx="67" cy="109" r="7.5" fill="#ffda65" stroke-width="2"/><path d="M65 106 L70 111 M70 106 L65 111" stroke="#c88435" stroke-width="1.8"/>' : lady ? '<path d="M70 105 L79 101 L80 112 L70 108 L64 114 L63 104Z" fill="#ffdd77" stroke-width="1.8"/>' : '<path d="M67 105 H80 V112 H67Z" fill="#ffe0a0" stroke-width="1.8"/>'}
+  </g>
   </svg>`;
 }
 

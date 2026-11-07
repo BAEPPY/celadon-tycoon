@@ -42,6 +42,156 @@ export const ORDERS = [
     shape: 'maebyeong', pattern: 'cloud', technique: 'any',
     hint: '입과 어깨의 모양을 살펴보세요. 어떤 내용을 담았는지는 유물과 자료에 따라 다를 수 있어요.',
   },
+  {
+    id: 'lady-cloud-rest', customer: '귀족 부인의 주문', kind: 'noblewoman', title: '구름과 함께 쉬는 시간',
+    quote: '누워서 머리를 받칠 물건이 필요해요. 구름 무늬를 파고 다른 색 흙으로 채워 주세요.',
+    shape: 'pillow', pattern: 'cloud', technique: 'inlay',
+    hint: '머리를 받치는 형태와, 파인 무늬에 다른 흙을 넣는 기법을 함께 생각해 보세요.',
+  },
+  {
+    id: 'noble-lotus-rest', customer: '귀족의 주문', kind: 'noble', title: '연꽃 무늬의 쉼',
+    quote: '잠잘 때 머리를 받치려고 합니다. 다른 색의 흙을 넣은 연꽃 무늬로 꾸며 주세요.',
+    shape: 'pillow', pattern: 'lotus', technique: 'inlay',
+    hint: '앉는 물건과 머리를 받치는 물건의 모양은 어떻게 다를까요?',
+  },
+  {
+    id: 'royal-quiet-rest', customer: '왕실의 주문', kind: 'king', title: '잠시 누워 쉬고 싶소',
+    quote: '잠시 누워 쉴 때 머리를 받칠 것이 필요하오. 모양을 잘 다듬고, 장식은 그대가 정해 보시오.',
+    shape: 'pillow', pattern: 'any', technique: 'any',
+    hint: '머리를 안정적으로 받칠 수 있는 형태를 고른 뒤, 장식은 자유롭게 정해 보세요.',
+  },
+  {
+    id: 'lady-crane-rest', customer: '귀족 부인의 주문', kind: 'noblewoman', title: '학 무늬와 함께하는 휴식',
+    quote: '누워 쉴 때 머리 아래에 둘 것이 필요해요. 날아가는 학 무늬를 넣어 주실래요?',
+    shape: 'pillow', pattern: 'crane', technique: 'any',
+    hint: '어디에 받쳐 두는 물건인지 생각하고, 학 무늬를 표현할 방법을 선택해 보세요.',
+  },
+  {
+    id: 'noble-cloud-rest', customer: '귀족의 주문', kind: 'noble', title: '구름 무늬로 꾸민 휴식',
+    quote: '머리를 받치고 누워 쉴 물건을 부탁합니다. 구름 무늬의 위치와 개수는 맡길게요.',
+    shape: 'pillow', pattern: 'cloud', technique: 'any',
+    hint: '쓰임에 맞는 기본 형태를 고르고, 구름 무늬가 잘 보이도록 배치해 보세요.',
+  },
+  {
+    id: 'royal-crane-pour', customer: '왕실의 주문', kind: 'king', title: '학 무늬로 차린 연회',
+    quote: '연회에서 물을 따르려고 하오. 손잡이와 주둥이를 만들고, 학 무늬는 다른 색 흙으로 넣어 주시오.',
+    shape: 'pitcher', pattern: 'crane', technique: 'inlay',
+    hint: '물을 담고 따르는 기능을 살리면서 상감 무늬를 나타내 보세요.',
+  },
+  {
+    id: 'lady-cloud-pour', customer: '귀족 부인의 주문', kind: 'noblewoman', title: '손님에게 물을 따라요',
+    quote: '손님께 물을 따라 드릴 물건이 필요해요. 구름 무늬를 파서 다른 색 흙으로 채워 주세요.',
+    shape: 'pitcher', pattern: 'cloud', technique: 'inlay',
+    hint: '잡는 손잡이와 물이 나오는 주둥이가 있는 형태를 찾아보세요.',
+  },
+  {
+    id: 'noble-lotus-pour', customer: '귀족의 주문', kind: 'noble', title: '연꽃을 담은 술자리',
+    quote: '연회에서 술을 담아 따르려고 합니다. 손잡이를 달고 연꽃 무늬를 상감으로 넣어 주세요.',
+    shape: 'pitcher', pattern: 'lotus', technique: 'inlay',
+    hint: '액체가 새지 않으면서 손으로 잡고 따르기 편한 형태를 생각해 보세요.',
+  },
+  {
+    id: 'royal-cloud-pour', customer: '왕실의 주문', kind: 'king', title: '구름 무늬의 물 따르개',
+    quote: '손잡이를 잡고 물을 따를 수 있어야 하오. 몸통에는 구름 무늬를 넣어 주시오.',
+    shape: 'pitcher', pattern: 'cloud', technique: 'any',
+    hint: '몸통에 물을 담아야 하므로 장식할 때도 물이 새지 않는지 생각해 보세요.',
+  },
+  {
+    id: 'lady-crane-pour', customer: '귀족 부인의 주문', kind: 'noblewoman', title: '물을 따르는 학 무늬 청자',
+    quote: '손님들의 잔에 물을 따를 물건을 부탁해요. 손잡이와 주둥이가 있고, 학 무늬도 보이면 좋겠어요.',
+    shape: 'pitcher', pattern: 'crane', technique: 'any',
+    hint: '담아 두는 병과 물을 따르는 도구의 모양을 비교해 보세요.',
+  },
+  {
+    id: 'lady-lotus-fragrance', customer: '귀족 부인의 주문', kind: 'noblewoman', title: '연꽃 사이로 피어나는 향',
+    quote: '방 안에서 향을 피우고 싶어요. 뚜껑에 연꽃 모양의 구멍무늬를 뚫어 주세요.',
+    shape: 'incense', pattern: 'lotus', technique: 'openwork',
+    hint: '향을 피우는 몸체와 연기가 나올 뚜껑을 살펴보세요.',
+  },
+  {
+    id: 'noble-cloud-fragrance', customer: '귀족의 주문', kind: 'noble', title: '구름처럼 오르는 향',
+    quote: '향을 피울 물건을 부탁합니다. 연기가 나오도록 뚜껑에 구름 모양을 뚫어 주세요.',
+    shape: 'incense', pattern: 'cloud', technique: 'openwork',
+    hint: '표면을 뚫어 무늬를 나타내는 기법은 어떤 쓰임에도 도움이 될까요?',
+  },
+  {
+    id: 'royal-crane-fragrance', customer: '왕실의 주문', kind: 'king', title: '학 무늬 사이로 흐르는 향',
+    quote: '향을 피우려 하오. 뚜껑에 학 무늬를 뚫어 향 연기가 나올 길을 내 주시오.',
+    shape: 'incense', pattern: 'crane', technique: 'openwork',
+    hint: '물이나 술을 담는 도구가 아니라, 향을 피우는 도구가 필요해요.',
+  },
+  {
+    id: 'lady-evening-fragrance', customer: '귀족 부인의 주문', kind: 'noblewoman', title: '저녁에 피우는 향',
+    quote: '저녁에 방 안에서 향을 피우려고 해요. 연기가 빠져나갈 구멍무늬를 예쁘게 뚫어 주세요.',
+    shape: 'incense', pattern: 'any', technique: 'openwork',
+    hint: '무늬는 자유롭게 고르되, 뚫린 부분이 필요한 까닭을 설명해 보세요.',
+  },
+  {
+    id: 'noble-lotus-fragrance', customer: '귀족의 주문', kind: 'noble', title: '향을 위한 연꽃 뚜껑',
+    quote: '향을 담아 피울 물건이 필요합니다. 뚜껑에는 연꽃 무늬를 뚫어 넣어 주세요.',
+    shape: 'incense', pattern: 'lotus', technique: 'openwork',
+    hint: '향 연기의 통로가 되는 구멍과 무늬의 아름다움을 함께 생각해 보세요.',
+  },
+  {
+    id: 'royal-cloud-seat', customer: '왕실의 주문', kind: 'king', title: '구름 무늬에 앉아 쉬리다',
+    quote: '정원을 보며 앉아 쉴 것이 필요하오. 몸체에는 구름 모양의 구멍무늬를 뚫어 주시오.',
+    shape: 'stool', pattern: 'cloud', technique: 'openwork',
+    hint: '머리를 받치는 물건이 아니라 사람이 앉을 수 있는 형태를 골라 보세요.',
+  },
+  {
+    id: 'lady-lotus-seat', customer: '귀족 부인의 주문', kind: 'noblewoman', title: '연꽃을 보며 쉬는 자리',
+    quote: '연못을 바라보며 앉을 것이 필요해요. 몸체에 연꽃 모양을 뚫어 꾸며 주세요.',
+    shape: 'stool', pattern: 'lotus', technique: 'openwork',
+    hint: '앉는 윗면과 장식하는 몸체를 구분해 살펴보세요.',
+  },
+  {
+    id: 'noble-crane-seat', customer: '귀족의 주문', kind: 'noble', title: '학 무늬로 꾸민 자리',
+    quote: '손님과 이야기를 나누며 앉을 물건을 부탁합니다. 몸체에 학 무늬를 뚫어 넣어 주세요.',
+    shape: 'stool', pattern: 'crane', technique: 'openwork',
+    hint: '사람이 앉는 쓰임을 떠올리고, 투각으로 학 무늬를 나타내 보세요.',
+  },
+  {
+    id: 'royal-courtyard-seat', customer: '왕실의 주문', kind: 'king', title: '뜰에서 쉬는 자리',
+    quote: '뜰에서 잠시 앉아 쉬고 싶소. 몸체에 뚫린 무늬를 넣되, 무늬의 모양은 그대에게 맡기겠소.',
+    shape: 'stool', pattern: 'any', technique: 'openwork',
+    hint: '앉는 데 알맞은 형태를 고르고 원하는 구멍무늬를 배치해 보세요.',
+  },
+  {
+    id: 'lady-cloud-seat', customer: '귀족 부인의 주문', kind: 'noblewoman', title: '정원에서 쉬고 싶어요',
+    quote: '정원에서 앉아 꽃을 볼 물건이 필요해요. 몸체에는 구름 무늬를 뚫어 주세요.',
+    shape: 'stool', pattern: 'cloud', technique: 'openwork',
+    hint: '꽃을 담는 도구가 아니라 꽃을 보며 사람이 앉는 도구예요.',
+  },
+  {
+    id: 'royal-crane-vessel', customer: '왕실의 주문', kind: 'king', title: '학을 담은 둥근 어깨',
+    quote: '내용물을 담아 둘 병이 필요하오. 입은 좁고 어깨는 풍성하게, 학 무늬는 상감으로 넣어 주시오.',
+    shape: 'maebyeong', pattern: 'crane', technique: 'inlay',
+    hint: '입과 어깨의 곡선을 살펴보고, 상감으로 학 무늬를 표현해 보세요.',
+  },
+  {
+    id: 'lady-cloud-vessel', customer: '귀족 부인의 주문', kind: 'noblewoman', title: '구름 무늬가 있는 병',
+    quote: '내용물을 담아 둘 병을 부탁해요. 좁은 입과 넓은 어깨에, 다른 색 흙으로 채운 구름 무늬를 넣어 주세요.',
+    shape: 'maebyeong', pattern: 'cloud', technique: 'inlay',
+    hint: '좁은 입 아래로 어깨가 풍성하게 벌어지는 형태를 찾아보세요.',
+  },
+  {
+    id: 'noble-lotus-vessel', customer: '귀족의 주문', kind: 'noble', title: '연꽃 무늬를 새긴 병',
+    quote: '입이 좁고 어깨가 넓은 병에 내용물을 담으려 합니다. 연꽃 무늬를 상감으로 넣어 주세요.',
+    shape: 'maebyeong', pattern: 'lotus', technique: 'inlay',
+    hint: '손잡이와 주둥이보다는 입과 어깨의 모양이 중요한 주문이에요.',
+  },
+  {
+    id: 'lady-crane-vessel', customer: '귀족 부인의 주문', kind: 'noblewoman', title: '학 무늬의 넓은 어깨',
+    quote: '내용물을 담을 병이 필요해요. 입은 좁게, 어깨는 넓게 만들고 학 무늬도 넣어 주세요.',
+    shape: 'maebyeong', pattern: 'crane', technique: 'any',
+    hint: '여러 병의 형태 중 주문에 나온 입과 어깨의 특징을 떠올려 보세요.',
+  },
+  {
+    id: 'royal-simple-vessel', customer: '왕실의 주문', kind: 'king', title: '형태가 돋보이는 병',
+    quote: '내용물을 담을 병을 부탁하오. 좁은 입과 풍성한 어깨를 잘 표현하시오. 장식은 자유롭게 정해 보시오.',
+    shape: 'maebyeong', pattern: 'any', technique: 'any',
+    hint: '무늬를 넣거나 넣지 않아도 좋아요. 입과 어깨, 곡선의 특징을 잘 나타내 보세요.',
+  },
 ];
 
 export const TECHNIQUES = [
@@ -68,6 +218,28 @@ const orderById = new Map(ORDERS.map((item) => [item.id, item]));
 const techniqueById = new Map(TECHNIQUES.map((item) => [item.id, item]));
 const patternById = new Map(PATTERNS.map((item) => [item.id, item]));
 const firingOrder = FIRING.map((item) => item.id);
+
+/**
+ * Draw one order from a 30-order bag without changing the caller's history.
+ * History must be oldest first; append the returned id once when accepting it.
+ * Each consecutive group of 30 valid ids forms a cycle. A new cycle avoids
+ * the last two orders so the customer does not immediately repeat at its edge.
+ */
+export function drawNextOrder(history = [], rng = Math.random) {
+  const previous = Array.isArray(history)
+    ? history.filter((id) => typeof id === 'string' && orderById.has(id))
+    : [];
+  const cycleSize = ORDERS.length;
+  const usedInCycle = previous.length % cycleSize;
+  const used = new Set(usedInCycle ? previous.slice(-usedInCycle) : []);
+  const recent = new Set(previous.slice(-2));
+  const remaining = ORDERS.filter((item) => !used.has(item.id));
+  const preferred = remaining.filter((item) => !recent.has(item.id));
+  const pool = preferred.length ? preferred : remaining;
+  const value = typeof rng === 'function' ? Number(rng()) : Math.random();
+  const unit = Number.isFinite(value) ? Math.min(1 - Number.EPSILON, Math.max(0, value)) : 0;
+  return pool[Math.floor(unit * pool.length)];
+}
 
 /** No student's free text is interpolated into feedback or interpreted as HTML. */
 export function evaluateWork(work = {}) {
