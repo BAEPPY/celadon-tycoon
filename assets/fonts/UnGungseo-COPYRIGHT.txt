@@ -1,0 +1,23 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: un-fonts
+Upstream-Contact: http://kldp.net/unfonts/
+Source: http://kldp.net/unfonts/release/
+
+Files: *
+Copyright: 1998-2008, Koaunghi Un
+           2003 Park, Won-kyu <wkpark@chem.skku.ac.kr>
+           2003, Jungshik Shin <jshin@mailaps.org>
+License: GPL-2
+
+Files: debian/*
+Copyright: 2003-2022, Changwoo Ryu <cwryu@debian.org>
+           2010-2016, Hideki Yamane (Debian-JP) <henrich@debian.or.jp>
+License: GPL-2
+
+Files: debian/*.metainfo.xml
+Copyright: 2019-2026, Changwoo Ryu
+License: CC0-1.0
+ See /usr/share/common-licenses/CC0-1.0 for the full license.
+
+License: GPL-2
+ See /usr/share/common-licenses/GPL-2 for the full license.

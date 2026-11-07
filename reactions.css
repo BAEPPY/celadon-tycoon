@@ -1,0 +1,21 @@
+/* Character-led delivery feedback; portraits are new, consistent half-body expression illustrations. */
+.reaction-portrait{display:block;width:100%;height:100%;object-fit:contain;object-position:center bottom;filter:drop-shadow(0 5px 4px #684b3e25);user-select:none;-webkit-user-drag:none}
+.customer-review-scene{position:relative;height:100%;min-height:0;overflow:hidden;isolation:isolate;background:#dfc8b5 url('./assets/scenes/counter.webp') center/cover no-repeat}
+.customer-review-scene::before{content:'';position:absolute;inset:0;background:#fff3d838;pointer-events:none}
+.review-person{position:absolute;left:3%;bottom:0;width:38%;height:96%;z-index:2;animation:review-arrival .4s ease-out}
+.review-dialogue{position:absolute;left:43%;right:4%;top:8%;bottom:7%;display:flex;flex-direction:column;justify-content:center;gap:18px;z-index:3;min-width:0}
+.review-speech{position:relative;background:#fff7e8;border:3px solid #8c6261;border-radius:24px;padding:24px 28px;box-shadow:0 5px #b9927d55;word-break:keep-all;overflow-wrap:break-word}
+.review-speech::after{content:'';position:absolute;left:-22px;top:42%;width:27px;height:28px;background:#fff7e8;clip-path:polygon(100% 0,100% 100%,0 100%);filter:drop-shadow(-2px 2px #8c6261)}
+.review-speech .review-speaker{font-size:16px;color:#a67a6b;margin:0 0 8px}
+.review-speech h2{font-size:clamp(27px,3vw,42px);line-height:1.3;margin:0 0 16px;color:#835859}
+.review-speech .review-quote{font-size:clamp(18px,1.8vw,25px);line-height:1.6;margin:0}
+.review-speech .review-detail{font-size:17px;line-height:1.5;margin:15px 0 0;color:#8b6d59}
+.review-score{display:flex;align-items:baseline;gap:12px;padding:12px 18px;background:#fff1d9e8;border:2px solid #b38d73;border-radius:12px;color:#87604e;font-size:16px}
+.review-score strong{font-size:30px;color:#66835c}
+.review-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:stretch;justify-content:flex-end}
+.review-actions .primary,.review-actions .small-button{font-size:18px;min-height:46px;flex:1 1 120px;white-space:normal;word-break:keep-all;line-height:1.35;padding:10px 14px}
+.customer-review-scene[data-mood=angry] .review-speech h2{color:#a36350}
+.customer-review-scene[data-mood=happy] .review-speech h2{color:#6f8d5a}
+@keyframes review-arrival{from{opacity:0;transform:translateX(-20px)}to{opacity:1;transform:translateX(0)}}
+@media(max-height:650px){.review-person{width:35%;left:3%;height:94%}.review-dialogue{left:40%;right:3%;top:4%;bottom:4%;gap:10px}.review-speech{padding:16px 20px;border-radius:19px}.review-speech h2{font-size:29px;margin-bottom:10px}.review-speech .review-speaker{font-size:14px;margin-bottom:5px}.review-speech .review-quote{font-size:18px;line-height:1.5}.review-speech .review-detail{font-size:15px;margin-top:10px}.review-score{font-size:14px;padding:7px 12px}.review-score strong{font-size:25px}.review-actions .primary,.review-actions .small-button{font-size:16px;min-height:40px;padding:7px 10px}}
+@media(prefers-reduced-motion:reduce){.review-person{animation:none}}

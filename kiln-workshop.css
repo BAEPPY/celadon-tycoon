@@ -1,0 +1,37 @@
+/* Large, self-contained activities with word-safe Korean instructions. */
+.kiln-minigame{position:fixed;inset:59px 14px 26px;z-index:30;border-radius:12px;background:#f1e3cce8;backdrop-filter:blur(2px);padding:12px}
+.kiln-minigame .minigame-card{width:min(620px,100%);padding:19px 25px;max-height:100%;box-sizing:border-box;border-radius:22px}
+.kiln-minigame h2{font-size:28px;line-height:1.3;margin:6px 0 10px;word-break:keep-all;overflow-wrap:normal}
+.kiln-minigame .mini-instruction{font-size:20px;line-height:1.55;min-height:0;margin:0 0 14px;word-break:keep-all;overflow-wrap:normal}
+.kiln-minigame .mini-status{font-size:19px;line-height:1.5;min-height:26px;margin:10px 0;word-break:keep-all;overflow-wrap:normal}
+.kiln-minigame .bellows-button{font-size:20px;min-height:51px;line-height:1.4;padding:10px 16px;word-break:keep-all}
+.kiln-minigame .mini-controls{gap:14px;margin-top:12px}
+.kiln-minigame .mini-controls button{font-size:19px;padding:8px 18px;min-height:40px;line-height:1.3}
+.kiln-minigame .mini-progress-track{height:10px}
+.kiln-minigame .heat-meter{height:38px;margin:20px 0 16px}
+.gesture-game .minigame-card{width:min(650px,100%);padding:14px 24px}
+.gesture-game h2{margin:3px 0 6px;font-size:26px}
+.gesture-game .mini-instruction{font-size:19px;margin-bottom:8px;line-height:1.4}
+.gesture-stage{width:100%;height:200px;display:flex;align-items:center;justify-content:center;background:#fff8e8;border:2px solid #c5a57f;border-radius:16px;overflow:hidden}
+.kiln-gesture-canvas{height:100%;width:auto;max-width:100%;display:block;touch-action:none;cursor:grab;outline:none}
+.kiln-gesture-canvas.held{cursor:grabbing}
+.kiln-gesture-canvas:focus-visible{outline:2px dashed #a8885e;outline-offset:-4px;border-radius:12px}
+.gesture-keyboard{font-size:17px!important;line-height:1.4;color:#9c795c;margin:5px 0 8px;word-break:keep-all}
+.gesture-game .mini-status{margin:6px 0;font-size:18px}
+.gesture-game.paused .gesture-stage{filter:grayscale(.7);opacity:.6}
+@media(max-height:650px){
+ .kiln-minigame{inset:52px 10px 23px;padding:8px}
+ .kiln-minigame .minigame-card{padding:13px 20px}
+ .kiln-minigame h2{font-size:25px;margin:4px 0 7px}
+ .kiln-minigame .mini-instruction{font-size:17px;line-height:1.45;margin-bottom:10px}
+ .kiln-minigame .mini-status{font-size:17px;margin:7px 0;min-height:24px}
+ .kiln-minigame .bellows-button{font-size:18px;min-height:46px;padding:8px 12px}
+ .kiln-minigame .mini-controls{margin-top:9px}
+ .kiln-minigame .mini-controls button{font-size:17px;min-height:36px;padding:7px 15px}
+ .gesture-game .minigame-card{padding:10px 20px}
+ .gesture-game h2{font-size:23px}
+ .gesture-game .mini-instruction{font-size:17px;margin-bottom:6px;line-height:1.4}
+ .gesture-stage{height:180px}
+ .gesture-keyboard{font-size:16px!important;margin:4px 0 6px}
+ .gesture-game .mini-status{font-size:17px;margin:5px 0}
+}

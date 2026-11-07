@@ -1,0 +1,69 @@
+/* Four real pottery copies sit directly on the shop counter, without a board. */
+.four-inspection{background-image:url('./assets/scenes/counter.webp')}
+.four-inspection::before{content:'';position:absolute;inset:0;background:#fff3d429;pointer-events:none}
+.four-inspection .station-heading>span{font-size:18px}
+.inspection-intro{position:absolute;top:62px;left:5%;right:5%;display:flex;justify-content:space-between;align-items:center;gap:24px;z-index:2;pointer-events:none}
+.inspection-intro>div:first-child{padding:13px 22px;border:2px solid #b3937b;background:#fff4ddeb;border-radius:16px}
+.inspection-intro h2{font-size:24px;line-height:1.3;margin:0 0 6px;color:#795553}
+.inspection-intro p{font-size:18px;line-height:1.55;margin:0;color:#856451;word-break:keep-all}
+.inspection-tool-note{display:flex;align-items:center;gap:10px;font-size:17px;line-height:1.5;padding:9px 18px;background:#f9e6c6ec;border:2px solid #b7977e;border-radius:15px;color:#835d4e}
+.inspection-tool-note>svg{width:40px;height:62px;rotate:12deg}
+.inspection-lineup{position:absolute;left:4%;right:4%;top:calc(var(--inspection-baseline,86%) - min(330px,48vh));height:min(330px,48vh);display:grid;grid-template-columns:repeat(4,minmax(0,1fr));align-items:end;gap:16px;z-index:3}
+.inspection-pot{position:relative;display:block;justify-self:center;width:100%;height:auto;aspect-ratio:1;max-height:100%;max-width:330px;border:0;padding:0;background:transparent;box-shadow:none;border-radius:24px;cursor:crosshair;color:#805c4e;touch-action:manipulation}
+.inspection-pot:disabled{opacity:1;cursor:default}
+.inspection-pot:not(:disabled):hover .inspection-pot-art{filter:drop-shadow(0 0 8px #fff1ab)}
+.inspection-pot:focus-visible{outline:3px dashed #a47f55;outline-offset:6px}
+.inspection-pot-art{display:block;position:absolute;inset:0;transform-origin:50% 98%;pointer-events:none}
+.inspection-pot-art img{width:100%;height:100%;object-fit:contain;display:block;user-select:none;-webkit-user-drag:none}
+.inspection-pot-number{position:absolute;left:50%;bottom:-31px;translate:-50% 0;padding:3px 15px;background:#fff2d6ed;border:1.5px solid #a98772;border-radius:20px;font-size:17px;white-space:nowrap}
+.inspection-pot.is-broken .inspection-pot-art{display:none}
+.inspection-pot.is-broken .inspection-pot-number{font-size:14px;color:#957261;background:#edd4b8bd;border-color:#b3977e}
+.inspection-hammer{position:absolute;left:32.5%;top:calc(var(--hit-y,50%) - 22%);height:46%;width:35%;transform-origin:50% 85%;opacity:0;pointer-events:none;z-index:8}
+.inspection-hammer svg{width:100%;height:100%;overflow:visible}
+.inspection-pot.is-striking .inspection-hammer{animation:inspection-hammer .67s ease-in-out both}
+@keyframes inspection-hammer{0%{opacity:1;transform:translate(45%,-35%) rotate(55deg)}32%{opacity:1;transform:translate(0,26%) rotate(0)}42%{opacity:1;transform:translate(0,18%) rotate(6deg)}76%{opacity:1;transform:translate(25%,-5%) rotate(25deg)}100%{opacity:0;transform:translate(45%,-30%) rotate(48deg)}}
+.inspection-impact{position:absolute;left:50%;top:var(--hit-y,50%);translate:-50% -50%;font-size:90px;color:#ffde8c;text-shadow:0 0 12px #fff4c9;opacity:0;pointer-events:none;z-index:9}
+.inspection-pot.is-shattering .inspection-impact{animation:inspection-flash .3s ease-out both}
+@keyframes inspection-flash{0%{opacity:1;scale:.5}35%{opacity:1;scale:1.2}100%{opacity:0;scale:1.6}}
+.inspection-pot.is-shattering .inspection-pot-art{animation:inspection-vanish .16s ease-out both}
+@keyframes inspection-vanish{0%{opacity:1;transform:scale(1.02)}100%{opacity:0;transform:scale(.92)}}
+.inspection-shards{position:absolute;inset:0;opacity:0;pointer-events:none}
+.ceramic-shard{position:absolute;left:50%;top:98%;width:var(--shard-size);height:calc(var(--shard-size)*.8);background:var(--shard-light);clip-path:polygon(9% 11%,72% 0,100% 56%,57% 100%,0 72%);box-shadow:inset 3px 3px #d6dfb7;transform:translate(var(--shard-x),var(--shard-y)) rotate(var(--shard-turn));border:1px solid #67806b;filter:drop-shadow(0 2px 1px #70564560)}
+.inspection-pot.is-shattering .inspection-shards,.inspection-pot.is-broken .inspection-shards{opacity:1}
+.inspection-pot.is-shattering .ceramic-shard{animation:inspection-shard .72s cubic-bezier(.14,.58,.47,1) var(--shard-delay) both}
+@keyframes inspection-shard{0%{opacity:0;transform:translate(0,var(--shatter-rise,-110px)) rotate(0)}12%{opacity:1}55%{transform:translate(calc(var(--shard-x)*1.35),calc(var(--shard-y) - 68px)) rotate(calc(var(--shard-turn)*.7))}82%{transform:translate(var(--shard-x),calc(var(--shard-y) + 8px)) rotate(var(--shard-turn))}100%{opacity:1;transform:translate(var(--shard-x),var(--shard-y)) rotate(var(--shard-turn))}}
+.inspection-note{position:absolute;top:calc(var(--inspection-baseline,86%) + 41px);left:24%;right:24%;margin:0;text-align:center;color:#704f44;font-size:17px;line-height:1.4;text-shadow:0 1px #ffeed1;z-index:4}
+.inspection-navigation .primary{font-size:20px;min-height:46px}
+.inspection-navigation>span{font-size:15px;color:#886757}
+.inspection-kept-seal{position:absolute;top:2%;left:50%;translate:-50% -100%;padding:7px 18px;background:#eff3ce;border:2px solid #8b9e71;border-radius:24px;white-space:nowrap;color:#668254;font-size:20px}
+.is-complete .inspection-lineup .inspection-pot.is-kept{position:absolute;width:min(300px,31vw);height:min(300px,31vw);left:50%;bottom:0;translate:-50% 0;filter:drop-shadow(0 0 20px #fff4b8)}
+.is-complete .inspection-pot.is-broken{opacity:.48}
+.is-complete .inspection-note{display:none}
+.inspection-outcome{position:absolute;left:50%;top:44%;translate:-50% -50%;z-index:20;display:flex;flex-direction:column;align-items:center;gap:12px;width:min(480px,70%);padding:24px 30px;background:#fff2ddf5;border:3px solid #b7826d;border-radius:28px;box-shadow:0 8px 0 #aa795a35,0 0 0 100vmax #674e3e35;text-align:center;animation:inspection-result .35s ease-out}
+.inspection-outcome-spark{font-size:20px;color:#b98269}
+.inspection-outcome h2{font-size:55px;line-height:1.1;color:#aa6c62;margin:0}
+.inspection-outcome p{font-size:23px;line-height:1.5;color:#835c51;margin:0;word-break:keep-all}
+.inspection-outcome .primary{font-size:21px;min-height:48px;padding:10px 25px;margin-top:5px}
+@keyframes inspection-result{from{opacity:0;scale:.88}to{opacity:1;scale:1}}
+@media(max-height:650px){
+ .inspection-intro{top:48px;left:4%;right:4%;gap:14px}
+ .inspection-intro>div:first-child{padding:10px 16px}
+ .inspection-intro h2{font-size:20px}
+ .inspection-intro p{font-size:16px;line-height:1.4}
+ .inspection-tool-note{font-size:15px;padding:8px 12px}
+ .inspection-tool-note>svg{height:48px;width:32px}
+ .inspection-lineup{left:3%;right:3%;gap:10px;top:calc(var(--inspection-baseline,86%) - min(285px,45vh));height:min(285px,45vh)}
+ .inspection-pot-number{font-size:15px;bottom:-27px;padding:2px 12px}
+ .inspection-note{top:calc(var(--inspection-baseline,86%) + 31px);font-size:14px;left:25%;right:25%}
+ .inspection-navigation .primary{font-size:18px;min-height:40px}
+ .inspection-navigation>span{font-size:13px}
+ .inspection-outcome{padding:18px 24px;gap:9px}
+ .inspection-outcome h2{font-size:44px}.inspection-outcome p{font-size:20px}
+}
+@media(prefers-reduced-motion:reduce){
+ .inspection-pot.is-striking .inspection-hammer{animation:none!important;opacity:1;transform:translate(0,26%) rotate(0)}
+ .inspection-pot.is-shattering .inspection-pot-art{animation:none!important;opacity:0}
+ .inspection-pot.is-shattering .inspection-impact{animation:none!important;opacity:.8;font-size:55px}
+ .inspection-pot.is-shattering .ceramic-shard{animation:none!important}
+ .inspection-outcome{animation:none!important}
+}

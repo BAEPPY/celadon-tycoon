@@ -3,7 +3,7 @@ export const CLAYS=Object.freeze([
  {id:'white',name:'백토',label:'밝은 상감용 흙',color:'#f3e9d2',description:'흰 상감무늬에 사용할 흙이에요. 물에 개어 파인 무늬를 채울 때 사용해요.'},
  {id:'dark',name:'자토',label:'짙은 상감용 색흙',color:'#815958',description:'색이 다른 상감무늬에 사용할 흙이에요. 실제 흙과 가마 조건에 따라 구운 뒤의 색은 달라져요.'},
 ]);
-export function freshClay(){return {body:false,slip:'white',kneads:0,prepared:false};}
+export function freshClay(){return {body:true,slip:'white',kneads:0,prepared:false};}
 export function chooseClay(state,id){if(!CLAYS.some(c=>c.id===id))return {...state};return id==='celadon'?{...state,body:true}:{...state,slip:id};}
 export function kneadClay(state){if(!state.body||state.prepared)return {...state};const kneads=Math.min(6,state.kneads+1);return {...state,kneads,prepared:kneads>=6};}
 export class ClayKneading {

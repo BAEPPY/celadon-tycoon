@@ -1,0 +1,238 @@
+{
+  "generator": "OpenAI image generation",
+  "style": "Original Goryeo pottery workshop illustrations; three half-body expressions matching the existing five character sheets",
+  "moods": [
+    "happy",
+    "uncertain",
+    "angry"
+  ],
+  "width": 512,
+  "height": 768,
+  "characters": [
+    {
+      "id": "king",
+      "source": "source/king.png",
+      "sourceSha256": "7c34f1e44744026a6938dd69fa1e3f559a74cccc30b2fc755769f82f8d99b9f4",
+      "sourceWidth": 2172,
+      "sourceHeight": 724,
+      "frames": [
+        {
+          "mood": "happy",
+          "src": "./assets/characters/reactions/king-happy.webp",
+          "sourceCell": 0,
+          "sourceCrop": {
+            "left": 149,
+            "top": 14,
+            "width": 428,
+            "height": 696
+          },
+          "sha256": "1f141e6f86dc371b42e123222299f499a6935f659aa0c7fbb064b47508aacc2f"
+        },
+        {
+          "mood": "uncertain",
+          "src": "./assets/characters/reactions/king-uncertain.webp",
+          "sourceCell": 1,
+          "sourceCrop": {
+            "left": 873,
+            "top": 13,
+            "width": 428,
+            "height": 697
+          },
+          "sha256": "330ea72737adca35fb86b61ec7210254f34883b738ed7dea396e71704218a5ed"
+        },
+        {
+          "mood": "angry",
+          "src": "./assets/characters/reactions/king-angry.webp",
+          "sourceCell": 2,
+          "sourceCrop": {
+            "left": 1597,
+            "top": 14,
+            "width": 428,
+            "height": 696
+          },
+          "sha256": "9eacb45afe992cf999709102ea1e7be869164a1c039183395c20b63dfa22df1f"
+        }
+      ]
+    },
+    {
+      "id": "queen",
+      "source": "source/queen.png",
+      "sourceSha256": "443eaba07f8dd72836e169dc450de57006c5f6d1d25977d0961cd24246c365ca",
+      "sourceWidth": 2172,
+      "sourceHeight": 724,
+      "frames": [
+        {
+          "mood": "happy",
+          "src": "./assets/characters/reactions/queen-happy.webp",
+          "sourceCell": 0,
+          "sourceCrop": {
+            "left": 143,
+            "top": 12,
+            "width": 459,
+            "height": 700
+          },
+          "sha256": "9fc14e702c8e33296d8b69d6f5d81ec9cdd4c4677b6d74744f69a834ad21a4a5"
+        },
+        {
+          "mood": "uncertain",
+          "src": "./assets/characters/reactions/queen-uncertain.webp",
+          "sourceCell": 1,
+          "sourceCrop": {
+            "left": 855,
+            "top": 12,
+            "width": 461,
+            "height": 700
+          },
+          "sha256": "91c409af790e6469a64706d802ab93113060287a696ac5dd06459f1d6d293399"
+        },
+        {
+          "mood": "angry",
+          "src": "./assets/characters/reactions/queen-angry.webp",
+          "sourceCell": 2,
+          "sourceCrop": {
+            "left": 1568,
+            "top": 13,
+            "width": 460,
+            "height": 700
+          },
+          "sha256": "9431d07df00eb37ba7f8cf866d6bbc72f558cb6dc56c93dc529831d990d7d756"
+        }
+      ]
+    },
+    {
+      "id": "noble",
+      "source": "source/noble.png",
+      "sourceSha256": "ec33f47813e37072b952d71612f74dd3383ce4ace5d17c31718ae4011180aa76",
+      "sourceWidth": 2172,
+      "sourceHeight": 724,
+      "frames": [
+        {
+          "mood": "happy",
+          "src": "./assets/characters/reactions/noble-happy.webp",
+          "sourceCell": 0,
+          "sourceCrop": {
+            "left": 127,
+            "top": 13,
+            "width": 471,
+            "height": 697
+          },
+          "sha256": "9c60ea31aa4cf4584d6f2a5cfe43a77a9594e9c924c98f121164b2f855e6fd94"
+        },
+        {
+          "mood": "uncertain",
+          "src": "./assets/characters/reactions/noble-uncertain.webp",
+          "sourceCell": 1,
+          "sourceCrop": {
+            "left": 851,
+            "top": 13,
+            "width": 471,
+            "height": 697
+          },
+          "sha256": "6a15e8a4613616fe566d09d26494004d6c065df178aaf1c70b5952b609bec868"
+        },
+        {
+          "mood": "angry",
+          "src": "./assets/characters/reactions/noble-angry.webp",
+          "sourceCell": 2,
+          "sourceCrop": {
+            "left": 1575,
+            "top": 13,
+            "width": 471,
+            "height": 697
+          },
+          "sha256": "959f6932ed14db49bf1a29fa60c69daa0721d05782ac0b8a50c0b0394633f148"
+        }
+      ]
+    },
+    {
+      "id": "noblewoman",
+      "source": "source/noblewoman.png",
+      "sourceSha256": "3d2a2e9e471b2f000eaa89364c5ea622bac2b078ba1817563dae72e0426c79c7",
+      "sourceWidth": 2172,
+      "sourceHeight": 724,
+      "frames": [
+        {
+          "mood": "happy",
+          "src": "./assets/characters/reactions/noblewoman-happy.webp",
+          "sourceCell": 0,
+          "sourceCrop": {
+            "left": 111,
+            "top": 11,
+            "width": 502,
+            "height": 705
+          },
+          "sha256": "e097fd692e679906fac813f617d45ff8505e2be19fda038db024876779461141"
+        },
+        {
+          "mood": "uncertain",
+          "src": "./assets/characters/reactions/noblewoman-uncertain.webp",
+          "sourceCell": 1,
+          "sourceCrop": {
+            "left": 835,
+            "top": 11,
+            "width": 502,
+            "height": 705
+          },
+          "sha256": "ac7551d7c813fe58c130a71ebdfcd58703d419696c481e35bb096d10e7741cb8"
+        },
+        {
+          "mood": "angry",
+          "src": "./assets/characters/reactions/noblewoman-angry.webp",
+          "sourceCell": 2,
+          "sourceCrop": {
+            "left": 1559,
+            "top": 11,
+            "width": 502,
+            "height": 705
+          },
+          "sha256": "cb8307705f0fd208816ff9005736b5759e5f90955283c4a5b28ec10c33edca3d"
+        }
+      ]
+    },
+    {
+      "id": "artisan",
+      "source": "source/artisan.png",
+      "sourceSha256": "141ecec145823b870626f928703407d9e94a857f518cb02d59a13e4a61e963ff",
+      "sourceWidth": 2172,
+      "sourceHeight": 724,
+      "frames": [
+        {
+          "mood": "happy",
+          "src": "./assets/characters/reactions/artisan-happy.webp",
+          "sourceCell": 0,
+          "sourceCrop": {
+            "left": 175,
+            "top": 4,
+            "width": 398,
+            "height": 714
+          },
+          "sha256": "170a2f303648ae86aea02cc3b12d017c6962ebd404e4d8d3bda9841f4a9029db"
+        },
+        {
+          "mood": "uncertain",
+          "src": "./assets/characters/reactions/artisan-uncertain.webp",
+          "sourceCell": 1,
+          "sourceCrop": {
+            "left": 899,
+            "top": 4,
+            "width": 398,
+            "height": 714
+          },
+          "sha256": "d9517ac83445cecd03faa637c41b28211de82e819970bee704722a880a15a2dc"
+        },
+        {
+          "mood": "angry",
+          "src": "./assets/characters/reactions/artisan-angry.webp",
+          "sourceCell": 2,
+          "sourceCrop": {
+            "left": 1623,
+            "top": 4,
+            "width": 398,
+            "height": 714
+          },
+          "sha256": "530cdd8d3405b2507e6caa49ce5239fa12ed052a0d12adb4f10b2011330172e1"
+        }
+      ]
+    }
+  ]
+}

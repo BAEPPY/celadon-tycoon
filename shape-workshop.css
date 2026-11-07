@@ -20,3 +20,5 @@
 @media(max-height:650px){.shaping-scene::before{inset:119px 0 0}.shaping-scene .station-info{padding:12px;gap:8px}.shaping-scene .station-info h2{font-size:19px}.shaping-scene .station-info p{font-size:16px;line-height:1.4}.shaping-scene #sculpt-status{font-size:16px}.shaping-scene .station-workspace{top:126px;bottom:57px}.shaping-scene .station-nav .primary{font-size:18px;min-height:40px}.sculpt-success{padding:12px;gap:5px}.sculpt-success strong{font-size:44px}.sculpt-success>span:not(.success-sparkles){font-size:17px}.sculpt-success small{font-size:14px}.success-sparkles{font-size:21px}}
 @keyframes clay-success-out{to{opacity:0;visibility:hidden}}
 @media(prefers-reduced-motion:reduce){.sculpt-success{animation:clay-success-out 0s 2.5s forwards!important}}
+.sculpt-key-hint{position:absolute;left:50%;bottom:1px;transform:translateX(-50%);z-index:8;width:max-content;max-width:94%;padding:5px 10px;border-radius:8px;background:#fff3d8e8;color:#80624c;font-size:12px;line-height:1.4;text-align:center;pointer-events:none;opacity:0}
+.sculpt-canvas:focus-visible~.sculpt-key-hint{opacity:1}

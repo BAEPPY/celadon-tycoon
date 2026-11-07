@@ -5,11 +5,16 @@
   "type": "module",
   "scripts": {
     "start": "node server.mjs",
-    "test": "node --test domain.test.js models.test.js arcade.test.js illustration.test.js",
+    "test": "node --test domain.test.js models.test.js arcade.test.js illustration.test.js assessment.test.js inspection.test.js surface-warp.test.js reactions.test.js workflow.test.js",
     "build": "node build.mjs",
     "test:browser": "node tests/browser-workshop.cjs",
     "test:entry": "node tests/browser-entry.cjs",
-    "test:shaping": "node tests/browser-shaping.cjs"
+    "test:shaping": "node tests/browser-shaping.cjs",
+    "test:kiln": "node tests/browser-kiln.cjs",
+    "test:inspection": "node tests/browser-inspection.cjs",
+    "test:decoration": "node tests/browser-decoration.cjs",
+    "test:assessment": "node tests/browser-assessment.cjs",
+    "test:ui": "node tests/browser-ui.cjs"
   },
   "dependencies": {
     "three": "0.180.0",

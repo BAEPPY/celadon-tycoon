@@ -42,7 +42,7 @@ async function saved(page) {
   );
 }
 async function surfacePoint(page, u, v) {
-  return page.locator(".illustration-viewport>canvas").evaluate(
+  return page.locator(".illustration-viewport>canvas").first().evaluate(
     (canvas, { u, v }) => {
       const r = canvas.getBoundingClientRect(),
         box = JSON.parse(canvas.parentElement.dataset.objectBox);
@@ -54,16 +54,20 @@ async function surfacePoint(page, u, v) {
     { u, v },
   );
 }
-async function sample(page, u = 0.5, v = 0.55) {
-  return page.locator(".illustration-viewport>canvas").evaluate(
-    (canvas, { u, v }) => {
-      const box = JSON.parse(canvas.parentElement.dataset.objectBox),
-        x = Math.round((box[0] + u * box[2]) * canvas.width),
-        y = Math.round((box[1] + v * box[3]) * canvas.height);
-      return [...canvas.getContext("2d").getImageData(x, y, 1, 1).data];
-    },
-    { u, v },
-  );
+async function surfacePixels(page) {
+  return page.locator('.illustration-viewport>canvas').first().evaluate(canvas => {
+    const b=JSON.parse(canvas.parentElement.dataset.objectBox),x=Math.floor((b[0]+b[2]*.28)*canvas.width),y=Math.floor((b[1]+b[3]*.32)*canvas.height),w=Math.floor(b[2]*.44*canvas.width),h=Math.floor(b[3]*.46*canvas.height);
+    return [...canvas.getContext('2d').getImageData(x,y,w,h).data];
+  });
+}
+async function sweepInlay(page,mode) {
+  const from=await surfacePoint(page,.13,.18),to=await surfacePoint(page,.87,.9);
+  for(let row=0;row<15;row++) {
+    if((await saved(page)).inlay?.[mode+'Done'])break;
+    const y=from.y+(to.y-from.y)*row/14,x0=row%2?to.x:from.x,x1=row%2?from.x:to.x;
+    await page.mouse.move(x0,y);await page.mouse.down();await page.mouse.move(x1,y,{steps:12});await page.mouse.up();
+  }
+  await page.waitForFunction(({key,mode})=>JSON.parse(localStorage.getItem(key)).draft.inlay?.[mode+'Done'],{key:KEY,mode});
 }
 async function turn(page, n) {
   for (let i = 0; i < n; i++) {
@@ -79,17 +83,22 @@ async function fire(page, kind, length) {
       document.querySelector(".minigame-overlay")?.dataset.value !== undefined,
   );
   if (kind === "dry") {
-    await page.waitForFunction(() => {
-      const v = Number(
-        document.querySelector(".minigame-overlay")?.dataset.value,
-      );
-      return v > 0.61 && v < 0.72;
-    });
-    await page.keyboard.press("Space");
+    const canvas = page.locator(".kiln-gesture-canvas"), box = await canvas.boundingBox();
+    for (const y of [.27, .52, .77]) {
+      await page.mouse.move(box.x + box.width * .12, box.y + box.height * y);
+      await page.mouse.down();
+      await page.mouse.move(box.x + box.width * .88, box.y + box.height * y, {steps: 12});
+      await page.mouse.up();
+    }
   } else if (kind === "glaze") {
-    await page.keyboard.down("Space");
-    await page.waitForSelector(".mini-won");
-    await page.keyboard.up("Space");
+    const canvas = page.locator(".kiln-gesture-canvas"), box = await canvas.boundingBox();
+    for (const y of [.12, .25, .38, .51, .64, .77, .9]) {
+      if (await page.locator(".mini-won").count()) break;
+      await page.mouse.move(box.x + box.width * .24, box.y + box.height * y);
+      await page.mouse.down();
+      await page.mouse.move(box.x + box.width * .76, box.y + box.height * y, {steps: 12});
+      await page.mouse.up();
+    }
   } else {
     let held = false;
     for (let i = 0; i < 400; i++) {
@@ -128,6 +137,7 @@ async function fire(page, kind, length) {
   try {
     const page = await browser.newPage({
       viewport: { width: 1366, height: 768 },
+      reducedMotion: "reduce",
     });
     page.setDefaultTimeout(60000);
     const errors = [],
@@ -145,10 +155,9 @@ async function fire(page, kind, length) {
     await page.click("[data-action=new-order]");
     await page.waitForSelector(".counter-scene");
     await page.click("[data-action=accept]");
-    await page.click("[data-clay=celadon]");
-    await page.click("[data-clay=dark]");
+    assert.equal((await saved(page)).clay.body, true, "body clay is prepared automatically");
     await page.locator(".knead-pad").focus();
-    for (let i = 0; i < 6; i++) await page.keyboard.press("Space");
+    for (let i = 0; i < 6; i++) { await page.keyboard.press("Space"); await page.waitForTimeout(160); }
     await page.click("[data-action=clay-ready]");
     await page.click("[data-shape=stool]");
     await page.waitForFunction(
@@ -160,7 +169,7 @@ async function fire(page, kind, length) {
     const sculptCanvas = page.locator(".sculpt-canvas");
     const box = await sculptCanvas.boundingBox();
     // Pull actual clay points towards their outline; visiting the outline alone is insufficient.
-    for (let pass = 0; pass < 3; pass++) {
+    for (let pass = 0; pass < 4; pass++) {
       if (!(await page.locator("[data-action=next-shape]").isDisabled())) break;
       const guide = JSON.parse(await sculptCanvas.getAttribute("data-guide"));
       for (let i = 0; i < guide.length; i += 3) {
@@ -177,30 +186,21 @@ async function fire(page, kind, length) {
     await page.click("[data-action=next-shape]");
     await page.click("[data-technique=openwork]");
     await page.click("[data-pattern=cloud]");
-    const before = await sample(page);
-    await page.click("[data-action=stamp]");
-    await page.waitForTimeout(300);
-    const inside = await sample(page);
-    assert.ok(inside[3] > 240);
-    assert.ok(inside[0] < before[0] - 10);
-    await turn(page, 12);
-    assert.equal(
-      await page
-        .locator(".illustration-viewport")
-        .getAttribute("data-view-frame"),
-      "12",
-    );
-    assert.ok(
-      (await sample(page))[0] > inside[0] + 10,
-      "opposite wall remains intact",
-    );
-    const q = await surfacePoint(page, 0.5, 0.55);
-    await page.mouse.click(q.x, q.y);
-    await page.waitForTimeout(400);
-    assert.ok(
-      (await sample(page))[3] < 20,
-      "background only appears after both walls are cut",
-    );
+    await page.waitForTimeout(350);
+    const before=await surfacePixels(page),frontPoint=await surfacePoint(page,.5,.55);
+    await page.mouse.click(frontPoint.x,frontPoint.y);
+    await page.waitForTimeout(350);
+    const inside=await surfacePixels(page),cutPixels=[];
+    for(let i=0;i<before.length;i+=4)if(before[i+3]>240&&inside[i+3]>240&&before[i]-inside[i]>15)cutPixels.push(i);
+    assert.ok(cutPixels.length>30, 'front cuts reveal a darker opaque inner wall');
+    await turn(page,12);
+    assert.equal(await page.locator('.illustration-viewport').getAttribute('data-view-frame'),'12');
+    const farWall=await surfacePixels(page);
+    assert.ok(cutPixels.filter(i=>farWall[i+3]>240).length>cutPixels.length*.9,'the uncut opposite wall remains opaque');
+    const q=await surfacePoint(page,.5,.55);
+    await page.mouse.click(q.x,q.y);await page.waitForTimeout(350);
+    const both=await surfacePixels(page);
+    assert.ok(cutPixels.filter(i=>both[i+3]<20).length>20,'only matching cuts on both walls reveal the background');
     await page.click("[data-action=undo]");
     await turn(page, 12);
     await page.click("[data-technique=inlay]");
@@ -234,35 +234,44 @@ async function fire(page, kind, length) {
     await page.mouse.up();
     assert.equal((await saved(page)).recognition.id, "cloud");
     await page.selectOption("#drawing-label", "cloud");
-    await page.click("[data-action=decorate]");
-    await page.click("[data-action=decorate]");
-    await page.click("[data-action=next-decor]");
+    await page.click('[data-action=inlay-fill]');
+    await page.waitForSelector('.inlay-canvas[data-mode=fill]');
+    await page.click('[data-slip=dark]');
+    assert.equal(await page.locator('[data-action=inlay-wipe]').isDisabled(),true);
+    await sweepInlay(page,'fill');
+    await page.click('[data-action=inlay-wipe]');
+    await page.waitForSelector('.inlay-canvas[data-mode=wipe]');
+    assert.equal(await page.locator('[data-action=next-decor]').isDisabled(),true);
+    await sweepInlay(page,'wipe');
+    assert.equal((await saved(page)).clay.slip,'dark');
+    assert.equal((await saved(page)).decorDone,true);
+    await page.click('[data-action=next-decor]');
     for (const [i, kind] of ["dry", "biscuit", "glaze", "fire"].entries())
       await fire(page, kind, i + 1);
     await page.click("[data-action=next-fire]");
-    for (let i = 0; i < 4; i++) {
-      const kind = await page
-        .locator("[data-sample-kind]")
-        .getAttribute("data-sample-kind");
-      await page.click(
-        `[data-action=inspection-${kind === "sound" ? "deliver" : "hold"}]`,
-      );
-      await page.click("[data-action=inspection-next]");
+    await page.waitForSelector('[data-inspection-ready=true]');
+    assert.equal(await page.locator('.inspection-pot').count(),4);
+    for(const kind of ['crack','warped','glaze']){
+      await page.click(`[data-sample-kind=${kind}]`);
+      await page.waitForSelector(`[data-sample-kind=${kind}].is-broken`);
+      await page.waitForSelector('[data-inspection-ready=true]');
     }
-    assert.equal((await saved(page)).inspection.correct, 4);
+    assert.equal((await saved(page)).inspection.correct,3);
+    assert.equal(await page.locator('.inspection-pot.is-kept').getAttribute('data-sample-kind'),'sound');
     await page.click("[data-action=inspection-finish]");
     await page.click("[data-action=explain]");
-    await page.fill("#explain-use", "앉아서 쉴 때 사용하는 청자 의자예요.");
+    await page.fill("#explain-use", "윗면이 평평하고 몸통이 튼튼해서 사람이 편하게 앉을 수 있기 때문이다.");
     await page.fill(
       "#explain-beauty",
-      "자토로 구름을 그려 상감의 솜씨를 담았어요.",
+      "파인 구름 무늬에 검은 색흙을 채우고 겉을 닦아 푸른 바탕에서 무늬가 또렷하게 보이기 때문이다.",
     );
     await page.click("[data-action=submit]");
-    await page.waitForSelector(".score-big");
+    await page.waitForSelector(".customer-review-scene");
+    assert.equal((await saved(page)).assessment.accepted,true);
+    assert.ok((await saved(page)).title.startsWith("청자"));
     const download = page.waitForEvent("download");
-    await page.locator("#popup [data-action=download]").click();
+    await page.locator(".customer-review-scene [data-action=download]").click();
     assert.match((await download).suggestedFilename(), /\.png$/);
-    await page.click("[data-action=close-popup]");
     await page.reload();
     await page.click("[data-action=gallery]");
     assert.equal(await page.locator(".gallery-grid article").count(), 1);
@@ -276,7 +285,7 @@ async function fire(page, kind, length) {
     );
     await page.keyboard.press("Escape");
     console.log(
-      "Counter → clay → sculpt → independent wall cuts → drawing → kiln → inspection → delivery → gallery passed.",
+      "Counter → auto clay → free sculpt → independent curved wall cuts → drawing → dark slip filling/wiping → varied kiln games → four-pot inspection → explanation assessment → customer reaction → gallery passed.",
     );
     const root = pathToFileURL(path.resolve(__dirname, "..") + path.sep),
       { ROTATION_IDS } = await import(new URL("rotation-rules.js", root)),
