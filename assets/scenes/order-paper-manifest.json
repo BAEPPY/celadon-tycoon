@@ -1,0 +1,16 @@
+{
+  "generator": "OpenAI image generation",
+  "generatedAt": "2026-11-07",
+  "purpose": "Original blank aged Korean hanji sheet for the today’s order summary card; quiet light centre, soft brown deckle edges and transparent exterior",
+  "source": "source/order-paper.png",
+  "src": "order-paper.webp",
+  "sourceWidth": 1448,
+  "sourceHeight": 1086,
+  "width": 640,
+  "height": 480,
+  "alpha": true,
+  "processing": "Proportional resize to 640 pixels wide and WebP encoding; source artwork preserved without retouching",
+  "sourceSha256": "752460a78a61569cbe6dd1591f1af8082da36d48922e94bd8a22b4b2759254ae",
+  "runtimeSha256": "2a70c56e1e220795567b07594e045abaa44070fb496f75b2e381a27edfdc555d",
+  "reference": "Original text-prompt generation. No stock image, watermarked source or reference pixels were supplied."
+}

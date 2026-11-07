@@ -14,7 +14,8 @@
     "test:inspection": "node tests/browser-inspection.cjs",
     "test:decoration": "node tests/browser-decoration.cjs",
     "test:assessment": "node tests/browser-assessment.cjs",
-    "test:ui": "node tests/browser-ui.cjs"
+    "test:ui": "node tests/browser-ui.cjs",
+    "test:dialogue": "node tests/browser-dialogue.cjs"
   },
   "dependencies": {
     "@vercel/oidc": "4.0.7",

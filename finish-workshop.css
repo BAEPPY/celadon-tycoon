@@ -98,3 +98,16 @@
 .drawing-meaning{display:block;margin-top:12px;font-size:16px;line-height:1.4}
 .drawing-meaning select{display:block;width:100%;min-width:0;margin-top:5px;padding:8px;font:inherit;color:#795650;background:#fff8e9;border:1px solid #b28a77;border-radius:6px}
 @media(max-height:650px){.drawing-meaning{font-size:15px;margin-top:9px}.drawing-meaning select{padding:6px}}
+
+/* Original hanji artwork: the transparent deckle edge replaces the UI frame.
+   Include the previous border width in padding to keep the text area stable. */
+.order-summary{
+ padding:15px 16px;
+ background:transparent url('./assets/scenes/order-paper.webp') center/100% 100% no-repeat;
+ border:0;
+ border-radius:0;
+ box-shadow:none;
+ color:#6f4d3e;
+}
+.order-summary dt,.order-summary .text-button{color:#79533f}
+@media(max-height:650px){.order-summary{padding:12px}}

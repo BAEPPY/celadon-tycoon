@@ -1,6 +1,6 @@
 {
   "generator": "OpenAI image generation",
-  "style": "Original Goryeo pottery workshop illustrations; three half-body expressions matching the existing five character sheets",
+  "style": "Original Goryeo pottery workshop illustrations; three half-body expressions matching the existing five character sheets. Uncertain expressions use individually edited, symmetrical kind-disappointed faces.",
   "moods": [
     "happy",
     "uncertain",
@@ -31,14 +31,18 @@
         {
           "mood": "uncertain",
           "src": "./assets/characters/reactions/king-uncertain.webp",
-          "sourceCell": 1,
           "sourceCrop": {
-            "left": 873,
-            "top": 13,
-            "width": 428,
-            "height": 697
+            "left": 0,
+            "top": 0,
+            "width": 1024,
+            "height": 1536
           },
-          "sha256": "330ea72737adca35fb86b61ec7210254f34883b738ed7dea396e71704218a5ed"
+          "sha256": "9eb6aed31495781eaaac651fdcaab55a2f4879421560f4d5ca34b78d9af27b4d",
+          "source": "source/king-uncertain-kind.png",
+          "sourceSha256": "52082bbb00b3cf1ba21ddcd7f80f66650994fb632ea50cb3e1a587afc9b4bb5a",
+          "sourceWidth": 1024,
+          "sourceHeight": 1536,
+          "expression": "Kind mild disappointment; symmetrical gently raised inner eyebrows, softly open eyes, level mouth corners. Facial edit preserves the original character and costume."
         },
         {
           "mood": "angry",
@@ -76,14 +80,18 @@
         {
           "mood": "uncertain",
           "src": "./assets/characters/reactions/queen-uncertain.webp",
-          "sourceCell": 1,
           "sourceCrop": {
-            "left": 855,
-            "top": 12,
-            "width": 461,
-            "height": 700
+            "left": 0,
+            "top": 0,
+            "width": 1024,
+            "height": 1536
           },
-          "sha256": "91c409af790e6469a64706d802ab93113060287a696ac5dd06459f1d6d293399"
+          "sha256": "b3eb45346b7944792876f52e953cd1236da1558ef9a6c7e16c41108736a29b76",
+          "source": "source/queen-uncertain-kind.png",
+          "sourceSha256": "564f10ba0f380cdf63154b498e4a62a3570cdd2dfc52bb1e2869613e7229740f",
+          "sourceWidth": 1024,
+          "sourceHeight": 1536,
+          "expression": "Kind mild disappointment; symmetrical gently raised inner eyebrows, softly open eyes, level mouth corners. Facial edit preserves the original character and costume."
         },
         {
           "mood": "angry",
@@ -121,14 +129,18 @@
         {
           "mood": "uncertain",
           "src": "./assets/characters/reactions/noble-uncertain.webp",
-          "sourceCell": 1,
           "sourceCrop": {
-            "left": 851,
-            "top": 13,
-            "width": 471,
-            "height": 697
+            "left": 0,
+            "top": 0,
+            "width": 1024,
+            "height": 1536
           },
-          "sha256": "6a15e8a4613616fe566d09d26494004d6c065df178aaf1c70b5952b609bec868"
+          "sha256": "eeab32b1257a4c19e8bb529cdd5a2eb21df60e68e37916d2d04f0e29d7f390d6",
+          "source": "source/noble-uncertain-kind.png",
+          "sourceSha256": "df0159d7dfc98bfb6467721b9e9e2ba8c633ceb90bf5eeabd4b33ab416c5d25f",
+          "sourceWidth": 1024,
+          "sourceHeight": 1536,
+          "expression": "Kind mild disappointment; symmetrical gently raised inner eyebrows, softly open eyes, level mouth corners. Facial edit preserves the original character and costume."
         },
         {
           "mood": "angry",
@@ -166,14 +178,18 @@
         {
           "mood": "uncertain",
           "src": "./assets/characters/reactions/noblewoman-uncertain.webp",
-          "sourceCell": 1,
           "sourceCrop": {
-            "left": 835,
-            "top": 11,
-            "width": 502,
-            "height": 705
+            "left": 0,
+            "top": 0,
+            "width": 1024,
+            "height": 1536
           },
-          "sha256": "ac7551d7c813fe58c130a71ebdfcd58703d419696c481e35bb096d10e7741cb8"
+          "sha256": "04bd8dcd66cb7f0120ffa81e9f4267bb60c2cf080967420c673ccc1519060b67",
+          "source": "source/noblewoman-uncertain-kind.png",
+          "sourceSha256": "a711147465343a58e883394581c3913e01aedc8269e254fed6d264b4df24a54a",
+          "sourceWidth": 1024,
+          "sourceHeight": 1536,
+          "expression": "Kind mild disappointment; symmetrical gently raised inner eyebrows, softly open eyes, level mouth corners. Facial edit preserves the original character and costume."
         },
         {
           "mood": "angry",
@@ -211,14 +227,18 @@
         {
           "mood": "uncertain",
           "src": "./assets/characters/reactions/artisan-uncertain.webp",
-          "sourceCell": 1,
           "sourceCrop": {
-            "left": 899,
-            "top": 4,
-            "width": 398,
-            "height": 714
+            "left": 0,
+            "top": 0,
+            "width": 1024,
+            "height": 1536
           },
-          "sha256": "d9517ac83445cecd03faa637c41b28211de82e819970bee704722a880a15a2dc"
+          "sha256": "ff59da9292600ff8f6770c86b31701b0807864e609ac1062ef5a61e9487cd1e8",
+          "source": "source/artisan-uncertain-kind.png",
+          "sourceSha256": "e2bd05badbdc742182973fd1f3e860da368bfde5571b52655120f8ce48aad454",
+          "sourceWidth": 1024,
+          "sourceHeight": 1536,
+          "expression": "Kind mild disappointment; symmetrical gently raised inner eyebrows, softly open eyes, level mouth corners. Facial edit preserves the original character and costume."
         },
         {
           "mood": "angry",

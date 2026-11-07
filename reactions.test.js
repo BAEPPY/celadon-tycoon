@@ -27,5 +27,20 @@ test('all 15 expression images preserve generated sources and recorded hashes',a
  const manifest=JSON.parse(await readFile(new URL('./assets/characters/reactions/manifest.json',import.meta.url),'utf8'));
  assert.deepEqual(manifest.moods,['happy','uncertain','angry']);assert.equal(manifest.characters.length,5);
  for(const char of manifest.characters){const original=await readFile(new URL('./assets/characters/reactions/'+char.source,import.meta.url));assert.equal(createHash('sha256').update(original).digest('hex'),char.sourceSha256);assert.equal(original[25],6,'source has alpha');assert.equal(char.frames.length,3);
- for(const frame of char.frames){const bytes=await readFile(new URL(frame.src,import.meta.url));assert.equal(createHash('sha256').update(bytes).digest('hex'),frame.sha256);assert.equal(bytes.subarray(8,12).toString(),'WEBP');}}
+ for(const frame of char.frames){if(frame.source){const source=await readFile(new URL('./assets/characters/reactions/'+frame.source,import.meta.url));assert.equal(createHash('sha256').update(source).digest('hex'),frame.sourceSha256);assert.equal(source.readUInt32BE(16),frame.sourceWidth);assert.equal(source.readUInt32BE(20),frame.sourceHeight);}const bytes=await readFile(new URL(frame.src,import.meta.url));assert.equal(createHash('sha256').update(bytes).digest('hex'),frame.sha256);assert.equal(bytes.subarray(8,12).toString(),'WEBP');}}
+});
+
+test('perfect construction with weak explanations praises the pot and asks only for its story',()=>{
+ const score={objective:80,self:0,total:80,breakdown:[{key:'use',score:40,max:40},{key:'process',score:30,max:30},{key:'design',score:10,max:10},{key:'selfUse',score:0,max:10,feedback:'이유를 보태 주세요.'},{key:'selfBeauty',score:0,max:10}]};
+ for(const character of CHARACTERS){const lines=new Set();for(let i=0;i<12;i++){const review=customerReview(ORDERS[0],score,{customerId:character.id,id:'explanation-'+i});assert.equal(review.mood,'uncertain');assert.equal(review.focus,'selfUse');assert.match(review.quote,/잘|맞|제대로|흐뭇|갖추|좋|완성|익혔/);assert.match(review.quote,/까닭|설명|이야기|생각|말로|들려|보태/);assert.doesNotMatch(review.headline+' '+review.quote,/형편없|주문과.*다르|모양.*다시 맞|쓰임을 놓|다시 빚|빠진 조건|고쳐/);lines.add(review.quote);}assert.ok(lines.size>=2);}
+});
+test('the actual deficient construction criterion takes precedence over low writing points',()=>{
+ const make=(key,feedback)=>({objective:key==='use'?40:key==='process'?50:70,total:key==='use'?40:key==='process'?50:70,breakdown:[{key:'use',score:key==='use'?0:40,max:40,feedback:key==='use'?feedback:''},{key:'process',score:key==='process'?0:30,max:30,feedback:key==='process'?feedback:''},{key:'design',score:key==='design'?0:10,max:10,feedback:key==='design'?feedback:''},{key:'selfUse',score:0,max:10}]});
+ for(const character of CHARACTERS){
+  const work={id:'criterion',customerId:character.id};
+  const use=customerReview(ORDERS[0],make('use','이 주문에는 베개의 쓰임이 어울려요.'),work);assert.equal(use.focus,'use');assert.match(use.detail,/베개/);
+  const process=customerReview(ORDERS[0],make('process','건조 → 초벌구이 → 유약 바르기 → 재벌구이 순서로 다시 확인해 보세요.'),work);assert.equal(process.focus,'process');assert.match(process.quote,/제작|과정|단계/);assert.doesNotMatch(process.quote,/형태.*다르|쓰임.*다르/);
+  const technique=customerReview(ORDERS[0],make('design','이 주문에는 상감 기법이 필요해요.'),work);assert.equal(technique.focus,'design');assert.match(technique.detail,/상감/);assert.doesNotMatch(technique.quote,/기물의 종류|쓰임.*다르/);
+  const motif=customerReview(ORDERS[0],make('design','주문에 있는 학를 다시 확인해 보세요.'),work);assert.match(motif.detail,/학 무늬/);
+ }
 });

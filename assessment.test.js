@@ -122,3 +122,10 @@ test('API는 잘못된 작품과 너무 긴 글을 거절하고 비밀 없는 �
   const long = await invoke('POST', {...assessmentInput(work), explanationUse: '가'.repeat(301)});assert.equal(long.statusCode, 400);
   const method = await invoke('DELETE', {});assert.equal(method.statusCode, 405);
 });
+
+
+import {explanationHints as currentHints} from './assessment-rules.js';
+test('설명 예시는 실제 문양과 색흙을 따르며 향로의 없는 구멍을 단정하지 않는다',()=>{
+ const hints=currentHints({shape:'incense',technique:'inlay',placements:[{pattern:'lotus'}],clay:{slip:'dark'}});
+ assert.match(hints.beauty,/연꽃 무늬.*검은 흙/);assert.doesNotMatch(hints.beauty,/흰 흙/);assert.doesNotMatch(hints.use,/구멍/);
+});

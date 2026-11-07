@@ -61,11 +61,13 @@ const NONSENSE = /(?:[ㅋㅎㅠㅜ]){3,}|(.)\1{6,}|(?:asdf|qwer|zxcv){2,}|무시
 function meaningful(text) { return text.length >= 8 && (text.match(/[가-힣]/g) || []).length >= 5 && !NONSENSE.test(text); }
 function response(score, feedback) { return {score, feedback}; }
 export function explanationHints(work = {}) {
+  const input=assessmentInput(work),names={cloud:'구름',crane:'학',lotus:'연꽃',peony:'모란',chrysanthemum:'국화',plum:'매화',bamboo:'대나무',willow:'버드나무',grape:'포도',wildflower:'풀꽃',text:'글자'};
+  const motif=names[input.patterns[0]||input.drawingLabel]||'무늬',slip=input.slip==='dark'?'검은 흙':'흰 흙';
   const examples = {
     pillow: '예: 머리를 놓는 곳이 오목해서 누웠을 때 머리를 안정적으로 받칠 수 있기 때문이다.',
     stool: '예: 윗면이 평평하고 몸통이 튼튼해서 사람이 편하게 앉을 수 있기 때문이다.',
     pitcher: '예: 손잡이를 잡고 가느다란 주둥이로 물을 흘려보낼 수 있기 때문이다.',
-    incense: '예: 뚜껑에 구멍이 있어서 향을 피우면 연기가 밖으로 퍼질 수 있기 때문이다.',
+    incense: '예: 몸통에 향을 담고 뚜껑을 열어 향을 피울 수 있기 때문이다.',
     duckDropper: '예: 작은 구멍으로 물을 조금씩 떨어뜨려 벼루에서 먹을 갈 수 있기 때문이다.',
     chrysanthemumCup: '예: 속이 오목하고 입이 넓어서 차를 담아 마시기 편하기 때문이다.',
     cupStand: '예: 잔을 받침 위에 놓으면 뜨거운 잔을 옮기고 내려놓기 편하기 때문이다.',
@@ -73,9 +75,9 @@ export function explanationHints(work = {}) {
     maebyeong: '예: 어깨와 몸통이 넓고 입이 좁아서 내용물을 담아 보관하기 좋기 때문이다.',
   };
   return {use: examples[work.shape] || '예: 이 부분을 이렇게 빚어서 알맞은 곳에 사용할 수 있기 때문이다.',
-    beauty: work.technique === 'openwork' ? '예: 구름 모양 구멍의 가장자리를 여러 번 다듬었어요. 빛과 그림자가 무늬를 드러내기 때문이다.'
+    beauty: work.technique === 'openwork' ? `예: ${motif} 모양 구멍의 가장자리를 여러 번 다듬었어요. 빛과 그림자가 무늬를 드러내기 때문이다.`
       : work.technique === 'plain' ? '예: 몸통을 천천히 빚고 표면을 고르게 다듬었어요. 부드러운 곡선과 맑은 푸른빛을 살리고 싶었기 때문이다.'
-      : '예: 구름을 파고 흰 흙을 채운 다음 여러 번 닦았어요. 무늬가 또렷하게 보이게 하기 때문이다.'};
+      : `예: ${motif} 무늬를 파고 ${slip}을 채운 다음 여러 번 닦았어요. 무늬가 또렷하게 보이게 하기 때문이다.`};
 }
 export function rubricAssessment(work = {}, notice = '기본 기준 평가 · 모양과 쓰임, 공들인 부분과 만드는 과정을 살폈어요.') {
   const input = assessmentInput(work), useText = input.explanationUse, beautyText = input.explanationBeauty, rule = USE_RULES[input.shape];

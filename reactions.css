@@ -19,3 +19,25 @@
 @keyframes review-arrival{from{opacity:0;transform:translateX(-20px)}to{opacity:1;transform:translateX(0)}}
 @media(max-height:650px){.review-person{width:35%;left:3%;height:94%}.review-dialogue{left:40%;right:3%;top:4%;bottom:4%;gap:10px}.review-speech{padding:16px 20px;border-radius:19px}.review-speech h2{font-size:29px;margin-bottom:10px}.review-speech .review-speaker{font-size:14px;margin-bottom:5px}.review-speech .review-quote{font-size:18px;line-height:1.5}.review-speech .review-detail{font-size:15px;margin-top:10px}.review-score{font-size:14px;padding:7px 12px}.review-score strong{font-size:25px}.review-actions .primary,.review-actions .small-button{font-size:16px;min-height:40px;padding:7px 10px}}
 @media(prefers-reduced-motion:reduce){.review-person{animation:none}}
+
+/* The speaker's face and its balloon share one horizontal conversation line. */
+.counter-scene .counter-dialogue{left:31%;right:5%;top:20%;gap:12px}
+.counter-scene .counter-speech{min-height:clamp(142px,23.2vh,182px);display:flex;flex-direction:column;justify-content:center;padding:18px 24px;--tail-top:clamp(61px,calc(15vh - 29px),112px)}
+.counter-scene .counter-speech::before,.review-speech::before{content:'';position:absolute;left:-44px;top:var(--tail-top);width:45px;height:46px;background:#86585a;clip-path:polygon(100% 0,100% 100%,0 50%);pointer-events:none}
+.counter-scene .counter-speech::after,.review-speech::after{content:'';position:absolute;left:-39px;top:calc(var(--tail-top) + 5px);bottom:auto;width:42px;height:36px;background:#fff7e7;border:0;clip-path:polygon(100% 0,100% 100%,0 50%);transform:none;filter:none;pointer-events:none}
+.counter-scene .counter-responses{justify-content:flex-start;padding:2px 0 0 18px;gap:12px}
+.is-counter-delivery .counter-scene .counter-responses{justify-content:flex-end;padding-right:0}
+.game-window.shop-game .customer-review-scene .review-dialogue{left:32%;right:4%;top:16%;bottom:27%;justify-content:flex-start;gap:10px}
+.game-window.shop-game .customer-review-scene .review-speech{--tail-top:clamp(94px,calc(16vh + 2px),145px);min-height:clamp(160px,26vh,206px)}
+.review-speech::before{background:#8c6261;clip-path:polygon(100% 0,100% 100%,0 100%)}
+.review-speech::after{background:#fff7e8;clip-path:polygon(100% 0,100% 100%,0 100%)}
+@media(max-height:650px){
+ .counter-scene .counter-dialogue{left:32%;right:4%;top:20%;gap:9px}
+ .counter-scene .counter-speech{padding:14px 18px}
+ .counter-scene .counter-responses{padding-left:8px;gap:9px}
+ .game-window.shop-game .customer-review-scene .review-dialogue{left:33%;top:15%;bottom:26%;gap:8px}
+}
+/* Hat height differs between the original full-body sheets; keep each tail at its speaker's mouth. */
+.counter-scene:has(.character-sprite[data-character=artisan]) .counter-speech{--tail-top:clamp(28px,calc(9vh - 23px),60px)}
+.counter-scene:has(.character-sprite[data-character=noblewoman]) .counter-speech{--tail-top:clamp(43px,calc(12vh - 29px),82px)}
+.game-window.shop-game .customer-review-scene:has(.reaction-portrait[data-character=artisan]) .review-speech{--tail-top:clamp(48px,calc(8vh + 2px),75px)}
