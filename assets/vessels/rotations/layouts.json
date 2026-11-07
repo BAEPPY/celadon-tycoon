@@ -1,0 +1,77 @@
+{
+  "bambooShootPitcher": {
+    "maxWidth": 504,
+    "maxHeight": 548,
+    "baseline": 590
+  },
+  "chrysanthemumCup": {
+    "maxWidth": 447,
+    "maxHeight": 550,
+    "baseline": 590
+  },
+  "cloudCraneMaebyeong": {
+    "maxWidth": 331,
+    "maxHeight": 550,
+    "baseline": 590
+  },
+  "cupStand": {
+    "maxWidth": 512,
+    "maxHeight": 495,
+    "baseline": 590
+  },
+  "duckDropper": {
+    "maxWidth": 475,
+    "maxHeight": 342,
+    "baseline": 590
+  },
+  "duckIncense": {
+    "maxWidth": 435,
+    "maxHeight": 550,
+    "baseline": 590
+  },
+  "incense": {
+    "maxWidth": 408,
+    "maxHeight": 550,
+    "baseline": 590
+  },
+  "peonyPitcher": {
+    "maxWidth": 315,
+    "maxHeight": 550,
+    "baseline": 590
+  },
+  "pillow": {
+    "maxWidth": 527,
+    "maxHeight": 310,
+    "baseline": 590
+  },
+  "pitcher": {
+    "maxWidth": 400,
+    "maxHeight": 550,
+    "baseline": 590
+  },
+  "poemGourdBottle": {
+    "maxWidth": 287,
+    "maxHeight": 550,
+    "baseline": 590
+  },
+  "pomegranateDropper": {
+    "maxWidth": 527,
+    "maxHeight": 550,
+    "baseline": 590
+  },
+  "pomegranatePitcher": {
+    "maxWidth": 471,
+    "maxHeight": 550,
+    "baseline": 590
+  },
+  "qilinDecoratedIncense": {
+    "maxWidth": 479,
+    "maxHeight": 550,
+    "baseline": 590
+  },
+  "stool": {
+    "maxWidth": 363,
+    "maxHeight": 550,
+    "baseline": 590
+  }
+}
