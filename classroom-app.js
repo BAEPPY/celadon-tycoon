@@ -61,25 +61,27 @@ async function copyClassroomValue(value,label){
 function observerInviteIdentity(){return actionAllowed('observer-link')&&room&&session?.code?{code:session.code,teacherToken:session.teacherToken}:null;}
 function sameObserverInviteSession(identity){const saved=stored(SESSION_KEY);return identity&&!disposed&&actionAllowed('observer-link')&&room&&session?.code===identity.code&&session?.teacherToken===identity.teacherToken&&saved?.code===identity.code&&saved?.teacherToken===identity.teacherToken;}
 function cancelObserverInviteRequest(){const request=observerInviteRequest;observerInviteRequest=null;request?.controller.abort();}
-async function observerInviteUrl(identity){
+async function observerInviteUrl(identity,{rotate=false}={}){
   if(!sameObserverInviteSession(identity))return null;
   // Verify once per page/session so older cached links migrate to the server's stable invitation.
-  let key=observerInviteVerified?.code===identity.code&&observerInviteVerified?.teacherToken===identity.teacherToken?observerInviteVerified.key:null;
+  const cached=!rotate&&observerInviteVerified?.code===identity.code&&observerInviteVerified?.teacherToken===identity.teacherToken?observerInviteVerified:null;
+  let key=cached?.key||null,linkCode=cached?.linkCode||identity.code;
   if(!/^[A-Za-z0-9_-]{30,100}$/.test(key||'')){
     let request=observerInviteRequest;
-    if(!request||request.identity.code!==identity.code||request.identity.teacherToken!==identity.teacherToken){
-      cancelObserverInviteRequest();const controller=new AbortController();request={identity,controller};
+    if(rotate||request?.rotate||!request||request.identity.code!==identity.code||request.identity.teacherToken!==identity.teacherToken){
+      cancelObserverInviteRequest();const controller=new AbortController();request={identity,controller,rotate};
       const timeout=setTimeout(()=>controller.abort(),15000);
-      request.promise=api('control',{method:'POST',body:{command:'observer-link'},signal:controller.signal}).finally(()=>{clearTimeout(timeout);if(observerInviteRequest===request)observerInviteRequest=null;});
+      request.promise=api('control',{method:'POST',body:{command:'observer-link',...(rotate?{rotate:true}:{})},signal:controller.signal}).finally(()=>{clearTimeout(timeout);if(observerInviteRequest===request)observerInviteRequest=null;});
       observerInviteRequest=request;
     }
     const payload=await request.promise;
     if(!sameObserverInviteSession(identity)||request.controller.signal.aborted)return null;
-    key=payload.observerToken;
+    key=payload.observerToken;linkCode=payload.observerCode===CLASSROOM_JOIN_CODE?CLASSROOM_JOIN_CODE:identity.code;
     if(!/^[A-Za-z0-9_-]{30,100}$/.test(key||''))throw new Error('참관 주소를 만들지 못했어요. 다시 시도해 주세요.');
-    observerInviteVerified={...identity,key};session={...session,observerToken:key};store(SESSION_KEY,session);
+    observerInviteVerified={...identity,key,linkCode};session={...session,observerToken:key};store(SESSION_KEY,session);
   }
-  const url=new URL('/observe',location.origin);url.searchParams.set('code',identity.code);url.hash=new URLSearchParams({key}).toString();return url.href;
+  // A 탑텐반 link always opens whichever class 탑텐반 points to, so one printed QR serves every new class.
+  const url=new URL('/observe',location.origin);url.searchParams.set('code',linkCode);url.hash=new URLSearchParams({key}).toString();return url.href;
 }
 function currentObserverInvite(current){return current&&observerInviteDialog===current&&current.dialog.isConnected&&sameObserverInviteSession(current.identity);}
 function closeObserverInvite({restoreFocus=true}={}){
@@ -106,24 +108,37 @@ async function loadObserverInvite(current){
   const dialog=current.dialog,status=dialog.querySelector('[data-observer-status]'),retry=dialog.querySelector('[data-retry-observer-invite]');
   status.textContent='참관 QR을 준비하고 있어요…';retry.hidden=true;dialog.setAttribute('aria-busy','true');
   try{
-    const url=await observerInviteUrl(current.identity);if(!url||!currentObserverInvite(current))return;current.url=url;
+    const rotated=current.rotate,url=await observerInviteUrl(current.identity,{rotate:rotated});if(!url||!currentObserverInvite(current))return;current.url=url;current.rotate=false;
+    const fixed=new URL(url).searchParams.get('code')===CLASSROOM_JOIN_CODE;
+    dialog.querySelector('[data-observer-fixed-note]').hidden=!fixed;dialog.querySelector('[data-rotate-observer-invite]').hidden=!fixed;
     const input=dialog.querySelector('[data-observer-url]');input.value=url;input.disabled=false;dialog.querySelector('[data-copy-observer-invite]').disabled=false;
     observerInviteModule||=import('./observer-invite.js').catch(error=>{observerInviteModule=null;throw error;});
     const module=await observerInviteModule;if(!currentObserverInvite(current))return;
-    const images=await module.createObserverInvite({url,title:TITLE,roomLabel:'우리 반 청자 교실'});if(!currentObserverInvite(current))return;
+    const images=await module.createObserverInvite({url,title:TITLE,roomLabel:fixed?`우리 반 청자 교실 · ${CLASSROOM_JOIN_CODE}`:'우리 반 청자 교실'});if(!currentObserverInvite(current))return;
     const image=dialog.querySelector('[data-observer-qr]');image.src=images.qrDataUrl;image.hidden=false;dialog.querySelector('.observer-invite-loading').hidden=true;
     const download=dialog.querySelector('[data-download-observer-qr]');download.href=images.posterDataUrl||images.qrDataUrl;download.hidden=false;
-    dialog.querySelector('[data-print-observer-invite]').disabled=false;status.textContent='휴대폰 카메라로 QR 코드를 찍어 주세요.';
+    dialog.querySelector('[data-print-observer-invite]').disabled=false;status.textContent=rotated?'새 참관 QR을 만들었어요. 이전 QR은 이제 열리지 않아요.':'휴대폰 카메라로 QR 코드를 찍어 주세요.';
     if(current.selectUrl){input.focus();input.select();status.textContent='참관 주소를 길게 눌러 복사해 주세요.';current.selectUrl=false;}
   }catch(error){if(currentObserverInvite(current)){status.textContent=error.name==='AbortError'?'연결이 지연되고 있어요. 다시 시도해 주세요.':'참관 QR을 준비하지 못했어요. 다시 시도하거나 참관 주소를 복사해 주세요.';retry.hidden=false;}}
   finally{current.loading=false;if(currentObserverInvite(current))dialog.setAttribute('aria-busy','false');}
+}
+async function rotateObserverInvite(current){
+  if(!currentObserverInvite(current)||current.loading)return;
+  if(!confirm('참관 QR을 새로 만들까요?\n\n지금 QR과 참관 주소는 더 이상 열리지 않아요. 이미 인쇄하거나 보낸 QR도 새것으로 바꿔 주어야 해요.')||!currentObserverInvite(current))return;
+  const dialog=current.dialog;current.rotate=true;current.url=null;observerInviteVerified=null;
+  dialog.querySelector('[data-observer-qr]').hidden=true;dialog.querySelector('.observer-invite-loading').hidden=false;dialog.querySelector('[data-download-observer-qr]').hidden=true;
+  dialog.querySelector('[data-print-observer-invite]').disabled=true;dialog.querySelector('[data-copy-observer-invite]').disabled=true;
+  const input=dialog.querySelector('[data-observer-url]');input.value='';input.disabled=true;
+  await loadObserverInvite(current);
 }
 async function openObserverInvite({selectUrl=false}={}){
   const identity=observerInviteIdentity();if(!identity)return;
   if(currentObserverInvite(observerInviteDialog)){observerInviteDialog.dialog.querySelector('[data-close-observer-invite]').focus();return;}
   closeObserverInvite({restoreFocus:false});
+  // Ask again on every open: another teacher tab may have replaced the QR with "QR 새로 만들기".
+  observerInviteVerified=null;
   const dialog=document.createElement('dialog');dialog.id='observer-invite-dialog';dialog.className='observer-invite';dialog.setAttribute('aria-labelledby','observer-invite-title');
-  dialog.innerHTML=`<header class="observer-invite-header"><div><span class="activity-label">함께 보는 우리 반 수업</span><h2 id="observer-invite-title">공개수업 참관</h2></div><button class="button secondary small" type="button" data-close-observer-invite aria-label="참관 QR 닫기">닫기 ×</button></header><div class="observer-invite-body"><section class="observer-invite-qr-panel" aria-label="참관 화면 QR 코드"><div class="observer-invite-qr"><p class="observer-invite-loading">QR을 불러오고 있어요…</p><img data-observer-qr hidden width="360" height="360" alt="휴대폰 카메라로 찍으면 익명 수업 참관 화면이 열리는 QR 코드"></div><p class="observer-invite-status" data-observer-status role="status"></p><button class="button secondary" type="button" data-retry-observer-invite hidden>다시 시도</button></section><section class="observer-invite-details"><h3>${TITLE}</h3><p>휴대폰으로 학생들의 생각과 완성한 청자를 함께 살펴보세요.</p><div class="observer-invite-features"><span>익명 답변</span><span>학생 작품</span></div><p class="observer-invite-privacy">학생 이름은 표시되지 않아요.<br>수업 진행은 선생님이 제어해요.</p><label class="observer-invite-address">참관 주소<input data-observer-url type="text" readonly disabled autocomplete="off" spellcheck="false" aria-label="참관 주소"></label><button class="button" type="button" data-copy-observer-invite disabled>참관 주소 복사</button></section></div><footer class="observer-invite-footer"><a class="button secondary" data-download-observer-qr download="공개수업-참관-QR.png" hidden>QR 안내문 저장</a><button class="button secondary" type="button" data-print-observer-invite disabled>안내문 인쇄</button></footer>`;
+  dialog.innerHTML=`<header class="observer-invite-header"><div><span class="activity-label">함께 보는 우리 반 수업</span><h2 id="observer-invite-title">공개수업 참관</h2></div><button class="button secondary small" type="button" data-close-observer-invite aria-label="참관 QR 닫기">닫기 ×</button></header><div class="observer-invite-body"><section class="observer-invite-qr-panel" aria-label="참관 화면 QR 코드"><div class="observer-invite-qr"><p class="observer-invite-loading">QR을 불러오고 있어요…</p><img data-observer-qr hidden width="360" height="360" alt="휴대폰 카메라로 찍으면 익명 수업 참관 화면이 열리는 QR 코드"></div><p class="observer-invite-status" data-observer-status role="status"></p><button class="button secondary" type="button" data-retry-observer-invite hidden>다시 시도</button></section><section class="observer-invite-details"><h3>${TITLE}</h3><p>휴대폰으로 학생들의 생각과 완성한 청자를 함께 살펴보세요.</p><div class="observer-invite-features"><span>익명 답변</span><span>학생 작품</span></div><p class="observer-invite-privacy">학생 이름은 표시되지 않아요.<br>수업 진행은 선생님이 제어해요.</p><p class="observer-invite-fixed" data-observer-fixed-note hidden>탑텐반 전용 QR이에요. 새 수업을 열어도 같은 QR로 지금 열린 수업을 볼 수 있어요.</p><label class="observer-invite-address">참관 주소<input data-observer-url type="text" readonly disabled autocomplete="off" spellcheck="false" aria-label="참관 주소"></label><button class="button" type="button" data-copy-observer-invite disabled>참관 주소 복사</button></section></div><footer class="observer-invite-footer"><a class="button secondary" data-download-observer-qr download="공개수업-참관-QR.png" hidden>QR 안내문 저장</a><button class="button secondary" type="button" data-print-observer-invite disabled>안내문 인쇄</button><button class="button quiet" type="button" data-rotate-observer-invite hidden>QR 새로 만들기</button></footer>`;
   const current={dialog,identity,opener:document.activeElement,selectUrl,url:null,loading:false};observerInviteDialog=current;
   dialog.addEventListener('cancel',event=>{event.preventDefault();closeObserverInvite();});
   dialog.addEventListener('close',()=>{if(observerInviteDialog===current)closeObserverInvite();});
@@ -131,6 +146,7 @@ async function openObserverInvite({selectUrl=false}={}){
     if(event.target.closest('[data-close-observer-invite]'))closeObserverInvite();
     else if(event.target.closest('[data-copy-observer-invite]'))void copyObserverAddress(current);
     else if(event.target.closest('[data-retry-observer-invite]'))void loadObserverInvite(current);
+    else if(event.target.closest('[data-rotate-observer-invite]'))void rotateObserverInvite(current);
     else if(event.target.closest('[data-print-observer-invite]')&&currentObserverInvite(current))window.print();
     else if(event.target===dialog){const bounds=dialog.getBoundingClientRect();if(event.clientX<bounds.left||event.clientX>bounds.right||event.clientY<bounds.top||event.clientY>bounds.bottom)closeObserverInvite();}
   });
@@ -202,7 +218,20 @@ function initialDrafts(){
     submitted[n]=Boolean(run&&record?.runId===run&&record.submitted);
   }
 }
+function clearObserverRoom(){
+  closeWorkDialog({restoreFocus:false});disposeViewers();disposeTeacherBoard();
+  room=null;teacherData=null;viewKey='';teacherSignature='';teacherActivity=1;teacherObject='1';teacherA1View='comparison';cloudKind='name';
+  teacherResultViews={1:'responses',2:'responses'};exhibitObjects={1:'1',2:'1'};workImages.clear();workDesigns.clear();workImagePending.clear();
+}
+// No 탑텐반 class is open (between classes, or after its data was deleted). Keep polling: the next class appears here.
+function renderObserverWaiting(){
+  if(room)clearObserverRoom();pollFailures=0;connectionError='';lastSuccessfulPoll=Date.now();
+  if(viewKey==='observer-waiting')return;viewKey='observer-waiting';
+  app.innerHTML=`<section class="waiting" data-testid="observer-waiting"><div class="waiting-inner"><div class="waiting-illustration">${laptopIcon}</div><h1>탑텐반 수업을<br>기다리고 있어요.</h1><p>지금은 열린 탑텐반 수업이 없어요.<br>선생님이 수업을 열면 바로 보여요.</p><div class="waiting-status"><i></i>화면을 그대로 두면 자동으로 이어져요</div></div></section>`;
+}
 function receive(payload,{initial=false}={}){
+  // A fixed 탑텐반 observer QR follows 탑텐반 to each new class; start that class's view afresh.
+  if(observerMode&&payload.state&&payload.state.code!==room?.code){if(room)clearObserverRoom();initial=true;}
   const previous=room;
   if(payload.state&&room&&payload.state.code===room.code&&(Number(payload.state.revision)<Number(room.revision)||(Number(payload.state.revision)===Number(room.revision)&&Number(payload.state.serverNow)<Number(room.serverNow)))){lastSuccessfulPoll=Date.now();heartbeatGame();return false;}
   room=payload.state||room;
@@ -241,6 +270,7 @@ async function poll(){
   if(pollRunning||!session)return;schedulePoll();pollRunning=true;const requestSession=session;
   try{const payload=await api(observerMode?'observe':teacherMode?'teacher':'state');if(session!==requestSession)return;receive(payload);if(!teacherMode&&active(room.activity)&&dirty[answerActivity()]&&!saving)queueSave();retryWorks();}
   catch(error){if(session!==requestSession)return;
+    if(observerMode&&error.code==='observer-waiting'){renderObserverWaiting();return;}
     if(error.status===403||error.status===404)closeObserverInvite({restoreFocus:false});
     if((!teacherMode||observerMode)&&(error.status===403||error.status===404)){const message=observerMode||error.status===404?error.message:'선생님이 입장 정보를 정리했어요. 번호와 이름으로 다시 입장해 주세요.';resetRoom();renderWelcome(message);return;}
     pollFailures++;connectionError=error.name==='AbortError'?'응답을 기다리고 있어요.':error.message;updateConnection();}
@@ -520,7 +550,7 @@ function resetRoom({keepTeacherKey=false}={}){
   viewKey='';teacherSignature='';currentObject='1';teacherActivity=1;teacherObject='1';selectedCountry=null;cloudKind='name';settingsDirty=false;connectionError='';
   uploadedWorks.clear();clearPendingWorks();terminalWorks.clear();workImages.clear();workDesigns.clear();workImagePending.clear();if(teacherMode){if(!keepTeacherKey)store(SESSION_KEY,null);}else clearActiveStudentSession();
 }
-function render(){if(!session||!room)return renderWelcome();if(teacherMode)renderTeacher();else renderStudent();}
+function render(){if(observerMode&&session&&!room&&viewKey==='observer-waiting')return;if(!session||!room)return renderWelcome();if(teacherMode)renderTeacher();else renderStudent();}
 function updateTimer(){
   const timer=document.querySelector('[data-testid=lesson-timer]');if(!timer)return;
   const viewed=teacherMode?teacherActivity:room?.activity;
@@ -759,6 +789,7 @@ async function boot(){
     receive(payload,{initial:true});schedulePoll();
   }
   catch(error){
+    if(observerMode&&error.code==='observer-waiting'){renderObserverWaiting();schedulePoll();return;}
     if(error.status===403||error.status===404){if(observerMode)store(SESSION_KEY,null);if(!teacherMode)clearActiveStudentSession();session=null;room=null;renderWelcome(error.message);return;}
     // Keep the saved key: rejoining or opening a new class here would lock the student out or lose the teacher's class.
     viewKey='';app.innerHTML=`<section class="waiting"><div class="waiting-inner"><div class="waiting-status"><i></i>${esc(error.message||'연결을 확인하고 다시 시도해 주세요.')}</div><button class="button" type="button" data-action="retry-boot">다시 연결</button></div></section>`;

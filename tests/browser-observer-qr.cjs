@@ -4,6 +4,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs/promises');
 const os=require('node:os');
 const path=require('node:path');
+const {randomBytes}=require('node:crypto');
 const {chromium}=require('playwright');
 
 const base=process.env.BASE_URL||'http://127.0.0.1:4173';
@@ -91,8 +92,10 @@ async function assertInviteFits(page,width,height){
     await teacher.locator('[data-action=observer-link]').click();
     const dialog=await readyInvite(teacher),originalDialog=await dialog.elementHandle();
     const address=await dialog.locator('[data-observer-url]').inputValue(),parsed=new URL(address),observerToken=new URLSearchParams(parsed.hash.slice(1)).get('key');
-    assert.equal(parsed.origin,new URL(base).origin);assert.equal(parsed.pathname,'/observe');assert.equal(parsed.searchParams.get('code'),room.code);
+    assert.equal(parsed.origin,new URL(base).origin);assert.equal(parsed.pathname,'/observe');assert.equal(parsed.searchParams.get('code'),'탑텐반','The 탑텐반 class shares the fixed 탑텐반 observer QR.');
     assert.deepEqual([...parsed.searchParams.keys()],['code'],'The bearer token is confined to the URL fragment.');assert.match(observerToken,/^[A-Za-z0-9_-]{43}$/);
+    assert.equal(await dialog.locator('[data-observer-fixed-note]').isVisible(),true,'The invitation says the QR keeps working for new classes.');
+    assert.equal(await dialog.locator('[data-rotate-observer-invite]').isVisible(),true);
     const displayed=await decodeImage(teacher,await dialog.locator('[data-observer-qr]').getAttribute('src'));
     assert.equal(displayed.url,address,'The actual QR pixels encode the full invitation, including the fragment.');
     assert.equal((await decodeImage(teacher,await dialog.locator('[data-observer-qr]').getAttribute('src'),360)).url,address,'The QR decodes at 360 displayed pixels.');
@@ -144,7 +147,7 @@ async function assertInviteFits(page,width,height){
     assert.equal(await guest.locator('[data-form=join],[name=name],[name=number],[data-action=observer-link],[data-action=copy-observer],[data-action=start],[data-action=pause],[data-action=end],[data-action=delete-room]').count(),0,'Visitors need no login and have no invitation or classroom controls.');
     await guest.waitForFunction(()=>document.querySelector('.teacher-metrics strong')?.textContent==='2');
     assert.match(await guest.locator('[data-comparison-result="1"]').innerText(),/100%/);
-    let observed=await api('observe',{method:'GET',auth:observerToken});
+    const fixed={code:'탑텐반'};let observed=await api('observe',{method:'GET',auth:observerToken,body:fixed});
     assert.equal(observed.participantCount,2);assert.equal(observed.completionCounts[1],1);assert.equal('participants'in observed,false,'The guest API exposes aggregate counts, not participant records.');
     for(const name of privateNames)assert.ok(!JSON.stringify(observed).includes(name));
     await api('teacher',{method:'GET',auth:observerToken,status:403});await api('control',{auth:observerToken,body:{command:'pause'},status:403});
@@ -159,11 +162,11 @@ async function assertInviteFits(page,width,height){
     const work={id:'observer-display-work',orderId:'royal-rest',shape:'pillow',modelId:'pillow',step:4,technique:'inlay',pattern:'crane',title:'학이 쉬는 청자 베개',placements:[{x:100,y:100,pattern:'crane'}],strokes:[],decorDone:true,firing:['dry','biscuit','glaze','fire'],clay:{slip:'white'},explanationUse:'학 무늬를 넣은 베개예요. 머리를 받치고 쉬면 좋아요.',explanationBeauty:'학 무늬를 파고 흰 흙을 채워 또렷하게 만들었어요.'};
     await api('work',{auth:students[0].participantToken,body:{participantId:students[0].participantId,runId:a3.state.runId,work,preview}});
     await guest.locator('[data-action=teacher-activity][data-activity="3"].active').waitFor({timeout:15000});await guest.locator('[data-action=view-work]').waitFor({timeout:15000});
-    observed=await api('observe',{method:'GET',auth:observerToken});assert.equal(observed.works.length,1);
+    observed=await api('observe',{method:'GET',auth:observerToken,body:fixed});assert.equal(observed.works.length,1);
     const visibleWork=observed.works[0];assert.match(visibleWork.participantId,/^obs_[A-Za-z0-9_-]{43}$/);assert.equal('number'in visibleWork,false);assert.equal('name'in visibleWork,false);
     for(const name of privateNames)assert.ok(!JSON.stringify(observed).includes(name));
-    const artwork=await api('artwork',{method:'GET',auth:observerToken,body:{participantId:visibleWork.participantId,workId:visibleWork.id}});assert.equal(artwork.preview,preview);
-    await api('artwork',{method:'GET',auth:observerToken,body:{participantId:students[0].participantId,workId:visibleWork.id},status:403});
+    const artwork=await api('artwork',{method:'GET',auth:observerToken,body:{...fixed,participantId:visibleWork.participantId,workId:visibleWork.id}});assert.equal(artwork.preview,preview);
+    await api('artwork',{method:'GET',auth:observerToken,body:{...fixed,participantId:students[0].participantId,workId:visibleWork.id},status:403});
     await guest.locator('[data-action=view-work]').tap();await guest.locator('.work-dialog[open] .work-photo-viewer img').waitFor();
     assert.equal(await guest.locator('.work-dialog .student-line').count(),0);
     for(const name of privateNames)assert.ok(!(await guest.locator('body').innerText()).includes(name));
@@ -173,8 +176,40 @@ async function assertInviteFits(page,width,height){
     assert.ok(guestRequests.every(request=>!request.url.includes(observerToken)),'The private fragment never travels in a request URL.');
     assert.ok(guestRequests.every(request=>request.method!=='POST'),'Read-only viewing sends no mutations or join requests.');
     assert.equal(await guest.evaluate(()=>localStorage.getItem('celadon-classroom-teacher-v1')),null);
+
+    // 새 수업: the guest's open page (and the printed QR) follow 탑텐반 to the new, empty class.
+    await teacher.goto('about:blank');
+    const createToken=()=>randomBytes(32).toString('base64url');
+    room=await api('create',{body:{joinCode:'탑텐반',previousCode:room.code,createToken:createToken()}});
+    await guest.waitForFunction(()=>document.querySelector('.teacher-metrics strong')?.textContent==='0',{},{timeout:15000});
+    await guest.locator('[data-action=teacher-activity][data-activity="1"].active').waitFor();
+    assert.equal(await guest.locator('[data-action=view-work],.teacher-pause-note').count(),0,'Nothing from the deleted class remains on the guest page.');
+    assert.equal((await api('observe',{method:'GET',auth:observerToken,body:fixed})).state.code,room.code);
+    // Between classes the guest waits, then the next class appears without rescanning.
+    await control('delete');
+    await guest.getByTestId('observer-waiting').waitFor({timeout:15000});
+    assert.match(await guest.getByTestId('observer-waiting').innerText(),/탑텐반 수업을\s*기다리고 있어요/);
+    room=await api('create',{auth:null,body:{joinCode:'탑텐반',createToken:createToken()}});
+    await guest.locator('.teacher-stage-nav').waitFor({timeout:15000});
+
+    // The new class's teacher sees the same QR, and "QR 새로 만들기" retires it everywhere.
+    await teacher.goto(`${base}/teacher`);
+    await teacher.evaluate(value=>localStorage.setItem('celadon-classroom-teacher-v1',JSON.stringify(value)),{code:room.code,teacherToken:room.teacherToken});
+    await teacher.reload();await teacher.locator('[data-action=observer-link]').click();
+    const nextDialog=await readyInvite(teacher);
+    assert.equal(await nextDialog.locator('[data-observer-url]').inputValue(),address,'One QR serves every 탑텐반 class.');
+    teacher.once('dialog',prompt=>{assert.match(prompt.message(),/더 이상 열리지 않아요/);prompt.accept();});
+    await nextDialog.locator('[data-rotate-observer-invite]').click();
+    await teacher.waitForFunction(()=>document.querySelector('[data-observer-status]')?.textContent.includes('새 참관 QR을 만들었어요'),{},{timeout:15000});
+    await readyInvite(teacher);
+    const rotated=await nextDialog.locator('[data-observer-url]').inputValue();
+    assert.notEqual(rotated,address);assert.equal(new URL(rotated).searchParams.get('code'),'탑텐반');
+    assert.equal((await decodeImage(teacher,await nextDialog.locator('[data-observer-qr]').getAttribute('src'))).url,rotated,'The displayed QR is the new one.');
+    await guest.waitForFunction(()=>document.querySelector('[data-form-error]')?.textContent.includes('참관 QR이 바뀌었어요'),{},{timeout:15000});
+    await api('observe',{method:'GET',auth:observerToken,body:fixed,status:403});
+    assert.equal((await api('observe',{method:'GET',auth:new URLSearchParams(new URL(rotated).hash.slice(1)).get('key'),body:fixed})).state.code,room.code);
     assert.deepEqual(errors,[]);
-    console.log('Observer QR: actual QR/poster decoding, copy/print, stable teacher sessions, polling/Escape,1024/390/844 layouts,anonymous phone entry,teacher-following,opaque artwork access and read-only API passed.');
+    console.log('Observer QR: actual QR/poster decoding, copy/print, stable teacher sessions, polling/Escape,1024/390/844 layouts,anonymous phone entry,teacher-following,opaque artwork access,read-only API, one 탑텐반 QR across 새 수업/deletion and QR replacement passed.');
   }finally{
     if(room&&teacher)await api('control',{body:{command:'delete'}}).catch(()=>{});
     await browser.close();await fs.rm(downloadDir,{recursive:true,force:true});

@@ -25,10 +25,10 @@ const base=process.env.BASE_URL||'http://127.0.0.1:4173';
     // Leave enough wall time for real GLBs and the reload/ack assertions;
     // timeout behavior is covered separately by the main classroom tests.
     await control('settings',{settings:{durations:{1:60,2:60},submitButton:false}});
-    const {observerToken}=await control('observer-link');
-    await observer.goto(`${base}/observe?code=${teacherSession.code}#key=${observerToken}`);await observer.locator('.teacher-stage-nav').waitFor();
+    const {observerToken,observerCode=teacherSession.code}=await control('observer-link');
+    await observer.goto(`${base}/observe?code=${encodeURIComponent(observerCode)}#key=${observerToken}`);await observer.locator('.teacher-stage-nav').waitFor();
     assert.deepEqual((await call('teacher')).value.reveal,{},'teacher receives no exhibit descriptions before reveal');
-    assert.deepEqual((await call('observe',{auth:observerToken})).value.reveal,{},'observer receives no exhibit descriptions before reveal');
+    assert.deepEqual((await call('observe',{auth:observerToken,body:{code:observerCode}})).value.reveal,{},'observer receives no exhibit descriptions before reveal');
     assert.equal(await observer.locator('[data-action=start],[data-action=pause],[data-action=reveal]').count(),0);
     assert.equal((await call('control',{method:'POST',auth:observerToken,body:{command:'reveal',activity:1}})).status,403);
     await student.goto(`${base}/lesson?code=${encodeURIComponent('탑텐반')}`);await student.locator('[name=number]').fill('1');await student.locator('[name=name]').fill('별빛');await student.locator('[data-form=join] button').click();await student.getByTestId('waiting-screen').waitFor();

@@ -4,7 +4,7 @@ import QRCode from 'qrcode';
 export async function createObserverInvite({url,title,roomLabel}) {
   const target=new URL(url);
   if(!['https:','http:'].includes(target.protocol)||target.pathname!=='/observe'||
-    !/^[A-Z2-9]{6}$/.test(target.searchParams.get('code')||'')||
+    !/^(?:탑텐반|[A-Z2-9]{6})$/.test(target.searchParams.get('code')||'')||
     !/^[A-Za-z0-9_-]{30,100}$/.test(new URLSearchParams(target.hash.slice(1)).get('key')||'')) {
     throw new Error('참관 주소를 확인해 주세요.');
   }

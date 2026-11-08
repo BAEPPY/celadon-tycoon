@@ -146,8 +146,8 @@ const base = process.env.BASE_URL || 'http://127.0.0.1:4173';
     assert.equal(await expandedCanvas.evaluate(node => node.isConnected && node === document.querySelector('dialog.lesson-viewer__dialog canvas')), true, 'Live responses preserve an open expanded model.');
     await dialog.getByRole('button', {name: '크게 보기 닫기', exact: true}).click();
 
-    const {observerToken} = await control('observer-link');
-    await observer.goto(`${base}/observe?code=${session.code}#key=${observerToken}`); await ready(observer);
+    const {observerToken, observerCode = session.code} = await control('observer-link');
+    await observer.goto(`${base}/observe?code=${encodeURIComponent(observerCode)}#key=${observerToken}`); await ready(observer);
     await expandedInfo(observer, '[data-teacher-comparison-viewer="1"]');
     assert.doesNotMatch(await observer.locator('#classroom-app').innerText(), /응답확인학생|두번째확인학생/);
     assert.equal(await observer.locator('[data-action=start],[data-action=pause],[data-action=reveal],[data-action=manage-students]').count(), 0);

@@ -76,7 +76,7 @@ const base=process.env.BASE_URL||'http://127.0.0.1:4173';
 
     const observerKey=await api('control',{auth:room.teacherToken,body:{command:'observer-link'}});
     const observer=await browser.newPage({viewport:{width:1024,height:600}});observer.on('pageerror',error=>errors.push(error.message));
-    await observer.goto(`${base}/observe?code=${room.code}#key=${observerKey.observerToken}`);await observer.locator('.work-card').last().waitFor();
+    await observer.goto(`${base}/observe?code=${encodeURIComponent(observerKey.observerCode||room.code)}#key=${observerKey.observerToken}`);await observer.locator('.work-card').last().waitFor();
     assert.equal(await observer.locator('[data-sort=number]').count(),0);
     await observer.locator('[data-action=view-work]').first().click();
     assert.equal(await observer.locator('.work-dialog .student-line').count(),0);
