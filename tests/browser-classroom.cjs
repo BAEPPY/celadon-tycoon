@@ -208,12 +208,13 @@ async function capture(page, label) {
     const submitAnswers=studentA.locator('[data-action=submit-answers]');await fullyVisible(submitAnswers);await submitAnswers.click();
     await eventually(async()=>Boolean((await overview()).participants.find(item=>item.id===a.participantId)?.activity1Submitted),'Explicit submit persists');
     await studentA.waitForFunction(()=>[...document.querySelectorAll('[data-country-for]')].every(select=>select.disabled));
-    assert.match(await submitAnswers.innerText(),/제출했어요/);
+    assert.match(await submitAnswers.innerText(),/다했어요/);
+    await studentA.locator('.completion-dialog[open]').waitFor();
     await control('pause');await Promise.all([studentA.getByTestId('lock-screen').waitFor(),studentB.getByTestId('lock-screen').waitFor()]);
     if(process.env.CLASSROOM_DATA_DIR)await fs.access(path.join(process.env.CLASSROOM_DATA_DIR,'classroom-v1','local',teacherSession.code,'room.json'));
     assert.deepEqual(errors,[]);
     console.log('Classroom: activity 3 runs without a time limit until the teacher ends it, then closes every game; real filesystem persistence verified.');
-    console.log('Classroom: optional submit button stays visible at 1024×600 and locks answers only after successful submission.');
+    console.log('Classroom: activity 1 completion stays visible at 1024×600 and opens its wait dialog only after successful submission.');
     console.log(`Screenshots saved to ${screenshotDirectory}/classroom-*.png (1366×768 and 1024×600).`);
   } finally {
     if(teacherSession&&api)await api('control',{method:'POST',auth:teacherSession.teacherToken,body:{command:'delete'}}).catch(()=>{});

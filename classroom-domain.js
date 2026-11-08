@@ -290,9 +290,11 @@ export class ClassroomService {
       const {data: room} = await this.room(code); activeRoom(room, activity, raw.runId, this.now());
       const current = await this.student(code, id, bearer), student = structuredClone(current.data), before = currentAnswer(student, room, activity);
       if (revision <= before.clientRevision) return {state: classroomState(room, this.now()), answers: answersFor(student), ignored: true};
-      if (before.submitted && room.settings.submitButton) fail(409, 'answer-submitted', '이미 제출한 답이에요. 다음 활동을 기다려 주세요.');
-      if (raw.final && room.settings.submitButton && !completeAnswers(activity, answers)) fail(400, 'incomplete-answer', '모든 작품에 답을 적은 뒤 제출해 주세요.');
-      student.answers[activity] = {runId: room.runId, clientRevision: revision, submitted: Boolean(raw.final && room.settings.submitButton), answers, updatedAt: this.now()};
+      // Activity 1 always supports the student's done button; activity 2 keeps the optional submit setting.
+      const submitEnabled = activity === 1 || room.settings.submitButton;
+      if (before.submitted && submitEnabled) fail(409, 'answer-submitted', '이미 제출한 답이에요. 다음 활동을 기다려 주세요.');
+      if (raw.final && submitEnabled && !completeAnswers(activity, answers)) fail(400, 'incomplete-answer', '모든 작품에 답을 적은 뒤 제출해 주세요.');
+      student.answers[activity] = {runId: room.runId, clientRevision: revision, submitted: Boolean(raw.final && submitEnabled), answers, updatedAt: this.now()};
       // Recheck the teacher's phase just before writing; late requests do not open a closed activity.
       const {data: latestRoom} = await this.room(code); activeRoom(latestRoom, activity, raw.runId, this.now());
       try { await this.store.update(studentKey(code, id), student, current.etag); return {state: classroomState(latestRoom, this.now()), answers: answersFor(student)}; }
