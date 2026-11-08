@@ -17,10 +17,11 @@ import {KilnGame} from './kiln-game.js';
 import {castForOrder,characterMarkup,randomCustomerId} from './characters.js';
 import {recognizeDrawing} from './drawing.js';
 import {vesselSVG} from './art.js';
+import {classroomStorageKey,createClassroomGameBridge} from './classroom-game-bridge.js';
 
 const app=document.querySelector('#app'),popup=document.querySelector('#popup'),museum=document.querySelector('#museum');
-const KEY='celadon-tycoon-v2',esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let clayGame,inlayGame,inspectionGame,galleryCraft,galleryOriginal,assessmentRequest,choosingVariant=false;
+const KEY=classroomStorageKey(),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let clayGame,inlayGame,inspectionGame,galleryCraft,galleryOriginal,assessmentRequest,classroomBridge,choosingVariant=false;
 let state={history:[],gallery:[],draft:null,sound:false},work=null,screen='cover',craft,sculpt,mini,busy=false,toastTimer,modelModule,modelToken=0,selectedCatalog='pillow',galleryPage=0;
 const valid=w=>w&&ORDERS.some(o=>o.id===w.orderId)&&SHAPES.some(s=>s.id===w.shape||w.shape===null)&&Array.isArray(w.placements)&&Array.isArray(w.firing)&&Number.isInteger(w.step)&&w.step>=0&&w.step<=4;
 try{const saved=JSON.parse(localStorage.getItem(KEY));if(saved){state={...state,...saved,history:(saved.history||[]).filter(id=>ORDERS.some(o=>o.id===id)),gallery:(saved.gallery||[]).filter(valid).slice(0,60),draft:valid(saved.draft)?saved.draft:null};}}catch{}
@@ -71,21 +72,22 @@ museum.addEventListener('cancel',()=>{++modelToken;modelModule?.disposeArtifact(
 function fire(kind){if(busy)return;const next=FIRING[work.firing.length];if(!next)return;if(kind!==next.id){toast(`${next.name}부터 해주세요. ${next.description}`);return;}busy=true;document.querySelectorAll('[data-fire]').forEach(b=>b.disabled=true);mini=new KilnGame(document.querySelector('#minigame-host'),kind,{onComplete:()=>{busy=false;mini=null;work.firing.push(kind);save();render();toast(`${next.name} 성공!`);},onCancel:()=>{busy=false;mini=null;render();},onGlaze:f=>craft?.previewGlaze(f)});}
 async function download(w=work){if(!w)return;const canvas=document.createElement('canvas');canvas.width=1000;canvas.height=1250;const c=canvas.getContext('2d');c.fillStyle='#fff8e8';c.fillRect(0,0,1000,1250);c.fillStyle='#245a48';c.textAlign='center';c.font='bold 42px sans-serif';c.fillText('좋은 청자 위대한 청자',500,90);c.font='26px sans-serif';c.fillText(w.title||modelName(w),500,145);const img=new Image();img.src=w.preview||(w===work?craft?.snapshot():'');try{await img.decode();c.drawImage(img,230,170,540,540);}catch{}c.textAlign='left';c.font='24px sans-serif';let y=790;for(const line of ['쓰임: '+w.explanationUse,'솜씨: '+w.explanationBeauty]){let current='';for(const char of line){if(c.measureText(current+char).width>840){c.fillText(current,80,y);y+=36;current='';}current+=char;}c.fillText(current,80,y);y+=70;}c.font='20px sans-serif';c.fillText(`학습 점검 ${evaluateWork(w).total}점 · 손끝으로 만든 고려의 아름다움`,80,1170);const a=document.createElement('a');a.href=canvas.toDataURL('image/png');a.download=`청자_${modelName(w)}.png`;a.click();}
 async function submitWork(){
- if(assessmentRequest)return;
+ if(assessmentRequest||(classroomBridge&&!classroomBridge.active))return;
  if(!work.title?.trim())work.title=suggestedName(work);
  const id=work.id,controller=new AbortController();assessmentRequest=controller;
  const button=popup.querySelector('[data-action=submit]');if(button){button.disabled=true;button.textContent='작품 설명을 확인하고 있어요…';}
  popup.querySelectorAll('textarea,input,select').forEach(el=>el.disabled=true);
  try{
   const assessment=await requestAssessment(work,{signal:controller.signal});
-  if(controller.signal.aborted||work?.id!==id||!popup.open)return;
+  if(controller.signal.aborted||work?.id!==id||!popup.open||(classroomBridge&&!classroomBridge.active))return;
   work.assessment=assessment;save();
   if(!assessment.accepted){showPopup(explainMarkup(work),'explanation-popup needs-revision');popup.querySelector(assessment.use.score<5?'#explain-use':'#explain-beauty')?.focus();return;}
-  work.step=4;work.preview=craft?.snapshot()||work.preview;const at=state.gallery.findIndex(w=>w.id===work.id);if(at>=0)state.gallery[at]=structuredClone(work);else state.gallery.unshift(structuredClone(work));state.gallery=state.gallery.slice(0,60);save();result();
+  work.step=4;work.preview=craft?.snapshot()||work.preview;const at=state.gallery.findIndex(w=>w.id===work.id);if(at>=0)state.gallery[at]=structuredClone(work);else state.gallery.unshift(structuredClone(work));state.gallery=state.gallery.slice(0,60);save();result();void classroomBridge?.completed(work);
  }catch(error){if(error.name!=='AbortError')toast('설명을 확인하지 못했어요. 다시 눌러 주세요.');}
  finally{if(assessmentRequest===controller)assessmentRequest=null;popup.querySelectorAll('textarea,input,select,[data-action=submit]').forEach(el=>el.disabled=false);}
 }
 async function action(id){
+ if(classroomBridge&&!classroomBridge.active)return;
  if(busy&&id!=='fullscreen'){toast('가마 작업을 마치거나 작업대로 돌아가 주세요.');return;}
  switch(id){
  case'accept':work.accepted=true;setView(work.clay?.prepared?'game':'clay');break;
@@ -132,9 +134,20 @@ async function action(id){
 document.addEventListener('click',async e=>{const b=e.target.closest('button');if(!b||b.disabled)return;if(b.dataset.action){await action(b.dataset.action);return;}if(busy)return;if(b.dataset.clay){work.clay=chooseClay(work.clay||freshClay(),b.dataset.clay);save();render();toast(CLAYS.find(c=>c.id===b.dataset.clay).description);}else if(b.dataset.shape){setShape(b.dataset.shape);choosingVariant=designsForShape(work.shape).length>1;if(choosingVariant)render();}else if(b.dataset.model){setShape(work.shape,b.dataset.model);}else if(b.dataset.slip){setInlaySlip(work,b.dataset.slip);work.assessment=null;save();render();}else if(b.dataset.pattern){work.pattern=b.dataset.pattern;save();render();}else if(b.dataset.galleryPage!==undefined){galleryPage=Number(b.dataset.galleryPage);gallery();}else if(b.dataset.galleryView){showFinishedWork(b.dataset.galleryView);}else if(b.dataset.download){await download(state.gallery.find(w=>w.id===b.dataset.download));}else if(b.dataset.technique){if(work.technique!==b.dataset.technique){work.technique=b.dataset.technique;resetDecor();save();render();}}else if(b.dataset.tool){work.tool=b.dataset.tool;save();render();}else if(b.dataset.fire)fire(b.dataset.fire);else if(b.dataset.step!==undefined){const step=Number(b.dataset.step);if(step<=work.step&&work.step<4){restartFrom(work,step===0?'shape':step===1?'decorate':'kiln');save();render();}}});
 document.addEventListener('change',async e=>{const el=e.target;if(el.id==='catalog-select'){await showModel(el.value);return;}if(busy||!work)return;if(el.id==='title-motif'){work.titleMotif=el.value;work.title=suggestedName(work);work.assessment=null;save();popup.querySelector('#work-title').value=work.title;}else if(el.id==='shape-select'){if(el.value)setShape(el.value);}else if(el.id==='variant-select')setShape(work.shape,el.value);else if(el.id==='pattern-select'){work.pattern=el.value;save();render();}else if(el.id==='drawing-label'){work.drawingLabel=el.value;save();}else if(el.dataset.check){work[el.dataset.check]=el.checked;save();}});
 document.addEventListener('input',e=>{const el=e.target;if(!work||busy)return;if(el.dataset.field){work[el.dataset.field]=el.value;work.assessment=null;save();}else if(el.id==='width'){const ratio=(Number(el.value)/100)/(work.width||1);work.width=Number(el.value)/100;for(const mark of [...work.placements,...(work.strokes||[]).flatMap(s=>s.points)])if(mark.point){mark.point[0]*=ratio;if(mark.normal){const [x,y,z]=mark.normal,n=Math.hypot(x/ratio,y,z)||1;mark.normal=[x/ratio/n,y/n,z/n];}}if(craft){craft.work=work;craft.deform();craft.fitCamera();if(sculpt){sculpt.resize();craft.setSculptGuide(sculpt.guide);}craft.paint();}save();}});
-window.addEventListener('pagehide',()=>{assessmentRequest?.abort();clayGame?.dispose();inlayGame?.dispose();inspectionGame?.dispose();galleryCraft?.dispose();mini?.dispose();sculpt?.dispose();craft?.dispose();});
+window.addEventListener('pagehide',()=>{assessmentRequest?.abort();clayGame?.dispose();inlayGame?.dispose();inspectionGame?.dispose();galleryCraft?.dispose();mini?.dispose();sculpt?.dispose();craft?.dispose();classroomBridge?.dispose();});
 
 function setView(view){clearToast();screen=view;work.stationView=view;save();render();}
 function counterScreen(){const customer=castForOrder(order(),work?.customerId),done=work.step===4,delivery=screen==='counter-delivery';return `<section class="counter-scene"><div class="counter-person">${characterMarkup(customer.id)}</div><div class="counter-dialogue"><div class="counter-speech"><span>${customer.name}${delivery?(done?'의 답장':'의 질문'):'의 주문'}</span><p>${delivery?(done?'정성껏 빚은 청자를 잘 받았소. 고맙소!':'청자가 완성되었구려! 어떤 모양과 무늬로 빚고, 어디에 쓰면 좋을지 들려주시오.'):esc(orderQuote(order()))}</p></div><div class="counter-responses">${delivery?`<button class="primary" data-action="${done?'result':'explain'}">${done?'답장 확인':'작품 이야기 전하기'}</button>${done?'<button class="primary green" data-action="next-customer">다음 손님 →</button>':''}`:`<button class="primary green" data-action="accept">알겠어요</button><button class="small-button" data-action="order">주문 다시 살피기</button>`}</div></div><div class="counter-front"><div class="desk-props" aria-hidden="true"><img class="desk-ink" src="./assets/scenes/desk-ink-tidy.webp" alt=""></div><button class="counter-order reference-book" data-action="reference" aria-label="청자 도감 펼치기"><img src="./assets/scenes/desk-reference-book.webp" alt=""><span>청자 도감</span></button></div>${delivery&&work.shape?'<div class="counter-piece"><div id="workpiece" class="workpiece"></div></div>':''}</section>`;}
 
 render();
+classroomBridge=createClassroomGameBridge({
+ onPause:()=>{
+  assessmentRequest?.abort();assessmentRequest=null;clearToast();save();
+  mini?.dispose();mini=null;busy=false;
+  sculpt?.dispose();sculpt=null;clayGame?.dispose();clayGame=null;inlayGame?.dispose();inlayGame=null;inspectionGame?.dispose();inspectionGame=null;
+  craft?.dispose();craft=null;closePopup();closeMuseum();
+ },
+ onResume:()=>render(),
+ getCompleted:()=>state.gallery,
+ previewSource:w=>w.preview||'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(vesselSVG({shape:w.shape,placements:w.placements,pattern:w.pattern,technique:w.technique,uid:'classroom'})),
+});
