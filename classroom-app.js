@@ -3,6 +3,7 @@ import {mountLessonViewer} from './lesson-viewer.js';
 import {extractClassroomCode, canUseClassroomAction, CLASSROOM_JOIN_CODE} from './classroom-access.js';
 import {loadStudentEntryState, rememberStudentEntry, findStudentRejoin, clearActiveStudentSession} from './classroom-entry.js';
 import {mountWordCloud} from './lesson-cloud.js';
+import {mountCountryNameplates} from './country-nameplates.js';
 
 const TITLE='고려청자의 우수성과 다양한 쓰임 알아보기';
 // /observe is a read-only copy of the teacher board for visitors at an open class: no controls, no student names.
@@ -33,7 +34,6 @@ let disposed=false,frameRunId='',lastGameActive=null;
 const viewers=[],workImages=new Map(),workImagePending=new Set(),uploadedWorks=new Set(),pendingWorks=new Map();
 let teacherViewer=null,cloudView=null;
 const teacherComparisonViewers=new Map();
-let countryDrag=null;
 const publicJoinCode=()=>room?.joinCode||session?.code||CLASSROOM_JOIN_CODE;
 const actionAllowed=action=>canUseClassroomAction(action,{teacherMode:teacherMode&&!observerMode,observerMode,teacherToken:session?.teacherToken});
 
@@ -163,12 +163,11 @@ function waitingMarkup(){
 function progress(activity){if(activity===1)return COMPARISON_ARTIFACTS.filter(a=>drafts[1][a.id]).length;return OBSERVATION_ARTIFACTS.filter(a=>drafts[2][a.id]?.name?.trim()&&drafts[2][a.id]?.use?.trim()).length;}
 function saveMarkup(){return `<span class="save-status" data-save-status data-status="${saveState}">${esc(saveMessage||'생각을 적으면 자동으로 저장돼요.')}</span>`;}
 function submitMarkup(activity){
-  if(activity===1)return `<button class="button" data-action="submit-answers" data-comparison-done ${answerLocked(1)||progress(1)<3||saving?'disabled':''}>${submitted[1]?'다했어요 ✓':saving?'저장 중…':'다했어요'}</button>`;
-  return room.settings?.submitButton?`<button class="button" data-action="submit-answers" ${answerLocked(activity)?'disabled':''}>${submitted[activity]?'제출했어요 ✓':'내 생각 제출하기 →'}</button>`:`<span class="observed-progress" data-progress>${progress(activity)} / 5 관찰했어요</span>`;
+  return `<button class="button" data-action="submit-answers" data-activity-done="${activity}" ${activity===1?'data-comparison-done':'data-observation-done'} ${answerLocked(activity)||progress(activity)<(activity===1?3:5)||saving?'disabled':''}>${submitted[activity]?'다했어요 ✓':saving?'저장 중…':'다했어요'}</button>`;
 }
 function closeCompletionDialog(){if(!completionDialog)return;completionDialog.close();completionDialog.remove();completionDialog=null;}
 function syncCompletionDialog(){
-  if(teacherMode||!active(1)||!submitted[1]){closeCompletionDialog();return;}
+  if(teacherMode||![1,2].includes(room?.activity)||effectiveStatus()!=='active'||!submitted[room.activity]){closeCompletionDialog();return;}
   if(completionDialog?.isConnected)return;
   const dialog=document.createElement('dialog');dialog.className='completion-dialog';dialog.tabIndex=-1;
   dialog.setAttribute('aria-labelledby','completion-title');dialog.setAttribute('aria-describedby','completion-message');
@@ -176,10 +175,10 @@ function syncCompletionDialog(){
   dialog.addEventListener('cancel',event=>event.preventDefault());
   (document.fullscreenElement||document.body).append(dialog);completionDialog=dialog;dialog.showModal();dialog.focus();
 }
-function comparisonMarkup(){return `<div class="lesson-heading"><div><span class="activity-label">활동 1 · ${ACTIVITY_NAMES[1]}</span><h1>어느 나라에서 만든 도자기일까요?</h1><p>세 도자기의 빛깔과 모양을 비교하고, 나라 이름표를 붙여 보세요.</p></div>${timerMarkup()}</div>${expiryMarkup()}${submitted[1]?'<div class="submitted-banner">다했어요! 친구들을 기다리고 있어요.</div>':''}<div class="compare-grid">${COMPARISON_ARTIFACTS.map(a=>`<article class="panel object-card" data-country-drop="${esc(a.id)}"><div class="object-title"><h2>${esc(a.label)}</h2><span class="object-number">${esc(a.id)}</span></div><div class="viewer-host" data-viewer="${esc(a.id)}" data-collection="comparison"></div><div class="country-drop"><label class="visually-hidden" for="country-${esc(a.id)}">${esc(a.label)}의 나라</label><select id="country-${esc(a.id)}" class="country-select ${drafts[1][a.id]?'selected':''}" data-country-for="${esc(a.id)}" ${answerLocked(1)?'disabled':''}><option value="">나라 이름표 놓기</option>${COUNTRY_CHOICES.map(c=>`<option value="${c.id}" ${drafts[1][a.id]===c.id?'selected':''}>${esc(c.label)}</option>`).join('')}</select></div></article>`).join('')}</div><div class="country-tray"><span>이름표를 끌어 놓거나 골라 주세요</span>${COUNTRY_CHOICES.map(c=>`<button class="country-chip" draggable="${!answerLocked(1)}" data-country-chip="${c.id}" aria-pressed="${selectedCountry===c.id}" ${answerLocked(1)?'disabled':''}>${esc(c.label)}</button>`).join('')}</div><div class="answer-footer">${saveMarkup()}${submitMarkup(1)}</div>`;}
+function comparisonMarkup(){return `<div class="lesson-heading"><div><span class="activity-label">활동 1 · ${ACTIVITY_NAMES[1]}</span><h1>어느 나라에서 만든 도자기일까요?</h1><p>세 도자기의 빛깔과 모양을 비교하고, 나라 이름표를 붙여 보세요.</p></div>${timerMarkup()}</div>${expiryMarkup()}${submitted[1]?'<div class="submitted-banner">다했어요! 친구들을 기다리고 있어요.</div>':''}<div class="compare-grid">${COMPARISON_ARTIFACTS.map(a=>`<article class="panel object-card" data-country-drop="${esc(a.id)}"><div class="object-title"><h2>${esc(a.label)}</h2><span class="object-number">${esc(a.id)}</span></div><div class="viewer-host" data-viewer="${esc(a.id)}" data-collection="comparison"></div><div class="country-drop"><label class="visually-hidden" for="country-${esc(a.id)}">${esc(a.label)}의 나라</label><select id="country-${esc(a.id)}" class="country-select ${drafts[1][a.id]?'selected':''}" data-country-for="${esc(a.id)}" ${answerLocked(1)?'disabled':''}><option value="">나라 이름표 놓기</option>${COUNTRY_CHOICES.map(c=>`<option value="${c.id}" ${drafts[1][a.id]===c.id?'selected':''}>${esc(c.label)}</option>`).join('')}</select></div></article>`).join('')}</div><div class="country-tray"><span>이름표를 끌어 놓거나 골라 주세요</span>${COUNTRY_CHOICES.map(c=>`<button class="country-chip" draggable="false" data-country-chip="${c.id}" aria-pressed="${selectedCountry===c.id}" ${answerLocked(1)?'disabled':''}>${esc(c.label)}</button>`).join('')}</div><div class="answer-footer">${saveMarkup()}${submitMarkup(1)}</div>`;}
 function observationMarkup(){
-  const artifact=OBSERVATION_ARTIFACTS.find(a=>a.id===currentObject)||OBSERVATION_ARTIFACTS[0],answer=drafts[2][artifact.id]||{};
-  return `<div class="lesson-heading"><div><span class="activity-label">활동 2 · ${ACTIVITY_NAMES[2]}</span><h1>모양 속에 어떤 쓰임이 숨어 있을까요?</h1><p>다섯 점을 돌려 보고, 쓰임과 이름을 자유롭게 짐작해 보세요.</p></div>${timerMarkup()}</div>${expiryMarkup()}${submitted[2]?'<div class="submitted-banner">다섯 점에 대한 생각을 선생님께 전달했어요.</div>':''}<div class="observe-layout"><section class="panel observe-stage"><div class="object-title"><h2>${esc(artifact.label)}</h2><span class="object-number">${esc(artifact.id)}</span></div><div class="viewer-host" data-viewer="${esc(artifact.id)}" data-collection="observation"></div><div class="observe-navigation"><button class="nav-arrow" data-action="previous-object" aria-label="이전 청자">←</button><nav class="object-dots" aria-label="활동 2에서 관찰할 다섯 청자">${OBSERVATION_ARTIFACTS.map(a=>`<button class="object-dot ${a.id===artifact.id?'active':''} ${drafts[2][a.id]?.name?.trim()&&drafts[2][a.id]?.use?.trim()?'answered':''}" data-action="select-object" data-id="${a.id}" aria-label="청자 ${a.id} 관찰하기" title="같은 활동 안에서 청자 ${a.id} 관찰" ${a.id===artifact.id?'aria-current="true"':''}>${a.id}</button>`).join('')}</nav><button class="nav-arrow" data-action="next-object" aria-label="다음 청자">→</button></div></section><section class="panel observation-writing"><div><div class="writing-heading"><span>✧</span><h2>내 생각을 적어 주세요</h2></div><p>청자를 돌려 보고, 떠오르는 쓰임과 이름을 적어요.</p></div><label for="guess-use">어디에 쓰던 물건일까요?<textarea id="guess-use" data-observation-field="use" maxlength="180" placeholder="이런 곳에 썼을 것 같아요." ${answerLocked(2)?'disabled':''}>${esc(answer.use||'')}</textarea></label><label for="guess-name">어떤 이름을 붙이면 좋을까요?<input id="guess-name" class="write-name" data-observation-field="name" maxlength="60" placeholder="내가 짐작한 이름" value="${esc(answer.name||'')}" ${answerLocked(2)?'disabled':''}></label><p class="field-help">쓴 생각은 이름 없이 선생님 화면에 함께 모여요.</p><div class="answer-footer">${saveMarkup()}${submitMarkup(2)}</div></section></div>`;
+  const artifact=OBSERVATION_ARTIFACTS.find(a=>a.id===currentObject)||OBSERVATION_ARTIFACTS[0],answer=drafts[2][artifact.id]||{},nextLabel=artifact.id===OBSERVATION_ARTIFACTS.at(-1).id?'처음 작품':'다음 작품';
+  return `<div class="lesson-heading"><div><span class="activity-label">활동 2 · ${ACTIVITY_NAMES[2]}</span><h1>모양 속에 어떤 쓰임이 숨어 있을까요?</h1><p>다섯 점을 돌려 보고, 쓰임과 이름을 자유롭게 짐작해 보세요.</p></div>${timerMarkup()}</div>${expiryMarkup()}${submitted[2]?'<div class="submitted-banner">다했어요! 친구들을 기다리고 있어요.</div>':''}<div class="observe-layout"><section class="panel observe-stage"><div class="object-title"><h2>${esc(artifact.label)}</h2><span class="object-number">${esc(artifact.id)}</span></div><div class="viewer-host" data-viewer="${esc(artifact.id)}" data-collection="observation"></div><div class="observe-navigation"><button class="nav-arrow" data-action="previous-object" aria-label="이전 청자">←</button><nav class="object-dots" aria-label="활동 2에서 관찰할 다섯 청자">${OBSERVATION_ARTIFACTS.map(a=>`<button class="object-dot ${a.id===artifact.id?'active':''} ${drafts[2][a.id]?.name?.trim()&&drafts[2][a.id]?.use?.trim()?'answered':''}" data-action="select-object" data-id="${a.id}" aria-label="청자 ${a.id} 관찰하기" title="같은 활동 안에서 청자 ${a.id} 관찰" ${a.id===artifact.id?'aria-current="true"':''}>${a.id}</button>`).join('')}</nav></div></section><section class="panel observation-writing"><div><div class="writing-heading"><span>✧</span><h2>내 생각을 적어 주세요</h2></div><p>청자를 돌려 보고, 떠오르는 쓰임과 이름을 적어요.</p></div><label for="guess-use">어디에 쓰던 물건일까요?<textarea id="guess-use" data-observation-field="use" maxlength="180" placeholder="이런 곳에 썼을 것 같아요." ${answerLocked(2)?'disabled':''}>${esc(answer.use||'')}</textarea></label><label for="guess-name">어떤 이름을 붙이면 좋을까요?<input id="guess-name" class="write-name" data-observation-field="name" maxlength="60" placeholder="내가 짐작한 이름" value="${esc(answer.name||'')}" ${answerLocked(2)?'disabled':''}></label><p class="field-help">쓴 생각은 이름 없이 선생님 화면에 함께 모여요.</p><div class="answer-footer">${saveMarkup()}<div class="observation-actions"><span class="observed-progress" data-progress>${progress(2)} / 5 관찰했어요</span><button type="button" class="button secondary observation-next" data-action="next-object">${nextLabel} <span aria-hidden="true">→</span></button>${submitMarkup(2)}</div></div></section></div>`;
 }
 function gameMarkup(){return `<div class="game-viewport" data-game-viewport><iframe class="game-frame" title="좋은 청자 위대한 청자 만들기 게임" src="/game?classroom=1&room=${encodeURIComponent(session.code)}&student=${encodeURIComponent(session.participantId)}&run=${encodeURIComponent(room.runId)}" allow="fullscreen" data-testid="classroom-game"></iframe></div><p class="game-save-status" data-game-status>완성한 작품은 선생님께 자동으로 전달돼요.</p>`;}
 // The game is laid out for Chromebook screens of at least 1024×600. When the lesson header leaves less room, render it at that size and scale it down.
@@ -204,6 +203,7 @@ function cloudMarkup(words,kind){
   return `<div class="word-cloud" data-kind="${kind}" aria-label="${kind==='name'?'예상한 이름':'예상한 쓰임'} 워드클라우드">${clean.length?clean.map((w,i)=>`<span style="font-size:${fontSize(w.count)}px;color:${colors[i%colors.length]}" title="${Number(w.count)||1}명이 쓴 말">${esc(w.text)}</span>`).join(''):'<span class="empty">아직 도착한 생각이 없어요.<br>학생들의 답변이 여기에 모입니다.</span>'}</div>`;
 }
 function revealedAnswer(activity,id){return teacherData?.reveal?.[activity===1?'comparison':'observations']?.[id];}
+function teacherViewerOptions(activity,id){return {getExpandedInfo:()=>room.revealed?.[activity]?revealedAnswer(activity,id):null};}
 function teacherResultTabs(){
   if(![1,2].includes(teacherActivity))return '';
   const exhibit=teacherResultViews[teacherActivity]==='exhibit'&&room.revealed?.[teacherActivity];
@@ -236,9 +236,9 @@ function mountTeacherBoard(){
   for(const target of comparisonTargets){
     const id=target.dataset.teacherComparisonViewer,artifact=COMPARISON_ARTIFACTS.find(a=>a.id===id),existing=teacherComparisonViewers.get(id);
     if(!artifact)continue;
-    if(existing?.src===artifact.src)target.replaceWith(existing.element);
+    if(existing?.src===artifact.src){target.replaceWith(existing.element);existing.viewer.refreshExpandedInfo();}
     else{
-      existing?.viewer.dispose();const viewer=mountLessonViewer(target,artifact);
+      existing?.viewer.dispose();const viewer=mountLessonViewer(target,artifact,teacherViewerOptions(1,id));
       // Small statistics cards need the full silhouette visible, including the mouth.
       const controls=target.querySelector('.lesson-viewer__controls'),expand=target.querySelector('.lesson-viewer__expand');
       if(controls&&expand)controls.append(expand);
@@ -250,12 +250,13 @@ function mountTeacherBoard(){
   const exhibit=target.hasAttribute('data-exhibit-viewer'),id=exhibit?target.dataset.exhibitViewer:target.dataset.teacherViewer;
   const key=exhibit?`exhibit:${teacherActivity}:${id}`:`observation:${id}`,artifacts=exhibit&&teacherActivity===1?COMPARISON_ARTIFACTS:OBSERVATION_ARTIFACTS;
   if(teacherViewer?.key===key)target.replaceWith(teacherViewer.element);
-  else{teacherViewer?.viewer.dispose();teacherViewer={key,element:target,viewer:mountLessonViewer(target,artifacts.find(a=>a.id===id))};}
+  else{teacherViewer?.viewer.dispose();teacherViewer={key,element:target,viewer:mountLessonViewer(target,artifacts.find(a=>a.id===id),teacherViewerOptions(exhibit?teacherActivity:2,id))};}
+  teacherViewer.viewer.refreshExpandedInfo();
   const cloud=app.querySelector('.word-cloud');if(cloud)cloudView=mountWordCloud(cloud);
 }
 function workKey(work){return `${session?.code}:${work.participantId}:${work.id}`;}
 function teacherWorks(){const works=teacherData?.works||[];return works.length?`<div class="works-grid">${works.map(w=>`<article class="panel work-card" data-work-id="${esc(w.id)}"><div class="work-preview" data-work-preview="${esc(workKey(w))}">${workImages.has(workKey(w))?`<img src="${esc(workImages.get(workKey(w)))}" alt="${w.name?`${esc(w.number)}번 ${esc(w.name)} 학생의 완성한 청자`:'학생의 완성한 청자'}">`:'<span class="image-wait">완성한 청자를 불러오고 있어요.</span>'}<span class="work-score">${Number(w.score?.total??w.score)||0}점</span></div><div class="work-details">${w.name?`<p class="student-line">${esc(w.number)}번 ${esc(w.name)}</p>`:''}<h2>${esc(w.title||'나의 청자')}</h2><h3>모양 · 문양 · 쓰임</h3><p>${esc(w.explanationUse||'')}</p><h3>공들인 부분</h3><p>${esc(w.explanationBeauty||'')}</p></div></article>`).join('')}</div>`:`<section class="panel teacher-empty"><h2>나만의 청자를 빚고 있어요.</h2><p>학생이 작품을 완성하고 설명을 전달하면<br>이곳에 청자와 이야기, 점수가 함께 모입니다.</p></section>`;}
-function teacherSettings(){const set=room.settings||DEFAULT_SETTINGS;return `<details class="panel settings-panel" data-details="settings" ${settingsOpen?'open':''}><summary>시간과 제출 방식 설정</summary><form data-form="settings"><div class="settings-grid">${[1,2].map(n=>`<label class="duration-field">활동 ${n} 시간 (초)<input type="number" name="duration-${n}" min="5" max="1800" step="1" value="${set.durations?.[n]||DEFAULT_SETTINGS.durations[n]}" required ${effectiveStatus()==='active'?'disabled':''}></label>`).join('')}<label class="setting-toggle"><input type="checkbox" name="submitButton" ${set.submitButton?'checked':''} ${effectiveStatus()==='active'?'disabled':''}><span>활동 2 제출 버튼 사용<small>활동 1은 항상 ‘다했어요’로 마칩니다.</small></span></label><label class="setting-toggle"><input type="checkbox" name="autoPause" ${set.autoPause!==false?'checked':''} ${effectiveStatus()==='active'?'disabled':''}><span>시간이 끝나면 활동 마무리<small>활동 3은 시간 제한 없이 선생님이 마칠 때까지 이어져요.</small></span></label></div><div class="settings-footer"><span class="settings-open-hint">활동을 시작하기 전에 설정할 수 있어요.</span><button type="submit" class="button secondary small" ${effectiveStatus()==='active'?'disabled':''}>설정 저장</button></div></form></details>`;}
+function teacherSettings(){const set=room.settings||DEFAULT_SETTINGS;return `<details class="panel settings-panel" data-details="settings" ${settingsOpen?'open':''}><summary>활동 시간 설정</summary><form data-form="settings"><div class="settings-grid">${[1,2].map(n=>`<label class="duration-field">활동 ${n} 시간 (초)<input type="number" name="duration-${n}" min="5" max="1800" step="1" value="${set.durations?.[n]||DEFAULT_SETTINGS.durations[n]}" required ${effectiveStatus()==='active'?'disabled':''}></label>`).join('')}<label class="setting-toggle"><input type="checkbox" name="autoPause" ${set.autoPause!==false?'checked':''} ${effectiveStatus()==='active'?'disabled':''}><span>시간이 끝나면 활동 마무리<small>활동 3은 시간 제한 없이 선생님이 마칠 때까지 이어져요.</small></span></label></div><div class="settings-footer"><span class="settings-open-hint">활동을 시작하기 전에 설정할 수 있어요.</span><button type="submit" class="button secondary small" ${effectiveStatus()==='active'?'disabled':''}>설정 저장</button></div></form></details>`;}
 function participantsMarkup(){const list=teacherData?.participants||[];return `<details class="panel participant-panel" data-details="participants" ${participantsOpen?'open':''}><summary>참여 학생 · ${list.length}명${room.locked?' · 입장 잠김':''}</summary>${entryTools()}<table class="participants-table"><thead><tr><th>번호</th><th>이름</th><th>활동 1</th><th>활동 2</th><th>완성작</th></tr></thead><tbody>${list.length?list.map(p=>`<tr><td>${esc(p.number)}</td><td>${esc(p.name)}${p.released?'<small class="released-tag">다시 입장 대기</small>':''}</td><td class="${p.activity1Complete?'status-ok':'empty-cell'}">${p.activity1Submitted?'제출 완료':p.activity1Complete?'작성 완료':'관찰 중'}</td><td class="${p.activity2Complete?'status-ok':'empty-cell'}">${p.activity2Submitted?'제출 완료':p.activity2Complete?'작성 완료':'관찰 중'}</td><td>${p.completedWorkCount||0}점</td></tr>`).join(''):'<tr><td colspan="5" class="empty-cell">학생들에게 수업 코드를 알려 주세요.</td></tr>'}</tbody></table></details>`;}
 function entryTools(inManager=false){return `<div class="participant-tools"><button class="button secondary small" data-action="lock-room" data-locked="${room?.locked?'false':'true'}" ${controlBusy?'disabled':''}>${room?.locked?'입장 다시 열기':'입장 잠그기'}</button>${inManager?'':'<button class="button quiet small" data-action="manage-students">학생 관리</button>'}</div><p class="participant-note">${room?.locked?'새 번호로는 들어올 수 없어요. 번호를 푼 학생은 다시 들어올 수 있어요.':'수업 코드를 아는 사람은 누구나 들어올 수 있어요. 모두 들어오면 잠가 주세요.'}</p>`;}
 // Lives outside #classroom-app so the teacher board can re-render underneath it; refreshed after every teacher render.
@@ -289,7 +290,7 @@ function updateTimer(){
   let seconds=remaining();if(teacherMode&&(room.activity!==teacherActivity||effectiveStatus()!=='active'))seconds=room.activity===teacherActivity&&deadlinePassed()?0:room.settings?.durations?.[teacherActivity]||0;timer.querySelector('strong').textContent=formatTime(seconds);timer.classList.toggle('warning',active(room?.activity)&&seconds<=20&&seconds>0);timer.classList.toggle('finished',seconds===0);
 }
 function updateSaveStatus(){
-  const done=app.querySelector('[data-comparison-done]');if(done){done.disabled=answerLocked(1)||progress(1)<3||saving;done.textContent=submitted[1]?'다했어요 ✓':saving?'저장 중…':'다했어요';}
+  app.querySelectorAll('[data-activity-done]').forEach(done=>{const activity=Number(done.dataset.activityDone);done.disabled=answerLocked(activity)||progress(activity)<(activity===1?3:5)||saving;done.textContent=submitted[activity]?'다했어요 ✓':saving?'저장 중…':'다했어요';});
   document.querySelectorAll('[data-save-status]').forEach(el=>{el.dataset.status=saveState;el.textContent=saveMessage||'생각을 적으면 자동으로 저장돼요.';});
   const progressEl=document.querySelector('[data-progress]');if(progressEl)progressEl.textContent=`${progress(room?.activity)} / ${room?.activity===1?3:5} 관찰했어요`;
   if(room?.activity===2)document.querySelectorAll('[data-action=select-object]').forEach(el=>{const a=drafts[2][el.dataset.id]||{};el.classList.toggle('answered',Boolean(a.name?.trim()&&a.use?.trim()));});
@@ -327,14 +328,7 @@ function setCountry(id,value){
   if(drafts[1][id]!==value){drafts[1][id]=value;changed(1);}return true;
 }
 function selectCountry(value){selectedCountry=value;app.querySelectorAll('[data-country-chip]').forEach(el=>el.setAttribute('aria-pressed',String(el.dataset.countryChip===value)));}
-function clearCountryDrop(){app.querySelectorAll('[data-country-drop].drop-over').forEach(el=>el.classList.remove('drop-over'));}
-function endCountryDrag(){countryDrag=null;clearCountryDrop();}
-function countryDragAllowed(){return countryDrag&&countryDrag.runId===room?.runId&&!answerLocked(1);}
-function hoverCountryDrop(event){
-  const drop=event.target.closest('[data-country-drop]');
-  if(!drop||!countryDragAllowed())return;
-  event.preventDefault();event.dataTransfer.dropEffect='copy';clearCountryDrop();drop.classList.add('drop-over');
-}
+function endCountryDrag(){countryDragController.cancel();}
 function selectObject(id){if(!OBSERVATION_ARTIFACTS.some(a=>a.id===id))return;clearTimeout(saveTimer);if(dirty[2])queueSave();currentObject=id;renderStudent();}
 function heartbeatGame(){const frame=app.querySelector('.game-frame');if(!frame)return;const enabled=active(3)&&Date.now()-lastSuccessfulPoll<14000;frame.contentWindow?.postMessage({type:'celadon:classroom-state',active:enabled,runId:room.runId,endsAt:room.endsAt,serverNow:now()},location.origin);lastGameActive=enabled;}
 async function sendWork(entry){
@@ -387,7 +381,7 @@ app.addEventListener('submit',async event=>{
       const payload=await api('join',{method:'POST',body:{code,number,name,...(previous?{participantToken:previous.participantToken}:{})}});
       student=payload.student||{number,name};session={code:payload.code||code,participantId:payload.participantId,participantToken:payload.participantToken,student,joinCode:payload.state?.joinCode||code};rememberStudentEntry(session);receive(payload,{initial:true});schedulePoll();
     }else if(form.dataset.form==='settings'){
-      const settings={durations:Object.fromEntries([1,2].map(n=>[n,Number(values.get(`duration-${n}`))])),submitButton:values.has('submitButton'),autoPause:values.has('autoPause')};
+      const settings={durations:Object.fromEntries([1,2].map(n=>[n,Number(values.get(`duration-${n}`))])),autoPause:values.has('autoPause')};
       await control('settings',{settings});settingsDirty=false;toast('시간과 제출 방식을 저장했어요.');teacherSignature='';render();
     }
   }catch(error){const message=app.querySelector('[data-form-error]');if(message)message.textContent=error.message;else toast(error.message);}
@@ -450,23 +444,11 @@ app.addEventListener('input',event=>{
   if(event.target.closest('[data-form=settings]'))settingsDirty=true;
 });
 app.addEventListener('toggle',event=>{if(event.target.dataset.details==='settings')settingsOpen=event.target.open;if(event.target.dataset.details==='participants')participantsOpen=event.target.open;if(event.target.dataset.details==='responses')responsesOpen=event.target.open;if(event.target.dataset.details==='manage')manageOpen=event.target.open;},true);
-// The whole pottery card accepts a nameplate, including the 3D canvas and native select.
-app.addEventListener('dragstart',event=>{
-  const chip=event.target.closest('[data-country-chip]');if(!chip)return;
-  if(answerLocked(1)){event.preventDefault();return;}
-  countryDrag={value:chip.dataset.countryChip,runId:room.runId};
-  event.dataTransfer.setData('text/plain',countryDrag.value);event.dataTransfer.effectAllowed='copy';
+const countryDragController=mountCountryNameplates(app,{
+  canDrag:()=>!teacherMode&&!answerLocked(1),getRunId:()=>room?.runId,
+  onDragStart:()=>selectCountry(null),
+  onDrop:(id,value)=>{if(setCountry(id,value)){selectCountry(null);toast(`청자 ${id}에 ${countryName(value)} 이름표를 놓았어요.`);}},
 });
-app.addEventListener('dragenter',hoverCountryDrop);
-app.addEventListener('dragover',hoverCountryDrop);
-app.addEventListener('dragleave',event=>{const drop=event.target.closest('[data-country-drop]');if(drop&&!drop.contains(event.relatedTarget))drop.classList.remove('drop-over');});
-app.addEventListener('drop',event=>{
-  const drop=event.target.closest('[data-country-drop]');if(!drop)return;
-  event.preventDefault();
-  if(countryDragAllowed()&&event.dataTransfer.getData('text/plain')===countryDrag.value&&setCountry(drop.dataset.countryDrop,countryDrag.value))selectCountry(null);
-  endCountryDrag();
-});
-app.addEventListener('dragend',endCountryDrag);
 // A selected chip is placed before a native select opens its popup on pointer down.
 app.addEventListener('pointerdown',event=>{
   const select=event.target.closest('[data-country-for]');

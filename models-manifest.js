@@ -8,7 +8,7 @@ const local = name => `./assets/models/${name}`;
 
 export const MODEL_ARTIFACTS = Object.freeze({
   pillow: Object.freeze({
-    id: 'pillow', shortName: '베개', name: '청자 상감 모란·구름·학무늬 베개',
+    id: 'pillow', shortName: '베개', name: '청자 상감 모란 구름 학무늬 베개',
     use: '누워서 쉴 때 머리를 받칩니다.',
     src: local('celadon-pillow-reconstruction.glb'), detailedSrc: local('detail/celadon-pillow-reconstruction.glb'),
     sourceUrl: 'https://www.museum.go.kr/MUSEUM/contents/M0502000000.do?relicId=970&schM=view&searchId=search',

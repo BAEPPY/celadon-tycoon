@@ -98,10 +98,62 @@ const base=process.env.BASE_URL||'http://127.0.0.1:4173';
     await teacher.locator('[data-action=teacher-activity][data-activity="2"]').click();
     assert.equal(await teacher.locator('[data-action=teacher-result-view][data-view=exhibit]').isDisabled(),true);
     await teacher.locator('[data-action=start][data-activity="2"]').click();await student.locator('#guess-name').waitFor();
-    assert.equal(await student.locator('[data-action=submit-answers]').count(),0,'activity 2 still respects the optional submit setting');
-    await student.locator('#guess-name').fill('머리 받침');await student.locator('#guess-use').fill('머리를 받치며 쉬어요');
-    await student.waitForFunction(()=>document.querySelector('[data-save-status]')?.dataset.status==='saved');
-    await teacher.locator('[data-action=pause]').click();await student.getByTestId('lock-screen').waitFor();
+    const observationDone=student.locator('[data-observation-done]'),next=student.locator('.observation-writing [data-action=next-object]');
+    assert.equal(await observationDone.isVisible(),true,'activity 2 always has a completion button');
+    assert.equal(await observationDone.isDisabled(),true);
+    assert.equal(await teacher.locator('[name=submitButton]').count(),0,'the obsolete optional completion setting is gone');
+    assert.equal(await student.locator('.observe-stage [data-action=next-object]').count(),0);
+    assert.equal(await student.locator('.observe-stage [data-action=previous-object]').count(),1);
+    assert.equal(await student.locator('.observe-stage [data-action=select-object]').count(),5);
+    for(let id=1;id<=5;id++){
+      await student.locator('#guess-use').fill(`작품 ${id}의 쓰임을 짐작해요`);
+      assert.equal(await observationDone.isDisabled(),true,'both name and use are required for all five artworks');
+      await student.locator('#guess-name').fill(`작품 ${id}의 이름`);
+      if(id<5){assert.equal(await observationDone.isDisabled(),true);await next.click();}
+    }
+    await student.locator('#guess-name').fill('   ');assert.equal(await observationDone.isDisabled(),true,'whitespace is incomplete');
+    await student.locator('#guess-name').fill('작품 5의 이름');
+    await student.waitForFunction(()=>!document.querySelector('[data-observation-done]')?.disabled);
+    assert.match(await next.innerText(),/처음 작품/);
+    // The next action is in normal tab order after the name field and keeps all five drafts.
+    await student.locator('#guess-name').focus();await student.keyboard.press('Tab');
+    assert.equal(await next.evaluate(node=>node===document.activeElement),true);
+    await student.keyboard.press('Enter');
+    assert.equal(await student.locator('#guess-name').inputValue(),'작품 1의 이름');
+    assert.equal(await student.locator('#guess-use').inputValue(),'작품 1의 쓰임을 짐작해요');
+    await student.locator('[data-action=select-object][data-id="5"]').click();
+    for(const [width,height] of [[1366,768],[1024,600]]){
+      await student.setViewportSize({width,height});await student.waitForTimeout(120);
+      for(const action of [next,observationDone])assert.equal(await action.evaluate(node=>{const rect=node.getBoundingClientRect();return rect.left>=0&&rect.top>=0&&rect.right<=innerWidth+1&&rect.bottom<=innerHeight+1;}),true,`observation footer actions fit at ${width}×${height}`);
+      assert.equal(await student.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);
+      await student.screenshot({path:`/tmp/classroom-observation-actions-${width}.png`});
+    }
+    await student.setViewportSize({width:1366,height:768});
+    let observationAttempts=0,observationHeld=false;
+    const observationGate=new Promise(resolve=>{releaseFinal=resolve;});
+    const observationIntercept=async route=>{const request=route.request(),body=request.method()==='POST'?request.postDataJSON():null;
+      if(body?.action==='answer'&&body.activity===2&&body.final){observationAttempts++;if(observationAttempts===1){await route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'시험용 관찰 저장 실패'})});return;}observationHeld=true;await observationGate;}await route.continue();};
+    await student.route('**/api/classroom',observationIntercept);
+    await observationDone.click();await student.waitForFunction(()=>document.querySelector('[data-save-status]')?.dataset.status==='error');
+    assert.equal(await student.locator('.completion-dialog').count(),0,'failed observation final save stays editable');
+    assert.equal((await call('state',{auth:identity.participantToken,body:{participantId:identity.participantId}})).value.answers[2].submitted,false);
+    await observationDone.click();for(let retry=0;retry<50&&!observationHeld;retry++)await student.waitForTimeout(20);assert.equal(observationHeld,true);
+    assert.equal(await student.locator('.completion-dialog').count(),0,'observation completion waits for the final server acknowledgement');
+    releaseFinal();await student.locator('.completion-dialog[open]').waitFor();await student.unroute('**/api/classroom',observationIntercept);
+    assert.match(await student.locator('.completion-dialog').innerText(),/다른 친구들이 다 할 때까지/);
+    assert.equal(await student.locator('.completion-dialog button,.completion-dialog [data-action]').count(),0);
+    assert.equal(await student.locator('#guess-name').isDisabled(),true);assert.equal(await student.locator('#guess-use').isDisabled(),true);
+    await student.keyboard.press('Escape');assert.equal(await student.locator('.completion-dialog[open]').count(),1);
+    await student.reload();await student.locator('.completion-dialog[open]').waitFor();
+    await student.waitForResponse(response=>new URL(response.url()).searchParams.get('action')==='state');
+    assert.equal(await student.locator('.completion-dialog[open]').count(),1,'observation wait persists through reloads and polling');
+    const observationConfirmed=await call('state',{auth:identity.participantToken,body:{participantId:identity.participantId}});
+    assert.equal(observationConfirmed.value.answers[2].submitted,true);assert.equal(observationConfirmed.value.state.settings.submitButton,false);
+    assert.equal(Object.keys(observationConfirmed.value.answers[2].answers).length,5);
+    assert.equal((await call('answer',{method:'POST',auth:identity.participantToken,body:{participantId:identity.participantId,activity:2,runId:observationConfirmed.value.state.runId,clientRevision:999,answers:{1:{name:'바꾼 이름',use:'바꾼 쓰임'}}}})).status,409);
+    await capture(student,'observation-completion-wait');
+    await teacher.locator('[data-action=pause]').click();await student.getByTestId('lock-screen').waitFor();assert.equal(await student.locator('.completion-dialog').count(),0);
+    console.log('Observation completion: five-answer gating, keyboard next/wrap persistence, visible Chromebook footer, failed-save retry, final acknowledgement, Escape/reload/poll protection and teacher-close passed.');
     await revealAndCheck(2,OBSERVATION_ANSWERS);
     assert.deepEqual(errors,[]);
     console.log('Exhibits: all 3 + 5 real models and descriptions, page navigation, poll-stable canvas, response/exhibit views and read-only observer/student boundaries passed.');
