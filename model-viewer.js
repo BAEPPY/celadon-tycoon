@@ -3,6 +3,7 @@ import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {RoomEnvironment} from 'three/addons/environments/RoomEnvironment.js';
 import {getModelArtifact} from './models-manifest.js';
+import {createArtifactOpening} from './artifact-opening.js';
 
 const viewers = new WeakMap();
 const create = (tag, className, text) => {
@@ -53,6 +54,26 @@ export async function openArtifact(container, shape) {
 
   let disposed = false, renderer, controls, object, scene, camera, observer, environment;
   let frame = 0, modelRoot, floor, homePosition, homeTarget, initialRadius = 4;
+  let opening, openingButton, openingFitDistance = 0;
+  function fitOpeningView() {
+    if (!opening || !camera || !controls) return;
+    const bounds = opening.getBounds(), radius = bounds.getSize(new THREE.Vector3()).length() / 2;
+    const vertical = THREE.MathUtils.degToRad(camera.fov), horizontal = 2 * Math.atan(Math.tan(vertical / 2) * camera.aspect);
+    const distance = radius / Math.sin(Math.min(vertical, horizontal) / 2) * 1.12, target = bounds.getCenter(new THREE.Vector3());
+    if (openingFitDistance) {
+      const offset = camera.position.clone().sub(controls.target).multiplyScalar(distance / openingFitDistance);
+      controls.target.add(target.clone().sub(homeTarget));
+      camera.position.copy(controls.target).add(offset);
+    } else {
+      controls.target.copy(target);
+      camera.position.copy(target).add(new THREE.Vector3(Math.sin(0.45), 0.22, Math.cos(0.45)).normalize().multiplyScalar(distance));
+    }
+    openingFitDistance = distance;
+    homeTarget = target.clone();
+    homePosition = target.clone().add(new THREE.Vector3(Math.sin(0.45), 0.22, Math.cos(0.45)).normalize().multiplyScalar(distance));
+    controls.maxDistance = Math.max(distance * 3, 9);
+    controls.update();
+  }
   const abort = new AbortController();
   const controller = {
     dispose() {
@@ -60,6 +81,7 @@ export async function openArtifact(container, shape) {
       disposed = true;
       abort.abort();
       cancelAnimationFrame(frame);
+      opening?.dispose();
       observer?.disconnect();
       controls?.dispose();
       releaseModel(object);
@@ -93,6 +115,7 @@ export async function openArtifact(container, shape) {
       camera.position.copy(controls.target).add(offset.setLength(distance));
       controls.update();
     },
+    setLidOpen(open, options) {if (!disposed && opening) opening.setOpen(open, options);},
   };
   viewers.set(container, controller);
   container.replaceChildren();
@@ -130,10 +153,12 @@ export async function openArtifact(container, shape) {
     ['축소 −', () => controller.zoom(1.2)],
     ['처음 시점', () => controller.reset()],
   ];
+  if (artifact.opening) buttons.push(['뚜껑 열기', () => controller.setLidOpen(!opening?.open)]);
   for (const [label, fn] of buttons) {
     const button = create('button', 'artifact-control', label);
     button.type = 'button';
     button.disabled = true;
+    if (label === '뚜껑 열기') {openingButton = button; button.classList.add('artifact-opening'); button.setAttribute('aria-pressed', 'false');}
     Object.assign(button.style, {font:'inherit', fontSize:'12px', padding:'9px 12px', border:'2px solid #5c784f', borderRadius:'9px', background:'#fff5cc', color:'#2e4d32', cursor:'pointer'});
     button.addEventListener('click', fn);
     toolbar.append(button);
@@ -201,6 +226,7 @@ export async function openArtifact(container, shape) {
       renderer.setSize(width, height, false);
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
+      fitOpeningView();
     });
     observer.observe(viewport);
 
@@ -247,6 +273,16 @@ export async function openArtifact(container, shape) {
     renderer.setSize(viewportWidth, viewportHeight, false);
     camera.aspect = aspect;
     camera.updateProjectionMatrix();
+    opening = createArtifactOpening(gltf, artifact.opening, {THREE, onChange: state => {
+      container.dataset.opening = state.state;
+      if (openingButton) {
+        openingButton.textContent = state.open ? '뚜껑 닫기' : '뚜껑 열기';
+        openingButton.setAttribute('aria-pressed', String(state.open));
+      }
+      fitOpeningView();
+    }});
+    if (opening) opening.setOpen(false, {animate: false});
+    else {openingButton?.remove(); openingButton = null; delete container.dataset.opening;}
     status.remove();
     toolbar.querySelectorAll('button').forEach(b => {b.disabled = false;});
     container.dataset.status = 'ready';
@@ -262,6 +298,7 @@ export async function openArtifact(container, shape) {
   } catch (error) {
     if (disposed || error.name === 'AbortError') return controller;
     cancelAnimationFrame(frame);
+    opening?.dispose(); opening = null;
     observer?.disconnect();
     controls?.dispose();
     releaseModel(object); object = null;

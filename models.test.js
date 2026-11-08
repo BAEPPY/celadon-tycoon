@@ -41,10 +41,23 @@ for (const artifact of MODEL_CATALOG) {
     assert.equal(record.bytes, data.length);
     assert.equal(record.sha256, createHash('sha256').update(data).digest('hex'));
     const {document: doc, binaryLength} = parseGLB(data);
+    if (artifact.id === 'incense') {
+      const textureSources = new Set();
+      assert.equal(doc.meshes.length, 2, 'the incense retains its body and pierced lid');
+      for (const mesh of doc.meshes) for (const primitive of mesh.primitives) {
+        const material = doc.materials[primitive.material];
+        const texture = doc.textures[material.pbrMetallicRoughness.baseColorTexture.index];
+        assert.ok(doc.images[texture.source]?.bufferView !== undefined, 'each part has its embedded original color image');
+        assert.ok(doc.accessors[primitive.attributes.TEXCOORD_0], 'each part retains the UVs that place its image');
+        textureSources.add(texture.source);
+      }
+      assert.equal(textureSources.size, 2, 'the body and lid use their own matching photographs');
+      assert.equal(artifact.referenceTint, false, 'a uniform tint must not replace the source colors');
+    }
     assert.ok(doc.scenes[doc.scene ?? 0].nodes.length);
     assert.ok(doc.meshes.length);
     if (record.parts) assert.equal(doc.meshes.length, record.parts.length, 'all source parts are retained');
-    assert.deepEqual(doc.extensionsRequired || [], [], 'no missing decoder dependency');
+    assert.ok((doc.extensionsRequired || []).every(extension => extension === 'KHR_materials_unlit'), 'required features are built into the viewer, with no external decoder dependency');
     assert.equal(doc.buffers.length, 1);
     assert.ok(!doc.buffers[0].uri, 'geometry must be embedded');
     assert.ok(doc.buffers[0].byteLength <= binaryLength);

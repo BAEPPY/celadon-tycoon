@@ -14,13 +14,13 @@
 
 ## 활동 2 · 쓰임과 이름 짐작하기
 
-기존 게임 `assets/models/`에 보존된 모델을 복사했습니다. 베개·의자·주전자·향로는 사용자 박물관의 기존 네 모델과 같습니다. 사용자가 고른 **오리 연적**은 이후 게임에 추가한 국립중앙박물관 자료입니다.
+게임 `assets/models/`와 같은 관찰 모델을 사용합니다. 베개·의자·주전자는 사용자 박물관의 기존 자료이고, 향로는 새로 제공된 OBJ와 사진 질감으로 갱신했습니다. 사용자가 고른 **오리 연적**은 이후 게임에 추가한 국립중앙박물관 자료입니다.
 
 1. **청자 상감 모란 구름 학무늬 베개** — [국립중앙박물관](https://www.museum.go.kr/MUSEUM/contents/M0502000000.do?relicId=970&schM=view&searchId=search). 사용자 제공 다각도 사진 참고 재현. 밑면 등 일부 형상 추정·보정, 실측 스캔 아님.
 2. **청자 투각 의자** — [3DBank 자료](https://www.3dbank.xyz/contents/view_contents.jsp?cuid=2989). 사용자 제공 원본 3D 형상·색상 유지. 광택은 참고 표현.
 3. **청자 오리 모양 연적** — [국립중앙박물관 덕수648](https://www.museum.go.kr/MUSEUM/contents/M0505000000.do?relicId=6952&schM=view&searchId=search). 사용자 제공 OBJ 스캔 형상과 사진 질감, 공공누리 제1유형(출처표시). 원본 질감 유지, 웹용 형상·질감 경량화.
 4. **청자 어룡형 주전자** — [국립중앙박물관](https://www.museum.go.kr/MUSEUM/contents/M0504000000.do?relicId=858&schM=view). 사용자 제공 OBJ 스캔 형상과 사진 질감.
-5. **청자 투각 칠보문 뚜껑 향로** — [국립중앙박물관](https://www.museum.go.kr/MUSEUM/contents/M0201020000.do?relicId=1227&schM=search). 사용자 제공 PLY 두 부분의 실제 스캔 형상. 거의 흰 원본 정점 색 대신 청자색을 참고 표현하며, 원색 복원이 아님.
+5. **청자 투각 칠보무늬 향로** — [국립중앙박물관](https://www.museum.go.kr/MUSEUM/contents/M0201020000.do?relicId=1227&schM=search). 사용자 제공 `duk002990_001_30000` 몸체와 `duk002990_002_30000` 뚜껑 OBJ의 187,034개 삼각형·UV·법선을 유지하고 각 부분의 원본 사진을 연결했습니다. 8192px 색상 이미지는 4096px JPEG로 줄였으며 비조명 재질로 사진색을 보존합니다. 노멀 맵은 추가 조명으로 색이 달라지지 않도록 최종 모델에서 사용하지 않습니다. 뚜껑은 별도 메시로 유지해 열고 닫을 수 있습니다. 변환: `scripts/convert-incense-photo.py`.
 
 더 자세한 원본·변환 정보는 [`../models/README.md`](../models/README.md), [`../models/provenance.json`](../models/provenance.json), [박물관 상세 자료 기록](https://github.com/BAEPPY/minichungjamuseum/blob/main/public/models/README.md), [박물관 경량 자료 기록](https://github.com/BAEPPY/minichungjamuseum/blob/main/public/models/map/README.md)을 따릅니다. 이 저장소는 원본 자료에 대한 새로운 이용허락을 부여하지 않습니다.
 
