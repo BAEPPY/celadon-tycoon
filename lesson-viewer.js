@@ -66,7 +66,7 @@ export function mountLessonViewer(container, artifact, {expand = true, getExpand
   if (!artifact || typeof artifact.src !== 'string') throw new TypeError('An artifact source is required.');
   mounted.get(container)?.dispose();
 
-  const label = /^청자\s*\d+$/.test(artifact.label || '') ? artifact.label : `청자 ${String(artifact.id || '').replace(/[^0-9]/g, '') || ''}`.trim();
+  const label = (artifact.namedObservation === true || /^청자\s*\d+$/.test(artifact.label || '')) ? artifact.label : `청자 ${String(artifact.id || '').replace(/[^0-9]/g, '') || ''}`.trim();
   const id = `lesson-viewer-${++viewerNumber}`;
   let disposed = false, attempt = 0, frame = 0, abort;
   let THREE, renderer, scene, camera, controls, object, floor, environment;

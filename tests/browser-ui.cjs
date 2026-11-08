@@ -38,10 +38,10 @@ async function layout(page,stage,problems){
    await page.goto(new URL('/game',base).href);await page.evaluate(()=>document.fonts.ready);await layout(page,`${width} cover`,problems);
    assert.equal(await page.locator('[data-action=start]').count(),0);await page.click('[data-action=new-order]');await page.click('[data-action=accept]');
    await page.waitForSelector('.clay-scene');const initial=(await saved(page)).draft;
-   assert.equal(initial.clay.body,true,'body clay is automatically ready');assert.equal(await page.locator('[data-clay]').count(),0,'no redundant clay selection');assert.equal(await page.locator('.knead-pad svg path').count()>0,true);
+   assert.equal(initial.clay.body,true,'body clay is automatically ready');assert.equal(await page.locator('[data-clay]').count(),0,'no redundant clay selection');assert.equal(await page.locator('.knead-pad svg image[href="./assets/clay/kneading-states.png"]').count()>0,true);
    await layout(page,`${width} clay`,problems);if(width===1024||width===1366)await page.screenshot({path:`/tmp/ui-clay-${width}.png`});
    await page.locator('.knead-pad').focus();for(let i=0;i<6;i++)await page.keyboard.press('Space');assert.equal((await saved(page)).draft.clay.kneads,6);await page.click('[data-action=clay-ready]');
-   await page.waitForSelector('.empty-clay>svg');assert.equal(await page.locator('.empty-clay>svg path').count()>0,true,'blank shaping uses actual clay illustration');await layout(page,`${width} empty shape`,problems);
+   await page.waitForSelector('.empty-clay>svg');assert.equal(await page.locator('.empty-clay>svg image[href="./assets/clay/kneading-states.png"]').count()>0,true,'blank shaping uses actual clay illustration');await layout(page,`${width} empty shape`,problems);
    await page.click('[data-shape=incense]');await page.waitForSelector('.variant-shelf');const cards=page.locator('.variant-card');assert.ok(await cards.count()>=2,'family opens inline illustrated choices');
    await page.waitForFunction(()=>[...document.querySelectorAll('.variant-card img')].every(img=>img.complete&&img.naturalWidth>0));await layout(page,`${width} variants`,problems);if(width===1024||width===1366)await page.screenshot({path:`/tmp/ui-variants-${width}.png`});
    await page.click('[data-model=duckIncense]');await page.waitForSelector('.illustration-viewport[data-status=ready]');assert.equal((await saved(page)).draft.modelId,'duckIncense');assert.equal(await page.locator('.variant-shelf').count(),0);await layout(page,`${width} selected duck`,problems);

@@ -7,6 +7,8 @@
  * Images simplify historical objects for a primary-school learning activity.
  */
 
+import {normalizeStampSize} from './motif-size.js';
+
 const SHAPES = {
   maebyeong: {
     label: '매병',
@@ -89,7 +91,7 @@ function decoration(placements, pattern, technique, stage) {
   return placements.slice(0, 12).map((placement, index) => {
     const x = Math.max(35, Math.min(325, finite(placement.x, 180)));
     const y = Math.max(45, Math.min(305, finite(placement.y, 190)));
-    const scale = Math.max(.45, Math.min(1.3, finite(placement.scale, .67)));
+    const scale = Math.max(.45, Math.min(1.3, finite(placement.scale, .67))) * normalizeStampSize(placement.stampSize);
     if (technique === 'openwork') return `<g transform="translate(${x} ${y}) scale(${scale})">${motif(pattern, '#e1edd8', '#36574c')}</g>`;
     const carved = stage === 'carved' || stage === 'clay';
     const fill = stage === 'finished' ? '#f5f0d7' : '#fff5d9';

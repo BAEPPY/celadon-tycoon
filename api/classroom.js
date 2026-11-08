@@ -43,6 +43,7 @@ export function createClassroomHandler({store, now, makeCode, makeToken} = {}) {
       else if (req.method === 'POST' && raw.action === 'join') result = await service.join(raw);
       else if (req.method === 'POST' && raw.action === 'control') result = await service.control(raw, auth);
       else if (req.method === 'POST' && raw.action === 'answer') result = await service.answer(raw, auth);
+      else if (req.method === 'POST' && raw.action === 'beauty-answer') result = await service.beautyAnswer(raw, auth);
       else if (req.method === 'POST' && raw.action === 'work') result = await service.submitWork(raw, auth);
       else throw new ClassroomError(400, 'unknown-action', '수업 화면을 새로고침해 주세요.');
       return send(res, 200, result);

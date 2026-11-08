@@ -3,6 +3,12 @@
 .decoration-scene .station-info h2,.inlay-scene .station-info h2{font-size:23px;line-height:1.3}
 .decoration-scene .station-info p,.inlay-scene .station-info p{font-size:17px;line-height:1.55;word-break:keep-all;text-wrap:pretty}
 .decoration-scene .station-info .text-button,.inlay-scene .station-info .text-button{font-size:15px}
+.stamp-size-control{display:grid;gap:4px;margin-top:2px;padding-top:10px;border-top:1px solid #bea482}
+.stamp-size-control label{display:flex;justify-content:space-between;gap:6px;align-items:center;font-size:17px;font-weight:700;color:#6f5548}
+.stamp-size-control output{font-variant-numeric:tabular-nums;white-space:nowrap;color:#496f53}
+.stamp-size-control input{width:100%;min-height:30px;margin:0;accent-color:#5d8261;cursor:pointer}
+.stamp-size-control input:focus-visible{outline:2px solid #517552;outline-offset:3px;border-radius:5px}
+.decoration-scene .stamp-size-control p{font-size:14px;line-height:1.4;margin:0}
 .decoration-scene .station-workspace,.inlay-scene .station-workspace{left:23%;right:18%}
 .decoration-scene .pattern-trays{gap:5px}
 .decoration-scene .pattern-bin span{font-size:14px;line-height:1.25;white-space:normal;word-break:keep-all;text-align:center}

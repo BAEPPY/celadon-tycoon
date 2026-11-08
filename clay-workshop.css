@@ -2,10 +2,12 @@
 .is-clay .kneading-area{inset:0;display:block;pointer-events:none}
 .is-clay .knead-pad{position:absolute;left:var(--wheel-x);top:var(--wheel-y);width:var(--clay-width);height:auto;transform:translate(-50%,-86.54%);pointer-events:auto;border-radius:36%;outline:none;user-select:none;-webkit-user-select:none}
 .is-clay .knead-pad:focus-visible{outline:3px dashed #bd8e55;outline-offset:-12px}
-.is-clay .knead-pad svg{display:block;width:100%;height:auto;max-height:none;overflow:visible}
+.is-clay .knead-pad>svg{display:block;width:100%;height:auto;max-height:none;overflow:visible}
+.clay-state-art{overflow:hidden;pointer-events:none}
+.clay-state-art image{pointer-events:none}
+.is-clay .knead-pad .clay-state-art{width:320px;height:320px;max-height:none;overflow:hidden}
 .is-clay .knead-lump{transform-origin:200px 225px;transition:none;will-change:transform}
 .is-clay .clay-contact-shadow{transform-origin:200px 225px;transition:none}
-.is-clay .knead-pad.prepared .knead-lump>path:nth-child(2){opacity:.5}
 .is-clay .kneading-area .sculpt-progress{position:absolute;left:var(--wheel-x);top:calc(var(--wheel-y) + 28px);width:300px;max-width:30%;height:12px;transform:translateX(-50%);background:#e4c9a8;border:1px solid #b38b70;box-shadow:0 1px 2px #895d4730}
 .is-clay .kneading-area>p{position:absolute;left:var(--wheel-x);top:calc(var(--wheel-y) + 48px);width:440px;max-width:43%;margin:0;padding:7px 12px;transform:translateX(-50%);border-radius:10px;background:#fff4deeb;color:#78524c;font-size:18px;line-height:1.4}
 .is-clay .station-info{width:23%;max-width:290px;padding:18px;gap:14px}

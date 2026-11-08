@@ -1,4 +1,5 @@
 import { motifPath, cutoutPath } from "./motif-paths.js";
+import { normalizeStampSize } from './motif-size.js';
 import {
   ROTATION_IDS,
   FRAME_COUNT,
@@ -140,7 +141,7 @@ export class Craft2D {
     this.turns = document.createElement("div");
     this.turns.className = "vessel-turns";
     this.turns.innerHTML =
-      '<button type="button" data-turn="-1" aria-label="왼쪽으로 15도 회전">↶</button><span class="turn-label">0° · 1/24</span><button type="button" data-turn="1" aria-label="오른쪽으로 15도 회전">↷</button>';
+      '<button type="button" data-turn="-1" aria-label="왼쪽으로 15도 회전">↶</button><span class="turn-label">0°</span><button type="button" data-turn="1" aria-label="오른쪽으로 15도 회전">↷</button>';
     this.el.append(this.turns);
     this.turns.addEventListener("click", (e) => {
       const b = e.target.closest("[data-turn]");
@@ -161,11 +162,16 @@ export class Craft2D {
     this.canvas.addEventListener("pointerdown", (e) => this.down(e), opt);
     this.canvas.addEventListener("pointermove", (e) => this.move(e), opt);
     this.canvas.addEventListener("pointerup", (e) => this.up(e), opt);
+    this.canvas.addEventListener("pointerleave", () => {
+      this.stampPreview = null;
+      this.dirty = true;
+    }, opt);
     this.canvas.addEventListener(
       "pointercancel",
       () => {
         this.drag = null;
         this.stroke = null;
+        this.stampPreview = null;
         this.paint();
       },
       opt,
@@ -226,6 +232,7 @@ export class Craft2D {
     this.glaze = 0;
     this.work = work;
     this.stage = stage;
+    if (!this.editable() || (work.tool || 'stamp') !== 'stamp') this.stampPreview = null;
     // During firing the vessel is a display; only the mini-game controls take input.
     this.interactive = work.step !== 2;
     this.el.inert = !this.interactive;
@@ -258,7 +265,7 @@ export class Craft2D {
       !rotating ||
       (work.step === 0 && work.knead < 3 && !work.sculpt?.complete);
     this.turns.querySelector(".turn-label").textContent =
-      (frame || 0) * 15 + "° · " + ((frame || 0) + 1) + "/24";
+      (frame || 0) * 15 + "°";
     if (this.shape !== key || this.el.dataset.status === "error") {
       this.shape = key;
       const token = ++this.loadId;
@@ -445,7 +452,7 @@ export class Craft2D {
     return this.surfacePoint(p.angle,p.level);
   }
   motifSurfacePaths(mark, open = false) {
-    const a=this.anchor(mark), w=this.surface.width,h=this.surface.height, size=Math.min(w,h)*.00103;
+    const a=this.anchor(mark), w=this.surface.width,h=this.surface.height, size=Math.min(w,h)*.00103*normalizeStampSize(mark.stampSize);
     return sampledPaths(open ? cutoutPath(mark.pattern || this.work.pattern) : motifPath(mark.pattern || this.work.pattern)).map(path=>({closed:path.closed,points:path.points.map(([x,y])=>({angle:a.angle+x*size/w/a.radius,level:a.level+y*size/h}))}));
   }
   getInlayTargets() {
@@ -477,6 +484,7 @@ export class Craft2D {
     )
       return;
     this.work.viewFrame = wrapFrame(frame);
+    this.stampPreview = null;
     this.sway = this.motion ? 0 : 0.012;
     this.onView?.();
     await this.update(this.work, this.stage);
@@ -498,7 +506,7 @@ export class Craft2D {
     c.strokeStyle=filled?this.inlayColor():'#89624f';c.lineWidth=width*Math.max(.5,(pa.squeeze+pb.squeeze)/2);line();c.restore();
   }
   mark(c, mark, open, erase = false) {
-    const paths=this.motifSurfacePaths(mark,open),size=Math.min(c.canvas.width,c.canvas.height)*.00103;
+    const paths=this.motifSurfacePaths(mark,open),size=Math.min(c.canvas.width,c.canvas.height)*.00103*normalizeStampSize(mark.stampSize);
     c.save();c.lineJoin='round';c.lineCap='round';
     for(const path of paths){
       if(!open){for(let i=1;i<path.points.length;i++)this.drawInlaySegment(c,path.points[i-1],path.points[i],size*7);continue;}
@@ -524,7 +532,24 @@ export class Craft2D {
     c.restore();
   }
 
-  draw() {
+  drawStampPreview(c) {
+    if (!this.stampPreview || !this.editable() || (this.work.tool || 'stamp') !== 'stamp') return;
+    const mark = {...this.stampPreview, pattern: this.work.pattern, stampSize: normalizeStampSize(this.work.stampSize)}, b = this.box;
+    c.save();c.globalCompositeOperation='source-atop';c.lineCap='round';c.lineJoin='round';
+    c.strokeStyle='#fff7dd';c.lineWidth=Math.min(b.width,b.height)*.0072*mark.stampSize;
+    for (const path of this.motifSurfacePaths(mark,this.work.technique==='openwork')) {
+      c.beginPath();let active=false;
+      for (const p of path.points) {
+        const q=this.surfacePoint(p.angle,p.level);
+        if(!q){active=false;continue;}
+        c[active?'lineTo':'moveTo'](b.x+q.uv[0]*b.width,b.y+q.uv[1]*b.height);active=true;
+      }
+      if(path.closed&&active)c.closePath();
+      c.globalAlpha=.8;c.stroke();
+    }
+    c.restore();
+  }
+  draw(showPreview = true) {
     const c = this.ctx,
       w = this.canvas.width,
       h = this.canvas.height;
@@ -547,6 +572,7 @@ export class Craft2D {
     }
     if (p >= 0.995) {
       c.drawImage(this.surface, b.x, b.y, b.width, b.height);
+      if (showPreview) this.drawStampPreview(c);
       c.restore();
       return;
     }
@@ -731,7 +757,12 @@ export class Craft2D {
     if (this.editable() && this.work.tool !== "rotate") this.stroke = [hit];
   }
   move(e) {
-    if (!this.interactive || !this.drag) return;
+    if (!this.interactive) return;
+    if (!this.drag) {
+      this.stampPreview = this.editable() && (this.work.tool || 'stamp') === 'stamp' ? this.hit(e) : null;
+      this.dirty = true;
+      return;
+    }
     if (this.stroke && this.work.tool === "draw") {
       const hit = this.hit(e),
         last = this.stroke.at(-1);
@@ -759,6 +790,7 @@ export class Craft2D {
       points = this.stroke;
     this.drag = null;
     this.stroke = null;
+    this.stampPreview = null;
     this.pulse = 0.65;
     this.sway = this.motion ? 0 : 0.015;
     if (points) {
@@ -771,6 +803,7 @@ export class Craft2D {
           x: points[0].uv[0] * 360,
           y: points[0].uv[1] * 360,
           pattern: this.work.pattern,
+          stampSize: normalizeStampSize(this.work.stampSize),
           renderer: "illustration-2d",
         });
     }
@@ -803,6 +836,7 @@ export class Craft2D {
           x: uv[0] * 360,
           y: uv[1] * 360,
           pattern: this.work.pattern,
+          stampSize: normalizeStampSize(this.work.stampSize),
           renderer: "illustration-2d",
         });
         return;
@@ -810,7 +844,8 @@ export class Craft2D {
     }
   }
   snapshot() {
-    this.draw();
+    this.draw(false);
+    this.dirty = true;
     const out = makeCanvas(
       512,
       Math.round((512 * this.canvas.height) / this.canvas.width),

@@ -1,9 +1,10 @@
-import {COMPARISON_ARTIFACTS, OBSERVATION_ARTIFACTS, COUNTRY_CHOICES} from './lesson-artifacts.js';
+import {COMPARISON_ARTIFACTS, OBSERVATION_ARTIFACTS, COUNTRY_CHOICES, BEAUTY_ARTIFACT} from './lesson-artifacts.js';
 import {mountLessonViewer} from './lesson-viewer.js';
 import {extractClassroomCode, canUseClassroomAction, CLASSROOM_JOIN_CODE} from './classroom-access.js';
 import {loadStudentEntryState, rememberStudentEntry, findStudentRejoin, clearActiveStudentSession} from './classroom-entry.js';
 import {mountWordCloud} from './lesson-cloud.js';
 import {mountCountryNameplates} from './country-nameplates.js';
+import {GAME_DATA_TTL_MS, pruneGameSaves} from './game-retention.js';
 
 const TITLE='고려청자의 우수성과 다양한 쓰임 알아보기';
 // /observe is a read-only copy of the teacher board for visitors at an open class: no controls, no student names.
@@ -15,7 +16,9 @@ const SESSION_KEY=observerMode?'celadon-classroom-observer-v1':teacherMode?'cela
 const ACTIVITY_NAMES={1:'세 나라 도자기 비교',2:'쓰임과 이름 짐작하기',3:'좋은 청자 위대한 청자'};
 const STAGE_NAMES=ACTIVITY_NAMES;
 const PENDING_CLASSROOM_KEY='celadon-classroom-create-v1';
-const DEFAULT_SETTINGS={durations:{1:90,2:240,3:300},submitButton:false,autoPause:true};
+const DEFAULT_SETTINGS={durations:{1:90,2:240,3:300},beautyDuration:90,submitButton:false,autoPause:true};
+const BEAUTY_NAME='고려청자의 아름다움 찾기';
+const ANSWER_KEYS=[1,2,'beauty'];
 const countryName=id=>COUNTRY_CHOICES.find(c=>c.id===id)?.label||id;
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const copy=value=>JSON.parse(JSON.stringify(value));
@@ -24,14 +27,15 @@ function store(key,value){try{if(value===null)localStorage.removeItem(key);else 
 // An observer opens /observe?code=XXXXXX#key=… ; the key stays in the fragment so it is never sent to the server in the URL.
 function observerSession(){const code=extractClassroomCode(new URLSearchParams(location.search).get('code')||''),key=new URLSearchParams(location.hash.slice(1)).get('key')||'';if(code&&/^[A-Za-z0-9_-]{30,100}$/.test(key)){const value={code,observerToken:key};store(SESSION_KEY,value);return value;}return stored(SESSION_KEY);}
 let session=observerMode?observerSession():teacherMode?stored(SESSION_KEY):loadStudentEntryState(),room=null,teacherData=null,student=null,answers={},offset=0,offsetSamples=[];
-let currentObject='1',teacherActivity=1,teacherObject='1',selectedCountry=null,cloudKind='name';
+let currentObject='1',teacherActivity=1,teacherObject='1',teacherA1View='comparison',selectedCountry=null,cloudKind='name';
 let teacherResultViews={1:'responses',2:'responses'},exhibitObjects={1:'1',2:'1'},completionDialog=null;
-let drafts={1:{},2:{}},revisions={1:0,2:0},dirty={1:false,2:false},draftChanges={1:0,2:0},submitted={1:false,2:false};
+let worksSort=observerMode?'score':'number',workDialog=null;
+let drafts={1:{},2:{},beauty:{}},revisions={1:0,2:0,beauty:0},dirty={1:false,2:false,beauty:false},draftChanges={1:0,2:0,beauty:0},submitted={1:false,2:false,beauty:false};
 let viewKey='',teacherSignature='',pollTimer=null,pollRunning=false,pollFailures=0,connectionError='',lastSuccessfulPoll=0;
 let saveTimer=null,saving=false,saveAgain=false,finalAgain=false,saveState='ready',saveMessage='',controlBusy=false;
 let settingsDirty=false,settingsOpen=false,participantsOpen=false,responsesOpen=false,manageOpen=false,toastTimer=null;
 let disposed=false,frameRunId='',lastGameActive=null;
-const viewers=[],workImages=new Map(),workImagePending=new Set(),uploadedWorks=new Set(),pendingWorks=new Map();
+const viewers=[],workImages=new Map(),workImagePending=new Set(),uploadedWorks=new Set(),pendingWorks=new Map(),terminalWorks=new Map();
 let teacherViewer=null,cloudView=null;
 const teacherComparisonViewers=new Map();
 const publicJoinCode=()=>room?.joinCode||session?.code||CLASSROOM_JOIN_CODE;
@@ -40,7 +44,7 @@ const actionAllowed=action=>canUseClassroomAction(action,{teacherMode:teacherMod
 const logo=`<svg viewBox="0 0 40 40" aria-hidden="true"><path d="M15 5h10v7c0 5 9 8 8 15-1 8-6 9-13 9S8 35 7 27c-1-7 8-10 8-15Z" fill="#88ae8d" stroke="currentColor" stroke-width="1.8"/><path d="M11 25c5-6 13-6 18 0M13 30c5-4 9-4 14 0" fill="none" stroke="#e7edcf" stroke-width="1.7"/></svg>`;
 const timerIcon=`<svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="18" r="11"/><path d="M16 10v8l5 3M12 3h8M16 3v4M24 7l3 3"/></svg>`;
 const laptopIcon=`<svg viewBox="0 0 100 100" aria-hidden="true"><path d="M20 30h60v39H20z"/><path d="M14 74h72l-6 7H20zM38 49l9 8 16-18"/></svg>`;
-const closedLaptopIcon=`<svg viewBox="0 0 100 100" aria-hidden="true"><path d="M15 64h70l-5 10H20zM24 55h52M36 39l14-12 14 12M50 28v27"/><path d="M18 64l6-9M82 64l-6-9"/></svg>`;
+const closedLaptopIcon=`<svg viewBox="0 0 100 100" aria-hidden="true"><path d="M16 65h68l-7 11H23Z" fill="#c6e5df"/><path d="m22 43 58 11-3 10-58-10Z" fill="#f6fcfa"/><path d="m27 48 46 9M40 70h20"/><path d="M30 25c18-12 43-5 48 16" stroke-width="3.5"/><path d="m70 36 9 8 5-11" stroke-width="3.5"/></svg>`;
 
 function toast(message){clearTimeout(toastTimer);toastElement.textContent=message;toastElement.classList.add('visible');toastTimer=setTimeout(()=>toastElement.classList.remove('visible'),3500);}
 async function copyClassroomValue(value,label){
@@ -75,19 +79,27 @@ function timeExpired(){return room?.status==='active'&&Boolean(room.endsAt)&&now
 function deadlinePassed(){return timeExpired()&&(room.activity===3||room.settings?.autoPause!==false);}
 function effectiveStatus(){return deadlinePassed()?'paused':room?.status||'waiting';}
 function active(activity){return room?.activity===activity&&effectiveStatus()==='active'&&!timeExpired();}
-function answerLocked(activity){return submitted[activity]||!active(activity);}
+function beautyStage(){return room?.activity===1&&room.activity1Stage==='beauty';}
+function answerActivity(){return beautyStage()?'beauty':room?.activity;}
+function answerRun(activity,state=room){return activity==='beauty'?state?.runs?.beauty:state?.runs?.[activity]||(state?.activity===activity?state.runId:null);}
+function recordDraft(activity,record){return activity==='beauty'?{text:record?.text||''}:copy(record?.answers||{});}
+function expectedProgress(activity){return activity==='beauty'?1:activity===1?3:5;}
+function answerLocked(activity){return submitted[activity]||(activity==='beauty'?!beautyStage()||!active(1):!active(activity)||activity===1&&beautyStage());}
+function teacherBeautyView(){return teacherActivity===1&&teacherA1View==='beauty';}
+function teacherViewActive(){return room.activity===teacherActivity&&(teacherActivity!==1||(room.activity1Stage||'comparison')===teacherA1View);}
+function teacherViewDuration(){return teacherBeautyView()?room.settings?.beautyDuration||90:room.settings?.durations?.[teacherActivity]||0;}
 function expiryMarkup(){return timeExpired()?'<div class="submitted-banner" data-testid="time-finished">시간이 끝났어요. 선생님이 마무리할 때까지 기다려 주세요.</div>':'';}
 // Activity 3 has no time limit: it runs until the teacher ends it, so its clock shows elapsed time instead.
 const untimed=activity=>activity===3;
 function elapsed(){return room?.startedAt&&room.status==='active'?Math.max(0,Math.floor((now()-room.startedAt)/1000)):0;}
-function remaining(){return room?.endsAt?Math.max(0,Math.ceil((room.endsAt-now())/1000)):room?.settings?.durations?.[teacherMode?teacherActivity:room?.activity]||0;}
+function remaining(){return room?.endsAt?Math.max(0,Math.ceil((room.endsAt-now())/1000)):(teacherMode?teacherViewDuration():beautyStage()?room.settings?.beautyDuration||90:room?.settings?.durations?.[room?.activity]||0);}
 function formatTime(seconds){return `${Math.floor(seconds/60)}:${String(seconds%60).padStart(2,'0')}`;}
 function timerMarkup(activity=teacherMode?teacherActivity:room?.activity){const open=untimed(activity);return `<div class="timer" data-testid="lesson-timer" aria-label="${open?'활동 진행 시간':'남은 활동 시간'}">${timerIcon}<div><span>${open?'진행 시간':'남은 시간'}</span><strong>${open?formatTime(elapsed()):formatTime(remaining())}</strong></div></div>`;}
 function stages(activity=room?.activity||0){
-  return `<div class="current-activity" aria-label="현재 수업 활동"><span>${activity?`활동 ${activity} / 3`:'수업 준비'}</span><strong>${activity?STAGE_NAMES[activity]:'선생님의 시작을 기다려요'}</strong><small>선생님이 진행해요</small></div>`;
+  return `<div class="current-activity" aria-label="현재 수업 활동"><span>${activity?`활동 ${activity} / 3`:'수업 준비'}</span><strong>${activity?(beautyStage()?BEAUTY_NAME:STAGE_NAMES[activity]):'선생님의 시작을 기다려요'}</strong><small>선생님이 진행해요</small></div>`;
 }
 // Kept in the header so it stays reachable on 1024×600, where the side panel has to scroll.
-function manageMenu(){const status=room?effectiveStatus():'waiting';return `<details class="manage-menu" data-details="manage" ${manageOpen?'open':''}><summary class="button secondary small">수업 관리 <span aria-hidden="true">▾</span></summary><div class="manage-menu-list"><button class="button secondary small" data-action="copy-observer">참관 주소 복사</button>${room&&!room.joinCode?'<button class="button secondary small" data-action="claim-join-code">탑텐반 코드 연결</button>':''}<button class="button secondary small" data-action="end" ${status==='ended'||controlBusy?'disabled':''}>수업 종료</button><button class="button quiet small" data-action="new-room">새 수업</button><button class="button danger small" data-action="delete-room">수업 자료 삭제</button></div></details>`;}
+function manageMenu(){const status=room?effectiveStatus():'waiting';return `<details class="manage-menu" data-details="manage" ${manageOpen?'open':''}><summary class="button secondary small">수업 관리 <span aria-hidden="true">▾</span></summary><div class="manage-menu-list"><button class="button secondary small" data-action="copy-observer">참관 주소 복사</button>${room&&!room.joinCode?'<button class="button secondary small" data-action="claim-join-code">탑텐반 코드 연결</button>':''}<button class="button secondary small" data-action="end" ${status==='ended'||controlBusy?'disabled':''}>수업 종료</button><button class="button quiet small" data-action="new-room">새 수업</button></div></details>`;}
 function header(){
   const studentGame=!teacherMode&&active(3);
   return `<header class="lesson-header ${teacherMode?'teacher-header':''}"><div class="brand"><span class="brand-mark">${logo}</span><div><div class="brand-title">우리 반 청자 교실</div><small>${observerMode?'참관 화면 · 읽기 전용':teacherMode?'선생님 진행 화면':'관찰하고 · 생각하고 · 만들어요'}</small></div></div>${teacherMode?`${observerMode?'<div class="observer-badge">참관 중 · 학생 이름은 보이지 않아요</div>':`<div class="teacher-room-code"><span>수업 코드</span><strong>${esc(publicJoinCode())}</strong><div class="code-actions"><button class="button secondary small" data-action="copy-code">수업 코드 복사</button><button class="button quiet small" data-action="copy-invite">참여 주소 복사</button></div></div>`}<div class="teacher-tools"><span class="pill" data-connection>연결됨</span><button class="button quiet small" data-action="fullscreen">전체 화면</button>${observerMode?'':manageMenu()}</div>`:`${studentGame?'':stages()}<div class="student-badge"><strong>${esc(student?.number||'')}번 ${esc(student?.name||'')}</strong><span class="pill" data-connection>연결됨</span></div>${studentGame?timerMarkup():''}`}</header><div class="connection-banner" data-connection-banner hidden><span></span><button class="button secondary small" data-action="retry-connection">다시 연결</button></div>`;
@@ -97,17 +109,16 @@ function updateConnection(){
   const banner=document.querySelector('[data-connection-banner]');if(banner){banner.hidden=!connectionError;banner.querySelector('span').textContent=connectionError?`연결이 잠시 끊겼어요. ${connectionError}`:'';}
 }
 function disposeViewers(){for(const v of viewers.splice(0)){try{v.dispose();}catch{}}}
-function mountViewers(){document.querySelectorAll('[data-viewer]').forEach(el=>{const artifacts=el.dataset.collection==='comparison'?COMPARISON_ARTIFACTS:OBSERVATION_ARTIFACTS,artifact=artifacts.find(a=>a.id===el.dataset.viewer);if(artifact)viewers.push(mountLessonViewer(el,artifact));});}
+function mountViewers(){document.querySelectorAll('[data-viewer]').forEach(el=>{const beauty=el.dataset.collection==='beauty',artifacts=beauty?[BEAUTY_ARTIFACT]:el.dataset.collection==='comparison'?COMPARISON_ARTIFACTS:OBSERVATION_ARTIFACTS,artifact=artifacts.find(a=>a.id===el.dataset.viewer);if(artifact)viewers.push(mountLessonViewer(el,artifact,beauty?beautyViewerOptions():{}));});}
 function draftStorageKey(){return session?`celadon-classroom-drafts-v1:${session.code}:${session.participantId}`:'';}
 function persistDrafts(){if(session&&!teacherMode)store(draftStorageKey(),{drafts,revisions,dirty,draftChanges,runs:room?.runs,runId:room?.runId});}
 function initialDrafts(){
   const saved=stored(draftStorageKey());
-  for(const n of [1,2]){
-    const record=answers[n],run=room?.runs?.[n]|| (room?.activity===n?room.runId:null);
-    const savedRun=saved?.runs?.[n]||(room?.activity===n?saved?.runId:null);
+  for(const n of ANSWER_KEYS){
+    const record=answers[n],run=answerRun(n),savedRun=n==='beauty'?saved?.runs?.beauty:saved?.runs?.[n]||(room?.activity===n?saved?.runId:null);
     if(saved?.dirty?.[n]&&savedRun===run&&!record?.submitted){drafts[n]=saved.drafts[n]||{};revisions[n]=Math.max(saved.revisions[n]||0,record?.clientRevision||0);dirty[n]=true;draftChanges[n]=saved.draftChanges?.[n]||0;}
-    else{drafts[n]=record?.runId===run?copy(record.answers||{}):{};revisions[n]=record?.runId===run?record.clientRevision||0:0;dirty[n]=false;}
-    submitted[n]=Boolean(record?.runId===run&&record.submitted);
+    else{drafts[n]=run&&record?.runId===run?recordDraft(n,record):{};revisions[n]=run&&record?.runId===run?record.clientRevision||0:0;dirty[n]=false;}
+    submitted[n]=Boolean(run&&record?.runId===run&&record.submitted);
   }
 }
 function receive(payload,{initial=false}={}){
@@ -119,22 +130,24 @@ function receive(payload,{initial=false}={}){
   if(room?.serverNow){const estimate=Number(room.serverNow)-Date.now();offsetSamples=previous?[...offsetSamples.slice(-4),estimate]:[estimate];offset=Math.max(...offsetSamples);}
   connectionError='';pollFailures=0;lastSuccessfulPoll=Date.now();
   if(teacherMode){
-    teacherData={...(teacherData||{}),...payload};if(initial)teacherActivity=room.activity||1;else if(observerMode&&room.activity&&room.activity!==previous?.activity)teacherActivity=room.activity;
+    teacherData={...(teacherData||{}),...payload};pruneTeacherWorks();if(initial)teacherActivity=room.activity||1;else if(observerMode&&room.activity&&room.activity!==previous?.activity)teacherActivity=room.activity;
+    if(initial||room.activity1Stage!==previous?.activity1Stage)teacherA1View=room.activity1Stage==='beauty'?'beauty':'comparison';
     for(const activity of [1,2]){
       if(room.revealed?.[activity]&&!previous?.revealed?.[activity]){teacherResultViews[activity]='exhibit';exhibitObjects[activity]='1';}
       else if(!room.revealed?.[activity])teacherResultViews[activity]='responses';
     }
   }
   else{
-    if(previous?.runs?.[3]&&room?.runs?.[3]!==previous.runs[3]){uploadedWorks.clear();pendingWorks.clear();}
+    if(previous?.runs?.[3]&&room?.runs?.[3]!==previous.runs[3]){uploadedWorks.clear();clearPendingWorks();terminalWorks.clear();}
     student=payload.student||student;
     if(payload.answers){const merged={...answers};for(const n of [1,2]){const incoming=payload.answers[n],current=answers[n],run=room?.runs?.[n];if(incoming&&(incoming.runId!==current?.runId?incoming.runId===run:incoming.clientRevision>=current.clientRevision))merged[n]=incoming;}answers=merged;}
+    if(payload.beautyAnswer){const incoming=payload.beautyAnswer,current=answers.beauty,run=answerRun('beauty');if(incoming.runId!==current?.runId?incoming.runId===run||!run:incoming.clientRevision>=current.clientRevision)answers={...answers,beauty:incoming};}
     for(const work of payload.completedWorks||[])uploadedWorks.add(work.id);
     if(initial)initialDrafts();
-    else for(const n of [1,2]){
-      const oldRun=previous?.runs?.[n]||(previous?.activity===n?previous.runId:null),run=room?.runs?.[n]||(room?.activity===n?room.runId:null),record=answers[n];
-      if(oldRun!==run&&run){drafts[n]=record?.runId===run?copy(record.answers||{}):{};revisions[n]=record?.runId===run?record.clientRevision||0:0;dirty[n]=false;draftChanges[n]=0;submitted[n]=false;}
-      if(record?.runId===run){submitted[n]=Boolean(record.submitted);if(record.submitted){dirty[n]=false;drafts[n]=copy(record.answers||{});revisions[n]=Math.max(revisions[n],record.clientRevision||0);}if(!dirty[n]&&!saving&&(record.clientRevision||0)>=revisions[n]){drafts[n]=copy(record.answers||{});revisions[n]=record.clientRevision||0;}}
+    else for(const n of ANSWER_KEYS){
+      const oldRun=answerRun(n,previous),run=answerRun(n),record=answers[n];
+      if(oldRun!==run){drafts[n]=run&&record?.runId===run?recordDraft(n,record):{};revisions[n]=run&&record?.runId===run?record.clientRevision||0:0;dirty[n]=false;draftChanges[n]=0;submitted[n]=false;}
+      if(run&&record?.runId===run){submitted[n]=Boolean(record.submitted);if(record.submitted){dirty[n]=false;drafts[n]=recordDraft(n,record);revisions[n]=Math.max(revisions[n],record.clientRevision||0);}if(!dirty[n]&&!saving&&(record.clientRevision||0)>=revisions[n]){drafts[n]=recordDraft(n,record);revisions[n]=record.clientRevision||0;}}
     }
     persistDrafts();
   }
@@ -143,7 +156,7 @@ function receive(payload,{initial=false}={}){
 function schedulePoll(delay=teacherMode?4000:3000){clearTimeout(pollTimer);if(session&&!disposed)pollTimer=setTimeout(poll,delay);}
 async function poll(){
   if(pollRunning||!session)return;schedulePoll();pollRunning=true;const requestSession=session;
-  try{const payload=await api(observerMode?'observe':teacherMode?'teacher':'state');if(session!==requestSession)return;receive(payload);if(!teacherMode&&active(room.activity)&&dirty[room.activity]&&!saving)queueSave();retryWorks();}
+  try{const payload=await api(observerMode?'observe':teacherMode?'teacher':'state');if(session!==requestSession)return;receive(payload);if(!teacherMode&&active(room.activity)&&dirty[answerActivity()]&&!saving)queueSave();retryWorks();}
   catch(error){if(session!==requestSession)return;
     if((!teacherMode||observerMode)&&(error.status===403||error.status===404)){const message=observerMode||error.status===404?error.message:'선생님이 입장 정보를 정리했어요. 번호와 이름으로 다시 입장해 주세요.';resetRoom();renderWelcome(message);return;}
     pollFailures++;connectionError=error.name==='AbortError'?'응답을 기다리고 있어요.':error.message;updateConnection();}
@@ -152,7 +165,7 @@ async function poll(){
 function welcomeArtwork(){return `<div class="welcome-art" aria-hidden="true"><img src="/assets/lesson/welcome-celadon.png" alt="" width="1774" height="887" fetchpriority="high"></div>`;}
 function renderWelcome(message=''){
   closeCompletionDialog();disposeViewers();disposeTeacherBoard();viewKey='welcome';const identity={},queryCode=extractClassroomCode(new URLSearchParams(location.search).get('code')||'');
-  app.innerHTML=`<section class="welcome"><div class="welcome-copy"><span class="eyebrow">우리 반 청자 교실 · 고려의 문화</span><h1><em>고려청자의 우수성</em>과<br> 다양한 쓰임 알아보기</h1><p>빛깔과 모양을 살펴보고,<br>청자에 담긴 사람들의 생활을 찾아봐요.</p>${welcomeArtwork()}</div><div><section class="panel welcome-form"><h2>${observerMode?'수업 참관':teacherMode?'함께 시작하는 청자 수업':'수업에 들어가요'}</h2><p class="muted">${observerMode?'선생님이 보낸 참관 주소로 열면 수업 진행과 학생들의 생각을 함께 볼 수 있어요. 학생 이름은 보이지 않아요.':teacherMode?'우리 반 수업 코드는 ‘탑텐반’입니다.':'번호와 이름은 세 활동 동안 계속 사용해요.'}</p>${observerMode?'':teacherMode?`<form data-form="create"><button class="button" type="submit">새 수업 열기 <span aria-hidden="true">→</span></button></form><p class="welcome-note">활동 1 · 1분 30초<br>활동 2 · 4분<br>활동 3 · 선생님이 마칠 때까지<br><br>선생님이 활동을 시작하고 마칠 때마다<br>학생 화면도 함께 바뀝니다.</p><a class="teacher-link" href="/lesson">학생 참여 화면 보기 →</a>`:`<form data-form="join"><label>수업 코드<input class="code-input" name="code" autocomplete="off" spellcheck="false" minlength="3" maxlength="6" pattern="(탑텐반|[A-Za-z2-9]{6})" required value="${esc(queryCode)}" placeholder="탑텐반"></label><div class="identity-fields"><label>번호<input name="number" type="number" autocomplete="off" min="1" max="99" inputmode="numeric" required value="${esc(identity.number||'')}" placeholder="번호"></label><label>이름<input name="name" autocomplete="off" maxlength="20" required value="${esc(identity.name||'')}" placeholder="이름을 적어 주세요"></label></div><button class="button" type="submit">수업 들어가기 <span aria-hidden="true">→</span></button></form><p class="welcome-note">입력한 번호와 이름, 수업 답변은 선생님께 전달돼요.</p>`}<p class="error-message" data-form-error>${esc(message)}</p></section></div></section>`;
+  app.innerHTML=`<section class="welcome"><div class="welcome-copy"><span class="eyebrow">우리 반 청자 교실 · 고려의 문화</span><h1><em>고려청자의 우수성</em>과<br> 다양한 쓰임 알아보기</h1><p>빛깔과 모양을 살펴보고,<br>청자에 담긴 사람들의 생활을 찾아봐요.</p>${welcomeArtwork()}</div><div><section class="panel welcome-form"><h2>${observerMode?'수업 참관':teacherMode?'함께 시작하는 청자 수업':'수업에 들어가요'}</h2><p class="muted">${observerMode?'선생님이 보낸 참관 주소로 열면 수업 진행과 학생들의 생각을 함께 볼 수 있어요. 학생 이름은 보이지 않아요.':teacherMode?'우리 반 수업 코드는 ‘탑텐반’입니다.':'번호와 이름은 세 활동 동안 계속 사용해요.'}</p>${observerMode?'':teacherMode?`<form data-form="create"><button class="button" type="submit">새 수업 열기 <span aria-hidden="true">→</span></button></form><p class="welcome-note">활동 1 · 세 나라 비교 1분 30초<br>아름다움 찾기 1분 30초<br>활동 2 · 4분<br>활동 3 · 선생님이 마칠 때까지<br><br>선생님이 활동을 시작하고 마칠 때마다<br>학생 화면도 함께 바뀝니다.</p><a class="teacher-link" href="/lesson">학생 참여 화면 보기 →</a>`:`<form data-form="join"><label>수업 코드<input class="code-input" name="code" autocomplete="off" spellcheck="false" minlength="3" maxlength="6" pattern="(탑텐반|[A-Za-z2-9]{6})" required value="${esc(queryCode)}" placeholder="탑텐반"></label><div class="identity-fields"><label>번호<input name="number" type="number" autocomplete="off" min="1" max="99" inputmode="numeric" required value="${esc(identity.number||'')}" placeholder="번호"></label><label>이름<input name="name" autocomplete="off" maxlength="20" required value="${esc(identity.name||'')}" placeholder="이름을 적어 주세요"></label></div><button class="button" type="submit">수업 들어가기 <span aria-hidden="true">→</span></button></form><p class="welcome-note">입력한 번호와 이름, 수업 답변은 선생님께 전달돼요.</p>`}<p class="error-message" data-form-error>${esc(message)}</p></section></div></section>`;
 }
 function waitingMarkup(){
   const status=effectiveStatus(),initial=!room.activity||status==='waiting';
@@ -160,14 +173,14 @@ function waitingMarkup(){
   const detail=initial?`${esc(student?.name)} 학생, 반가워요.<br>잠시 선생님의 안내를 기다려 주세요.`:status==='ended'?'오늘 만든 청자와 친구들의 생각을<br>함께 나누어 보아요.':'관찰한 점과 떠오른 생각을<br>친구들과 함께 이야기해 보아요.';
   return `<section class="waiting" data-testid="${initial?'waiting-screen':'lock-screen'}"><div class="waiting-inner"><div class="waiting-illustration">${initial?laptopIcon:closedLaptopIcon}</div><h1>${title}</h1><p>${detail}</p><div class="waiting-status"><i></i>${status==='ended'?'수업을 마쳤어요':initial?'수업 시작을 기다리고 있어요':'다음 활동은 선생님이 열어 주세요'}</div></div></section>`;
 }
-function progress(activity){if(activity===1)return COMPARISON_ARTIFACTS.filter(a=>drafts[1][a.id]).length;return OBSERVATION_ARTIFACTS.filter(a=>drafts[2][a.id]?.name?.trim()&&drafts[2][a.id]?.use?.trim()).length;}
+function progress(activity){if(activity==='beauty')return drafts.beauty.text?.trim()?1:0;if(activity===1)return COMPARISON_ARTIFACTS.filter(a=>drafts[1][a.id]).length;return OBSERVATION_ARTIFACTS.filter(a=>drafts[2][a.id]?.name?.trim()&&drafts[2][a.id]?.use?.trim()).length;}
 function saveMarkup(){return `<span class="save-status" data-save-status data-status="${saveState}">${esc(saveMessage||'생각을 적으면 자동으로 저장돼요.')}</span>`;}
 function submitMarkup(activity){
-  return `<button class="button" data-action="submit-answers" data-activity-done="${activity}" ${activity===1?'data-comparison-done':'data-observation-done'} ${answerLocked(activity)||progress(activity)<(activity===1?3:5)||saving?'disabled':''}>${submitted[activity]?'다했어요 ✓':saving?'저장 중…':'다했어요'}</button>`;
+  return `<button class="button" data-action="submit-answers" data-activity-done="${activity}" ${activity==='beauty'?'data-beauty-done':activity===1?'data-comparison-done':'data-observation-done'} ${answerLocked(activity)||progress(activity)<expectedProgress(activity)||saving?'disabled':''}>${submitted[activity]?'다했어요 ✓':saving?'저장 중…':'다했어요'}</button>`;
 }
 function closeCompletionDialog(){if(!completionDialog)return;completionDialog.close();completionDialog.remove();completionDialog=null;}
 function syncCompletionDialog(){
-  if(teacherMode||![1,2].includes(room?.activity)||effectiveStatus()!=='active'||!submitted[room.activity]){closeCompletionDialog();return;}
+  if(teacherMode||![1,2].includes(room?.activity)||effectiveStatus()!=='active'||!submitted[answerActivity()]){closeCompletionDialog();return;}
   if(completionDialog?.isConnected)return;
   const dialog=document.createElement('dialog');dialog.className='completion-dialog';dialog.tabIndex=-1;
   dialog.setAttribute('aria-labelledby','completion-title');dialog.setAttribute('aria-describedby','completion-message');
@@ -180,17 +193,21 @@ function observationMarkup(){
   const artifact=OBSERVATION_ARTIFACTS.find(a=>a.id===currentObject)||OBSERVATION_ARTIFACTS[0],answer=drafts[2][artifact.id]||{},nextLabel=artifact.id===OBSERVATION_ARTIFACTS.at(-1).id?'처음 작품':'다음 작품';
   return `<div class="lesson-heading"><div><span class="activity-label">활동 2 · ${ACTIVITY_NAMES[2]}</span><h1>모양 속에 어떤 쓰임이 숨어 있을까요?</h1><p>다섯 점을 돌려 보고, 쓰임과 이름을 자유롭게 짐작해 보세요.</p></div>${timerMarkup()}</div>${expiryMarkup()}${submitted[2]?'<div class="submitted-banner">다했어요! 친구들을 기다리고 있어요.</div>':''}<div class="observe-layout"><section class="panel observe-stage"><div class="object-title"><h2>${esc(artifact.label)}</h2><span class="object-number">${esc(artifact.id)}</span></div><div class="viewer-host" data-viewer="${esc(artifact.id)}" data-collection="observation"></div><div class="observe-navigation"><button class="nav-arrow" data-action="previous-object" aria-label="이전 청자">←</button><nav class="object-dots" aria-label="활동 2에서 관찰할 다섯 청자">${OBSERVATION_ARTIFACTS.map(a=>`<button class="object-dot ${a.id===artifact.id?'active':''} ${drafts[2][a.id]?.name?.trim()&&drafts[2][a.id]?.use?.trim()?'answered':''}" data-action="select-object" data-id="${a.id}" aria-label="청자 ${a.id} 관찰하기" title="같은 활동 안에서 청자 ${a.id} 관찰" ${a.id===artifact.id?'aria-current="true"':''}>${a.id}</button>`).join('')}</nav></div></section><section class="panel observation-writing"><div><div class="writing-heading"><span>✧</span><h2>내 생각을 적어 주세요</h2></div><p>청자를 돌려 보고, 떠오르는 쓰임과 이름을 적어요.</p></div><label for="guess-use">어디에 쓰던 물건일까요?<textarea id="guess-use" data-observation-field="use" maxlength="180" placeholder="이런 곳에 썼을 것 같아요." ${answerLocked(2)?'disabled':''}>${esc(answer.use||'')}</textarea></label><label for="guess-name">어떤 이름을 붙이면 좋을까요?<input id="guess-name" class="write-name" data-observation-field="name" maxlength="60" placeholder="내가 짐작한 이름" value="${esc(answer.name||'')}" ${answerLocked(2)?'disabled':''}></label><p class="field-help">쓴 생각은 이름 없이 선생님 화면에 함께 모여요.</p><div class="answer-footer">${saveMarkup()}<div class="observation-actions"><span class="observed-progress" data-progress>${progress(2)} / 5 관찰했어요</span><button type="button" class="button secondary observation-next" data-action="next-object">${nextLabel} <span aria-hidden="true">→</span></button>${submitMarkup(2)}</div></div></section></div>`;
 }
+function beautyViewerOptions(){return {getExpandedInfo:()=>({name:BEAUTY_ARTIFACT.label,note:'빛깔은 어떤가요? 무늬는 어떤가요? 청자를 돌려 보며 아름다운 점을 찾아보세요.',sourceUrl:BEAUTY_ARTIFACT.sourceUrl})};}
+function beautyMarkup(){
+  return `<div class="lesson-heading"><div><span class="activity-label">활동 1 · ${BEAUTY_NAME}</span><h1>고려청자에서는 어떤 아름다움을 찾을 수 있나요?</h1><p>청자를 천천히 돌려 보고, 내 눈에 들어온 아름다움을 적어 보세요.</p></div>${timerMarkup()}</div>${expiryMarkup()}<div class="beauty-layout"><section class="panel beauty-object"><span class="activity-label">함께 살펴볼 청자</span><h2>${esc(BEAUTY_ARTIFACT.label)}</h2><div class="viewer-host" data-viewer="${esc(BEAUTY_ARTIFACT.id)}" data-collection="beauty"></div></section><section class="panel beauty-writing"><div class="writing-heading"><span>✧</span><h2>내가 찾은 아름다움</h2></div><div class="beauty-prompts"><span>빛깔은 어떤가요?</span><span>무늬는 어떤가요?</span></div><label for="beauty-answer">어떤 점이 아름답다고 느꼈나요?<textarea id="beauty-answer" data-beauty-answer maxlength="300" rows="6" placeholder="관찰하며 찾은 아름다움을 자유롭게 적어 주세요." ${answerLocked('beauty')?'disabled':''}>${esc(drafts.beauty.text||'')}</textarea></label><p class="field-help">쓴 생각은 이름 없이 선생님 화면에 함께 모여요.</p><div class="answer-footer">${saveMarkup()}${submitMarkup('beauty')}</div></section></div>`;
+}
 function gameMarkup(){return `<div class="game-viewport" data-game-viewport><iframe class="game-frame" title="좋은 청자 위대한 청자 만들기 게임" src="/game?classroom=1&room=${encodeURIComponent(session.code)}&student=${encodeURIComponent(session.participantId)}&run=${encodeURIComponent(room.runId)}" allow="fullscreen" data-testid="classroom-game"></iframe></div><p class="game-save-status" data-game-status>완성한 작품은 선생님께 자동으로 전달돼요.</p>`;}
 // The game is laid out for Chromebook screens of at least 1024×600. When the lesson header leaves less room, render it at that size and scale it down.
 const GAME_MIN_WIDTH=1024,GAME_MIN_HEIGHT=600;let gameFit=null;
 function fitGameFrame(){const box=app.querySelector('[data-game-viewport]'),frame=box?.querySelector('iframe');if(!frame)return;const {width,height}=box.getBoundingClientRect();if(!width||!height)return;const borderX=frame.offsetWidth-frame.clientWidth,borderY=frame.offsetHeight-frame.clientHeight,scale=Math.min(1,width/(GAME_MIN_WIDTH+borderX),height/(GAME_MIN_HEIGHT+borderY));frame.style.width=`${width/scale}px`;frame.style.height=`${height/scale}px`;frame.style.transform=scale<1?`scale(${scale})`:'';}
 function watchGameFrame(){gameFit?.disconnect();gameFit=null;const box=app.querySelector('[data-game-viewport]');if(!box)return;fitGameFrame();if('ResizeObserver' in window){gameFit=new ResizeObserver(fitGameFrame);gameFit.observe(box);}}
 function renderStudent(){
-  const status=effectiveStatus(),key=`student:${room.activity}:${status}:${room.runId}:${room.settings?.submitButton}:${submitted[room.activity]}:${room.activity===2?currentObject:''}:${Boolean(timeExpired())}`;
+  const status=effectiveStatus(),key=`student:${room.activity}:${status}:${room.runId}:${room.settings?.submitButton}:${submitted[answerActivity()]}:${room.activity1Stage}:${room.activity===2?currentObject:''}:${Boolean(timeExpired())}`;
   if(key!==viewKey){
     const oldFrame=app.querySelector('iframe');if(oldFrame)oldFrame.contentWindow?.postMessage({type:'celadon:classroom-state',active:false,runId:frameRunId,serverNow:now(),endsAt:room.endsAt},location.origin);
     endCountryDrag();selectCountry(null);disposeViewers();viewKey=key;const game=active(3);
-    app.innerHTML=`<div class="lesson-shell ${game?'game-shell':''} ${status==='active'&&room.activity===1?'compare-shell':''}">${header()}${status!=='active'||!room.activity?waitingMarkup():room.activity===1?comparisonMarkup():room.activity===2?observationMarkup():gameMarkup()}</div>`;
+    app.innerHTML=`<div class="lesson-shell ${game?'game-shell':''} ${status==='active'&&beautyStage()?'beauty-shell':''} ${status==='active'&&room.activity===1&&!beautyStage()?'compare-shell':''}">${header()}${status!=='active'||!room.activity?waitingMarkup():room.activity===1?(beautyStage()?beautyMarkup():comparisonMarkup()):room.activity===2?observationMarkup():gameMarkup()}</div>`;
     frameRunId=game?room.runId:'';mountViewers();watchGameFrame();
     if(game){const frame=app.querySelector('iframe');frame.addEventListener('load',()=>{heartbeatGame();frame.contentWindow?.postMessage({type:'celadon:request-completed'},location.origin);});}
   }
@@ -200,7 +217,7 @@ function cloudMarkup(words,kind){
   const clean=(words||[]).filter(w=>typeof w.text==='string'&&w.text.trim()).slice(0,45),counts=clean.map(w=>Math.max(1,Number(w.count)||1)),max=Math.max(1,...counts),min=Math.min(max,...counts);
   const fontSize=count=>max===min?32:Math.round(18+54*Math.pow((Math.max(1,Number(count)||1)-min)/(max-min),1.4));
   const colors=['#e87854','#21948f','#507fa6','#9c73ad','#759651','#c09a45'];
-  return `<div class="word-cloud" data-kind="${kind}" aria-label="${kind==='name'?'예상한 이름':'예상한 쓰임'} 워드클라우드">${clean.length?clean.map((w,i)=>`<span style="font-size:${fontSize(w.count)}px;color:${colors[i%colors.length]}" title="${Number(w.count)||1}명이 쓴 말">${esc(w.text)}</span>`).join(''):'<span class="empty">아직 도착한 생각이 없어요.<br>학생들의 답변이 여기에 모입니다.</span>'}</div>`;
+  return `<div class="word-cloud" data-kind="${kind}" aria-label="${kind==='beauty'?'고려청자의 아름다움':kind==='name'?'예상한 이름':'예상한 쓰임'} 워드클라우드">${clean.length?clean.map((w,i)=>`<span style="font-size:${fontSize(w.count)}px;color:${colors[i%colors.length]}" title="${Number(w.count)||1}명이 쓴 말">${esc(w.text)}</span>`).join(''):'<span class="empty">아직 도착한 생각이 없어요.<br>학생들의 답변이 여기에 모입니다.</span>'}</div>`;
 }
 function revealedAnswer(activity,id){return teacherData?.reveal?.[activity===1?'comparison':'observations']?.[id];}
 function teacherViewerOptions(activity,id){return {getExpandedInfo:()=>room.revealed?.[activity]?revealedAnswer(activity,id):null};}
@@ -217,7 +234,12 @@ function exhibitMarkup(){
 }
 function teacherContent(){
   if(teacherActivity===3)return teacherWorks();
-  return teacherResultTabs()+(teacherResultViews[teacherActivity]==='exhibit'&&room.revealed?.[teacherActivity]?exhibitMarkup():teacherActivity===1?teacherComparison():teacherObservations());
+  const stages=teacherActivity===1?`<nav class="beauty-stage-tabs" aria-label="활동 1 살펴볼 내용"><button type="button" data-action="teacher-a1-view" data-view="comparison" aria-pressed="${teacherA1View==='comparison'}">세 나라 도자기 비교</button><button type="button" data-action="teacher-a1-view" data-view="beauty" aria-pressed="${teacherA1View==='beauty'}">${BEAUTY_NAME}</button></nav>`:'';
+  return stages+(teacherBeautyView()?teacherBeauty():teacherResultTabs()+(teacherResultViews[teacherActivity]==='exhibit'&&room.revealed?.[teacherActivity]?exhibitMarkup():teacherActivity===1?teacherComparison():teacherObservations()));
+}
+function teacherBeauty(){
+  const item=teacherData?.beauty||{responses:[],words:[],respondents:0,total:0,submitted:0};
+  return `<div class="observation-board beauty-board"><section class="board-context panel"><span class="activity-label">아름다움 찾아보기</span><h2>${esc(BEAUTY_ARTIFACT.label)}</h2><div class="viewer-host" data-beauty-viewer></div><h3>빛깔은 어떤가요?<br>무늬는 어떤가요?</h3><span class="anonymous-label">이름 없이 생각을 모아요</span></section><section class="board-canvas panel cloud-layout"><div class="board-toolbar"><strong>우리가 찾은 아름다움</strong><span class="board-response-count">${Number(item.respondents)||0}명 응답</span></div><h2 class="board-question">고려청자에서는 어떤 아름다움을 찾을 수 있나요?</h2>${cloudMarkup(item.words,'beauty')}<div class="board-caption">많이 나온 생각은 크게, 적게 나온 생각은 작게 보여요.</div></section></div><details class="panel settings-panel response-phrases" data-details="responses" ${responsesOpen?'open':''}><summary>학생들의 생각 그대로 보기 · 익명 ${item.responses.length}개</summary><div class="response-list">${item.responses.length?item.responses.map(text=>`<p>${esc(text)}</p>`).join(''):'<p>아직 모인 생각이 없어요.</p>'}</div></details>`;
 }
 function teacherComparison(){return `<div class="teacher-visuals teacher-comparison-grid">${COMPARISON_ARTIFACTS.map(a=>{const item=teacherData?.comparison?.find(c=>c.id===a.id)||{respondents:0,total:0,unanswered:0,choices:[]};return `<section class="panel result-panel comparison-result-card" data-comparison-result="${esc(a.id)}"><h2>${esc(a.label)} <small>${Number(item.respondents)||0}명 응답</small></h2><div class="teacher-comparison-viewer viewer-host" data-teacher-comparison-viewer="${esc(a.id)}"></div><div class="comparison-percentages" aria-label="${esc(a.label)}의 나라별 응답">${COUNTRY_CHOICES.map(c=>{const choice=item.choices.find(v=>v.country===c.id)||{percent:0,count:0};return `<div class="bar-row"><div class="row"><span>${esc(c.label)}<small>${Number(choice.count)||0}명</small></span><strong>${Number(choice.percent)||0}%</strong></div><div class="bar-track"><div class="bar-fill ${c.id}" style="width:${Math.min(100,Math.max(0,Number(choice.percent)||0))}%"></div></div></div>`;}).join('')}<p class="unanswered">아직 고르지 않은 학생 ${Number(item.unanswered)||0}명 · 응답한 학생 기준</p></div></section>`;}).join('')}</div>`;}
 function teacherObservations(){
@@ -245,52 +267,130 @@ function mountTeacherBoard(){
       teacherComparisonViewers.set(id,{src:artifact.src,element:target,viewer});
     }
   }
-  const target=app.querySelector('[data-exhibit-viewer], [data-teacher-viewer]');
+  const target=app.querySelector('[data-exhibit-viewer], [data-teacher-viewer], [data-beauty-viewer]');
   if(!target){teacherViewer?.viewer.dispose();teacherViewer=null;return;}
-  const exhibit=target.hasAttribute('data-exhibit-viewer'),id=exhibit?target.dataset.exhibitViewer:target.dataset.teacherViewer;
-  const key=exhibit?`exhibit:${teacherActivity}:${id}`:`observation:${id}`,artifacts=exhibit&&teacherActivity===1?COMPARISON_ARTIFACTS:OBSERVATION_ARTIFACTS;
+  const beauty=target.hasAttribute('data-beauty-viewer'),exhibit=target.hasAttribute('data-exhibit-viewer'),id=beauty?BEAUTY_ARTIFACT.id:exhibit?target.dataset.exhibitViewer:target.dataset.teacherViewer;
+  const key=beauty?'beauty':exhibit?`exhibit:${teacherActivity}:${id}`:`observation:${id}`,artifacts=beauty?[BEAUTY_ARTIFACT]:exhibit&&teacherActivity===1?COMPARISON_ARTIFACTS:OBSERVATION_ARTIFACTS;
   if(teacherViewer?.key===key)target.replaceWith(teacherViewer.element);
-  else{teacherViewer?.viewer.dispose();teacherViewer={key,element:target,viewer:mountLessonViewer(target,artifacts.find(a=>a.id===id),teacherViewerOptions(exhibit?teacherActivity:2,id))};}
+  else{teacherViewer?.viewer.dispose();teacherViewer={key,element:target,viewer:mountLessonViewer(target,artifacts.find(a=>a.id===id),beauty?beautyViewerOptions():teacherViewerOptions(exhibit?teacherActivity:2,id))};}
   teacherViewer.viewer.refreshExpandedInfo();
   const cloud=app.querySelector('.word-cloud');if(cloud)cloudView=mountWordCloud(cloud);
 }
-function workKey(work){return `${session?.code}:${work.participantId}:${work.id}`;}
-function teacherWorks(){const works=teacherData?.works||[];return works.length?`<div class="works-grid">${works.map(w=>`<article class="panel work-card" data-work-id="${esc(w.id)}"><div class="work-preview" data-work-preview="${esc(workKey(w))}">${workImages.has(workKey(w))?`<img src="${esc(workImages.get(workKey(w)))}" alt="${w.name?`${esc(w.number)}번 ${esc(w.name)} 학생의 완성한 청자`:'학생의 완성한 청자'}">`:'<span class="image-wait">완성한 청자를 불러오고 있어요.</span>'}<span class="work-score">${Number(w.score?.total??w.score)||0}점</span></div><div class="work-details">${w.name?`<p class="student-line">${esc(w.number)}번 ${esc(w.name)}</p>`:''}<h2>${esc(w.title||'나의 청자')}</h2><h3>모양 · 문양 · 쓰임</h3><p>${esc(w.explanationUse||'')}</p><h3>공들인 부분</h3><p>${esc(w.explanationBeauty||'')}</p></div></article>`).join('')}</div>`:`<section class="panel teacher-empty"><h2>나만의 청자를 빚고 있어요.</h2><p>학생이 작품을 완성하고 설명을 전달하면<br>이곳에 청자와 이야기, 점수가 함께 모입니다.</p></section>`;}
-function teacherSettings(){const set=room.settings||DEFAULT_SETTINGS;return `<details class="panel settings-panel" data-details="settings" ${settingsOpen?'open':''}><summary>활동 시간 설정</summary><form data-form="settings"><div class="settings-grid">${[1,2].map(n=>`<label class="duration-field">활동 ${n} 시간 (초)<input type="number" name="duration-${n}" min="5" max="1800" step="1" value="${set.durations?.[n]||DEFAULT_SETTINGS.durations[n]}" required ${effectiveStatus()==='active'?'disabled':''}></label>`).join('')}<label class="setting-toggle"><input type="checkbox" name="autoPause" ${set.autoPause!==false?'checked':''} ${effectiveStatus()==='active'?'disabled':''}><span>시간이 끝나면 활동 마무리<small>활동 3은 시간 제한 없이 선생님이 마칠 때까지 이어져요.</small></span></label></div><div class="settings-footer"><span class="settings-open-hint">활동을 시작하기 전에 설정할 수 있어요.</span><button type="submit" class="button secondary small" ${effectiveStatus()==='active'?'disabled':''}>설정 저장</button></div></form></details>`;}
+function workKey(work){return `${session?.code}:${work.participantId}:${work.id}:${work.submittedAt||0}`;}
+const workScore=work=>Number(work.score?.total??work.score)||0;
+function sortedWorks(){
+  return [...(teacherData?.works||[])].sort((a,b)=>{
+    const number=(Number(a.number)||0)-(Number(b.number)||0),score=workScore(b)-workScore(a);
+    return (worksSort==='score'?score||number:number||score)||(Number(a.submittedAt)||0)-(Number(b.submittedAt)||0)||workKey(a).localeCompare(workKey(b));
+  });
+}
+function workImageMarkup(work){return workImages.has(workKey(work))?`<img src="${esc(workImages.get(workKey(work)))}" alt="${work.name?`${esc(work.number)}번 ${esc(work.name)} 학생의 완성한 청자`:'학생의 완성한 청자'}">`:'<span class="image-wait">완성한 청자를 불러오고 있어요.</span>';}
+function workExplanationMarkup(work){return `<section><h3>모양 · 문양 · 쓰임</h3><p>${esc(work.explanationUse||'')}</p></section><section><h3>공들인 부분</h3><p>${esc(work.explanationBeauty||'')}</p></section>`;}
+function teacherWorks(){
+  const works=sortedWorks();
+  return works.length?`<div class="works-toolbar"><h2>완성한 청자 <span>${works.length}점</span></h2><div class="works-sort" role="group" aria-label="작품 정렬">${[['score','점수순'],...(!observerMode?[['number','번호순']]:[])].map(([sort,label])=>`<button type="button" data-action="works-sort" data-sort="${sort}" aria-pressed="${worksSort===sort}">${label}</button>`).join('')}</div></div><div class="works-grid">${works.map(w=>`<article class="panel work-card" data-work-id="${esc(w.id)}"><div class="work-preview" data-work-preview="${esc(workKey(w))}">${workImageMarkup(w)}<span class="work-score">${workScore(w)}점</span></div><div class="work-details">${w.name?`<p class="student-line">${esc(w.number)}번 ${esc(w.name)}</p>`:''}<h2>${esc(w.title||'나의 청자')}</h2>${workExplanationMarkup(w)}<button type="button" class="button secondary work-expand" data-action="view-work" data-work-key="${esc(workKey(w))}" aria-label="${esc(w.title||'나의 청자')} 작품과 설명 크게 보기"><span aria-hidden="true">⛶</span> 크게 보기</button></div></article>`).join('')}</div>`:`<section class="panel teacher-empty"><h2>나만의 청자를 빚고 있어요.</h2><p>학생이 작품을 완성하고 설명을 전달하면<br>이곳에 청자와 이야기, 점수가 함께 모입니다.</p></section>`;
+}
+function workDialogMarkup(work){
+  const breakdown=Number.isFinite(work.objectiveScore)&&Number.isFinite(work.explanationScore)?`<small>주문·제작 ${work.objectiveScore}점 · 설명 ${work.explanationScore}점</small>`:'';
+  return `<header class="work-dialog-header"><span>작품과 이야기</span><button type="button" class="button secondary small" data-close-work aria-label="작품 크게 보기 닫기">닫기 <span aria-hidden="true">×</span></button></header><div class="work-dialog-body"><div class="work-preview work-dialog-preview" data-work-preview="${esc(workKey(work))}">${workImageMarkup(work)}</div><article class="work-dialog-details">${work.name?`<p class="student-line">${esc(work.number)}번 ${esc(work.name)}</p>`:''}<h2 id="work-dialog-title">${esc(work.title||'나의 청자')}</h2><div class="work-dialog-result"><span>작품 점수</span><strong>${workScore(work)}<small>점</small></strong>${breakdown}</div>${workExplanationMarkup(work)}</article></div>`;
+}
+function closeWorkDialog({restoreFocus=true}={}){
+  const current=workDialog;if(!current)return;workDialog=null;
+  if(current.dialog.open)current.dialog.close();current.dialog.remove();
+  if(restoreFocus){const opener=[...app.querySelectorAll('[data-action="view-work"]')].find(button=>button.dataset.workKey===current.key);opener?.focus({preventScroll:true});}
+}
+function syncWorkDialog(){
+  if(!workDialog)return;
+  const work=teacherActivity===3&&(teacherData?.works||[]).find(item=>workKey(item)===workDialog.key);
+  if(!work){closeWorkDialog({restoreFocus:false});return;}
+  const signature=JSON.stringify(work);
+  if(signature!==workDialog.signature){workDialog.signature=signature;workDialog.dialog.innerHTML=workDialogMarkup(work);workDialog.dialog.querySelector('[data-close-work]')?.focus({preventScroll:true});}
+}
+function openWorkDialog(key){
+  if(teacherActivity!==3)return;
+  const work=(teacherData?.works||[]).find(item=>workKey(item)===key);if(!work)return;
+  closeWorkDialog({restoreFocus:false});
+  const dialog=document.createElement('dialog');dialog.className='work-dialog';dialog.setAttribute('aria-labelledby','work-dialog-title');
+  dialog.innerHTML=workDialogMarkup(work);workDialog={key,dialog,signature:JSON.stringify(work)};
+  dialog.addEventListener('close',()=>{if(workDialog?.dialog===dialog)closeWorkDialog();});
+  dialog.addEventListener('click',event=>{if(event.target.closest('[data-close-work]'))closeWorkDialog();else if(event.target===dialog){const bounds=dialog.getBoundingClientRect();if(event.clientX<bounds.left||event.clientX>bounds.right||event.clientY<bounds.top||event.clientY>bounds.bottom)closeWorkDialog();}});
+  document.body.append(dialog);dialog.showModal();dialog.querySelector('[data-close-work]').focus();loadWorkImages();
+}
+function teacherSettings(){const set=room.settings||DEFAULT_SETTINGS;return `<details class="panel settings-panel" data-details="settings" ${settingsOpen?'open':''}><summary>활동 시간 설정</summary><form data-form="settings"><div class="settings-grid">${[1,2].map(n=>`<label class="duration-field">활동 ${n} 시간 (초)<input type="number" name="duration-${n}" min="5" max="1800" step="1" value="${set.durations?.[n]||DEFAULT_SETTINGS.durations[n]}" required ${effectiveStatus()==='active'?'disabled':''}></label>`).join('')}<label class="duration-field">아름다움 찾기 (초)<input type="number" name="beauty-duration" min="5" max="1800" step="1" value="${set.beautyDuration||90}" required ${effectiveStatus()==='active'?'disabled':''}></label><label class="setting-toggle"><input type="checkbox" name="autoPause" ${set.autoPause!==false?'checked':''} ${effectiveStatus()==='active'?'disabled':''}><span>시간이 끝나면 활동 마무리<small>활동 3은 시간 제한 없이 선생님이 마칠 때까지 이어져요.</small></span></label></div><div class="settings-footer"><span class="settings-open-hint">활동을 시작하기 전에 설정할 수 있어요.</span><button type="submit" class="button secondary small" ${effectiveStatus()==='active'?'disabled':''}>설정 저장</button></div></form></details>`;}
 function participantsMarkup(){const list=teacherData?.participants||[];return `<details class="panel participant-panel" data-details="participants" ${participantsOpen?'open':''}><summary>참여 학생 · ${list.length}명${room.locked?' · 입장 잠김':''}</summary>${entryTools()}<table class="participants-table"><thead><tr><th>번호</th><th>이름</th><th>활동 1</th><th>활동 2</th><th>완성작</th></tr></thead><tbody>${list.length?list.map(p=>`<tr><td>${esc(p.number)}</td><td>${esc(p.name)}${p.released?'<small class="released-tag">다시 입장 대기</small>':''}</td><td class="${p.activity1Complete?'status-ok':'empty-cell'}">${p.activity1Submitted?'제출 완료':p.activity1Complete?'작성 완료':'관찰 중'}</td><td class="${p.activity2Complete?'status-ok':'empty-cell'}">${p.activity2Submitted?'제출 완료':p.activity2Complete?'작성 완료':'관찰 중'}</td><td>${p.completedWorkCount||0}점</td></tr>`).join(''):'<tr><td colspan="5" class="empty-cell">학생들에게 수업 코드를 알려 주세요.</td></tr>'}</tbody></table></details>`;}
 function entryTools(inManager=false){return `<div class="participant-tools"><button class="button secondary small" data-action="lock-room" data-locked="${room?.locked?'false':'true'}" ${controlBusy?'disabled':''}>${room?.locked?'입장 다시 열기':'입장 잠그기'}</button>${inManager?'':'<button class="button quiet small" data-action="manage-students">학생 관리</button>'}</div><p class="participant-note">${room?.locked?'새 번호로는 들어올 수 없어요. 번호를 푼 학생은 다시 들어올 수 있어요.':'수업 코드를 아는 사람은 누구나 들어올 수 있어요. 모두 들어오면 잠가 주세요.'}</p>`;}
 // Lives outside #classroom-app so the teacher board can re-render underneath it; refreshed after every teacher render.
 function studentManagerMarkup(){const list=teacherData?.participants||[];return `<div class="manager-head"><h2>학생 관리</h2><button class="button quiet small" type="button" data-close-manager>닫기</button></div><p class="muted">브라우저 기록이 지워져 다시 들어오지 못하는 학생은 <b>번호 풀기</b>를 누른 뒤 같은 번호로 입장하게 해 주세요. 쓰던 답과 작품은 그대로 이어져요.</p>${entryTools(true)}<div class="manager-scroll"><table class="manager-table"><thead><tr><th>번호</th><th>이름</th><th>상태</th><th>관리</th></tr></thead><tbody>${list.length?list.map(p=>`<tr><td>${esc(p.number)}</td><td>${esc(p.name)}</td><td>${p.released?'다시 입장 대기':'참여 중'}</td><td class="manager-actions"><button class="button secondary small" data-action="release-student" data-id="${esc(p.id)}" ${p.released||controlBusy?'disabled':''}>번호 풀기</button><button class="button danger small" data-action="remove-student" data-id="${esc(p.id)}" data-name="${esc(p.name)}" ${controlBusy?'disabled':''}>내보내기</button></td></tr>`).join(''):'<tr><td colspan="4" class="empty-cell">아직 들어온 학생이 없어요.</td></tr>'}</tbody></table></div>`;}
 function refreshStudentManager(){const dialog=document.querySelector('dialog.student-manager');if(dialog?.open)dialog.innerHTML=studentManagerMarkup();}
 function openStudentManager(){let dialog=document.querySelector('dialog.student-manager');if(!dialog){dialog=document.createElement('dialog');dialog.className='student-manager';dialog.setAttribute('aria-label','학생 관리');dialog.addEventListener('click',event=>{if(event.target.closest('[data-close-manager]')){dialog.close();return;}handleClick(event);});document.body.append(dialog);}dialog.innerHTML=studentManagerMarkup();if(!dialog.open)dialog.showModal();}
+function teacherActionMarkup(live,status){
+  if(observerMode)return '';
+  const disabled=controlBusy||status==='active'||status==='ended';
+  const start=teacherBeautyView()?`<button class="button" data-action="start-beauty" ${disabled||!room.runs?.[1]?'disabled':''}>아름다움 찾기 시작 →</button>`:`<button class="button" data-action="start" data-activity="${teacherActivity}" ${disabled?'disabled':''}>활동 ${teacherActivity} 시작 →</button>`;
+  const reveal=teacherActivity<3&&!teacherBeautyView()?`<button class="button secondary" data-action="reveal" data-activity="${teacherActivity}" ${status==='active'||controlBusy||!room.runs?.[teacherActivity]||room.revealed?.[teacherActivity]?'disabled':''}>${room.revealed?.[teacherActivity]?'설명 공개됨':'함께 정답 보기'}</button>`:'';
+  const next=teacherActivity===1&&!teacherBeautyView()&&room.runs?.[1]&&status==='paused'?`<button class="button secondary beauty-next" data-action="start-beauty" ${controlBusy?'disabled':''}>이어서 아름다움 찾기 →</button>`:'';
+  return `<div class="teacher-action-buttons">${live?`<button class="button" data-action="pause" ${controlBusy?'disabled':''}>활동 마치기 →</button>`:start}${reveal}${next}</div>${teacherBeautyView()&&!room.runs?.[1]?'<p class="beauty-start-note">먼저 세 나라 도자기 비교를 진행한 뒤 시작해 주세요.</p>':''}`;
+}
 function renderTeacher(){
   if(!teacherMode||!(session?.teacherToken||session?.observerToken))return;
-  const status=effectiveStatus(),dataSignature=JSON.stringify({state:{...room,serverNow:0},participants:teacherData?.participants,comparison:teacherData?.comparison,observations:teacherData?.observations,works:teacherData?.works,reveal:teacherData?.reveal,teacherActivity,teacherObject,cloudKind,teacherResultViews,exhibitObjects,status,controlBusy});
+  syncWorkDialog();
+  const status=effectiveStatus(),dataSignature=JSON.stringify({state:{...room,serverNow:0},participants:teacherData?.participants,comparison:teacherData?.comparison,observations:teacherData?.observations,works:teacherData?.works,reveal:teacherData?.reveal,teacherActivity,teacherObject,cloudKind,teacherResultViews,exhibitObjects,worksSort,teacherA1View,beauty:teacherData?.beauty,status,controlBusy});
   if(settingsDirty&&viewKey==='teacher'){updateTimer();updateConnection();return;}
   if(viewKey==='teacher'&&teacherSignature===dataSignature){updateTimer();updateConnection();if(teacherActivity===3)loadWorkImages();return;}
   teacherSignature=dataSignature;viewKey='teacher';disposeViewers();cloudView?.dispose();cloudView=null;
-  const live=room.activity===teacherActivity&&status==='active',participantCount=teacherData?.participants?.length||0;
-  const completed=teacherActivity===1?(teacherData?.participants||[]).filter(p=>p.activity1Complete).length:teacherActivity===2?(teacherData?.participants||[]).filter(p=>p.activity2Complete).length:(teacherData?.works||[]).length;
-  app.innerHTML=`<div class="lesson-shell teacher-shell">${header()}<div class="teacher-workspace"><section class="teacher-main"><div class="teacher-overview"><div><span class="activity-label">고려의 문화 · 함께 생각하는 시간</span><h1>${TITLE}</h1></div></div><nav class="teacher-stage-nav" aria-label="교사용 활동 선택">${[1,2,3].map(n=>`<button class="${teacherActivity===n?'active':''}" data-action="teacher-activity" data-activity="${n}">${room.activity===n&&status==='active'?'<i class="live-dot"></i>':''}<span><b>${n}</b> ${ACTIVITY_NAMES[n]}</span></button>`).join('')}</nav><div class="teacher-content">${teacherContent()}</div></section><aside class="teacher-sidebar" aria-label="교사용 수업 진행"><section class="teacher-control-bar"><span class="activity-label">수업 진행</span><div class="stage-caption">${ACTIVITY_NAMES[teacherActivity]}<small>${observerMode?(live?'학생들이 활동하고 있어요.':status==='active'?`지금은 활동 ${room.activity}${room.activity===2?'가':'이'} 진행 중이에요.`:status==='ended'?'수업을 마쳤어요.':room.activity===teacherActivity&&status==='paused'?'학생들이 선생님을 보고 있어요.':'아직 진행하지 않은 활동이에요.'):live?(timeExpired()?'입력이 마감됐어요. 활동을 마쳐 주세요.':'학생들이 활동하고 있어요.'):status==='active'?`지금은 활동 ${room.activity}${room.activity===2?'가':'이'} 진행 중이에요. 먼저 활동을 마쳐 주세요.`:room.activity===teacherActivity&&status==='paused'?'학생들이 선생님을 보고 있어요.':status==='ended'?'수업을 마쳤어요.':'시작하면 학생 화면이 함께 열립니다.'}</small></div>${timerMarkup()}<div class="teacher-metrics"><span>참여 <strong>${participantCount}</strong>명</span><span>${teacherActivity===3?'완성작':'모두 작성'} <strong>${completed}</strong>${teacherActivity===3?'점':'명'}</span></div>${observerMode?'':`<div class="teacher-action-buttons">${live?`<button class="button" data-action="pause" ${controlBusy?'disabled':''}>활동 마치기 →</button>`:`<button class="button" data-action="start" data-activity="${teacherActivity}" ${controlBusy||status==='active'||status==='ended'?'disabled':''}>활동 ${teacherActivity} 시작 →</button>`}${teacherActivity<3?`<button class="button secondary" data-action="reveal" data-activity="${teacherActivity}" ${status==='active'||controlBusy||!room.runs?.[teacherActivity]||room.revealed?.[teacherActivity]?'disabled':''}>${room.revealed?.[teacherActivity]?'설명 공개됨':'함께 정답 보기'}</button>`:''}</div>`}</section>${status==='paused'?'<div class="teacher-pause-note">학생 화면은 지금<br>“크롬북을 닫고 선생님을 보세요”</div>':''}${observerMode?'':participantsMarkup()+teacherSettings()}</aside></div></div>`;
+  const live=teacherViewActive()&&status==='active',participantCount=teacherData?.participants?.length||0;
+  const completed=teacherBeautyView()?Number(teacherData?.beauty?.respondents)||0:teacherActivity===1?(teacherData?.participants||[]).filter(p=>p.activity1Complete).length:teacherActivity===2?(teacherData?.participants||[]).filter(p=>p.activity2Complete).length:(teacherData?.works||[]).length;
+  app.innerHTML=`<div class="lesson-shell teacher-shell">${header()}<div class="teacher-workspace"><section class="teacher-main"><div class="teacher-overview"><div><span class="activity-label">고려의 문화 · 함께 생각하는 시간</span><h1>${TITLE}</h1></div></div><nav class="teacher-stage-nav" aria-label="교사용 활동 선택">${[1,2,3].map(n=>`<button class="${teacherActivity===n?'active':''}" data-action="teacher-activity" data-activity="${n}">${room.activity===n&&status==='active'?'<i class="live-dot"></i>':''}<span><b>${n}</b> ${ACTIVITY_NAMES[n]}</span></button>`).join('')}</nav><div class="teacher-content">${teacherContent()}</div></section><aside class="teacher-sidebar" aria-label="교사용 수업 진행"><section class="teacher-control-bar"><span class="activity-label">수업 진행</span><div class="stage-caption">${teacherBeautyView()?BEAUTY_NAME:ACTIVITY_NAMES[teacherActivity]}<small>${observerMode?(live?'학생들이 활동하고 있어요.':status==='active'?`지금은 활동 ${room.activity}${room.activity===2?'가':'이'} 진행 중이에요.`:status==='ended'?'수업을 마쳤어요.':room.activity===teacherActivity&&status==='paused'?'학생들이 선생님을 보고 있어요.':'아직 진행하지 않은 활동이에요.'):live?(timeExpired()?'입력이 마감됐어요. 활동을 마쳐 주세요.':'학생들이 활동하고 있어요.'):status==='active'?`지금은 활동 ${room.activity}${room.activity===2?'가':'이'} 진행 중이에요. 먼저 활동을 마쳐 주세요.`:room.activity===teacherActivity&&status==='paused'?'학생들이 선생님을 보고 있어요.':status==='ended'?'수업을 마쳤어요.':'시작하면 학생 화면이 함께 열립니다.'}</small></div>${timerMarkup()}<div class="teacher-metrics"><span>참여 <strong>${participantCount}</strong>명</span><span>${teacherActivity===3?'완성작':'모두 작성'} <strong>${completed}</strong>${teacherActivity===3?'점':'명'}</span></div>${teacherActionMarkup(live,status)}</section>${status==='paused'?'<div class="teacher-pause-note">학생 화면은 지금<br>“크롬북을 닫고 선생님을 보세요”</div>':''}${observerMode?'':participantsMarkup()+teacherSettings()+'<section class="panel teacher-data-actions"><button class="button danger small" data-action="delete-room">수업 데이터 삭제</button><p>학생 정보 · 답변 · 작품을 삭제합니다.</p></section>'}</aside></div></div>`;
   updateTimer();updateConnection();mountTeacherBoard();refreshStudentManager();if(teacherActivity===3)loadWorkImages();
 }
-async function loadWorkImages(){const requestSession=session;for(const work of teacherData?.works||[]){const key=workKey(work);if(workImages.has(key)||workImagePending.has(key))continue;workImagePending.add(key);try{const value=await api('artwork',{body:{participantId:work.participantId,workId:work.id}});if(session!==requestSession)return;if(typeof value.preview==='string'&&/^data:image\/(png|webp);base64,/.test(value.preview)){workImages.set(key,value.preview);const container=[...document.querySelectorAll('[data-work-preview]')].find(el=>el.dataset.workPreview===key);if(container){const image=document.createElement('img');image.src=value.preview;image.alt=work.name?`${work.number}번 ${work.name} 학생의 완성한 청자`:'학생의 완성한 청자';container.querySelector('.image-wait')?.replaceWith(image);}}}catch{const container=[...document.querySelectorAll('[data-work-preview]')].find(el=>el.dataset.workPreview===key);if(container?.querySelector('.image-wait'))container.querySelector('.image-wait').textContent='작품 사진을 다시 불러올게요.';}finally{workImagePending.delete(key);}}}
+const workExpiresAt=work=>Math.min(work.submittedAt+GAME_DATA_TTL_MS,Number.isFinite(work.expiresAt)?work.expiresAt:Infinity);
+function pruneTeacherWorks(){
+  if(!teacherData)return false;
+  const works=teacherData.works||[],kept=works.filter(work=>Number.isFinite(work.submittedAt)&&now()<workExpiresAt(work));
+  const currentKeys=new Set(kept.map(workKey));
+  for(const key of workImages.keys())if(!currentKeys.has(key))workImages.delete(key);
+  if(kept.length===works.length)return false;
+  // The settings form can defer a board rerender; expired images and text must still leave the DOM now.
+  for(const preview of app.querySelectorAll('.work-card [data-work-preview]'))if(!currentKeys.has(preview.dataset.workPreview))preview.closest('.work-card')?.remove();
+  teacherData={...teacherData,works:kept};return true;
+}
+function pruneLocalGameData(){try{pruneGameSaves(localStorage);}catch{}}
+async function loadWorkImages(){
+  const requestSession=session;
+  for(const work of teacherData?.works||[]){
+    const key=workKey(work);if(workImages.has(key)||workImagePending.has(key))continue;
+    workImagePending.add(key);
+    try{
+      const value=await api('artwork',{body:{participantId:work.participantId,workId:work.id}});
+      if(session!==requestSession)return;
+      if(!teacherData?.works?.some(current=>workKey(current)===key)||now()>=workExpiresAt(work))continue;
+      if(typeof value.preview==='string'&&/^data:image\/(png|webp);base64,/.test(value.preview)){
+        workImages.set(key,value.preview);
+        for(const container of document.querySelectorAll('[data-work-preview]'))if(container.dataset.workPreview===key){
+          const image=document.createElement('img');image.src=value.preview;image.alt=work.name?`${work.number}번 ${work.name} 학생의 완성한 청자`:'학생의 완성한 청자';container.querySelector('.image-wait')?.replaceWith(image);
+        }
+      }
+    }catch{
+      for(const container of document.querySelectorAll('[data-work-preview]'))if(container.dataset.workPreview===key&&container.querySelector('.image-wait'))container.querySelector('.image-wait').textContent='작품 사진을 다시 불러올게요.';
+    }finally{workImagePending.delete(key);}
+  }
+}
 function resetRoom({keepTeacherKey=false}={}){
-  closeCompletionDialog();teacherResultViews={1:'responses',2:'responses'};exhibitObjects={1:'1',2:'1'};
+  closeWorkDialog({restoreFocus:false});closeCompletionDialog();teacherResultViews={1:'responses',2:'responses'};exhibitObjects={1:'1',2:'1'};
   heartbeatGame();disposeViewers();disposeTeacherBoard();clearTimeout(pollTimer);clearTimeout(saveTimer);session=null;room=null;teacherData=null;student=null;answers={};
-  drafts={1:{},2:{}};revisions={1:0,2:0};dirty={1:false,2:false};draftChanges={1:0,2:0};submitted={1:false,2:false};
+  drafts={1:{},2:{},beauty:{}};revisions={1:0,2:0,beauty:0};dirty={1:false,2:false,beauty:false};draftChanges={1:0,2:0,beauty:0};submitted={1:false,2:false,beauty:false};teacherA1View='comparison';
   viewKey='';teacherSignature='';currentObject='1';teacherActivity=1;teacherObject='1';selectedCountry=null;cloudKind='name';settingsDirty=false;connectionError='';
-  uploadedWorks.clear();pendingWorks.clear();workImages.clear();workImagePending.clear();if(teacherMode){if(!keepTeacherKey)store(SESSION_KEY,null);}else clearActiveStudentSession();
+  uploadedWorks.clear();clearPendingWorks();terminalWorks.clear();workImages.clear();workImagePending.clear();if(teacherMode){if(!keepTeacherKey)store(SESSION_KEY,null);}else clearActiveStudentSession();
 }
 function render(){if(!session||!room)return renderWelcome();if(teacherMode)renderTeacher();else renderStudent();}
 function updateTimer(){
   const timer=document.querySelector('[data-testid=lesson-timer]');if(!timer)return;
   const viewed=teacherMode?teacherActivity:room?.activity;
   if(untimed(viewed)){const live=room?.activity===viewed&&effectiveStatus()==='active';timer.querySelector('strong').textContent=live?formatTime(elapsed()):'제한 없음';timer.classList.remove('warning','finished');return;}
-  let seconds=remaining();if(teacherMode&&(room.activity!==teacherActivity||effectiveStatus()!=='active'))seconds=room.activity===teacherActivity&&deadlinePassed()?0:room.settings?.durations?.[teacherActivity]||0;timer.querySelector('strong').textContent=formatTime(seconds);timer.classList.toggle('warning',active(room?.activity)&&seconds<=20&&seconds>0);timer.classList.toggle('finished',seconds===0);
+  let seconds=remaining();if(teacherMode&&(!teacherViewActive()||effectiveStatus()!=='active'))seconds=teacherViewActive()&&deadlinePassed()?0:teacherViewDuration();timer.querySelector('strong').textContent=formatTime(seconds);timer.classList.toggle('warning',active(room?.activity)&&seconds<=20&&seconds>0);timer.classList.toggle('finished',seconds===0);
 }
 function updateSaveStatus(){
-  app.querySelectorAll('[data-activity-done]').forEach(done=>{const activity=Number(done.dataset.activityDone);done.disabled=answerLocked(activity)||progress(activity)<(activity===1?3:5)||saving;done.textContent=submitted[activity]?'다했어요 ✓':saving?'저장 중…':'다했어요';});
+  app.querySelectorAll('[data-activity-done]').forEach(done=>{const activity=done.dataset.activityDone==='beauty'?'beauty':Number(done.dataset.activityDone);done.disabled=answerLocked(activity)||progress(activity)<expectedProgress(activity)||saving;done.textContent=submitted[activity]?'다했어요 ✓':saving?'저장 중…':'다했어요';});
   document.querySelectorAll('[data-save-status]').forEach(el=>{el.dataset.status=saveState;el.textContent=saveMessage||'생각을 적으면 자동으로 저장돼요.';});
   const progressEl=document.querySelector('[data-progress]');if(progressEl)progressEl.textContent=`${progress(room?.activity)} / ${room?.activity===1?3:5} 관찰했어요`;
   if(room?.activity===2)document.querySelectorAll('[data-action=select-object]').forEach(el=>{const a=drafts[2][el.dataset.id]||{};el.classList.toggle('answered',Boolean(a.name?.trim()&&a.use?.trim()));});
@@ -298,26 +398,26 @@ function updateSaveStatus(){
 function changed(activity){dirty[activity]=true;draftChanges[activity]++;saveState='pending';saveMessage='생각을 적고 있어요…';persistDrafts();updateSaveStatus();clearTimeout(saveTimer);saveTimer=setTimeout(()=>queueSave(),800);}
 async function queueSave(final=false){
   if(teacherMode||!session||![1,2].includes(room?.activity)||!active(room.activity))return;
-  const activity=room.activity;if(submitted[activity])return;
-  if(final&&progress(activity)!==(activity===1?3:5)){toast(activity===1?'세 도자기에 나라 이름표를 모두 골라 주세요.':'다섯 점의 쓰임과 이름을 모두 적어 주세요.');return;}
+  const activity=answerActivity();if(submitted[activity])return;
+  if(final&&progress(activity)!==expectedProgress(activity)){toast(activity==='beauty'?'청자에서 찾은 아름다움을 한 가지 이상 적어 주세요.':activity===1?'세 도자기에 나라 이름표를 모두 골라 주세요.':'다섯 점의 쓰임과 이름을 모두 적어 주세요.');return;}
   if(saving){saveAgain=true;finalAgain||=final;return;}
   if(!dirty[activity]&&!final)return;
   clearTimeout(saveTimer);saving=true;const requestSession=session,runId=room.runId,change=draftChanges[activity],clientRevision=++revisions[activity];
   saveState='saving';saveMessage='선생님께 전달하고 있어요…';updateSaveStatus();
   try{
-    const payload=await api('answer',{method:'POST',body:{participantId:session.participantId,activity,runId,clientRevision,answers:copy(drafts[activity]),final}});
+    const payload=await api(activity==='beauty'?'beauty-answer':'answer',{method:'POST',body:{participantId:session.participantId,runId,clientRevision,final,...(activity==='beauty'?{text:drafts.beauty.text||''}:{activity,answers:copy(drafts[activity])})}});
     if(session!==requestSession)return;
-    if((room?.runs?.[activity]||room?.runId)===runId){
-      const record=payload.answers?.[activity],confirmed=record?.runId===runId&&record.clientRevision>=clientRevision;
+    if(answerRun(activity)===runId){
+      const record=activity==='beauty'?payload.beautyAnswer:payload.answers?.[activity],confirmed=record?.runId===runId&&record.clientRevision>=clientRevision;
       if(confirmed){
         revisions[activity]=Math.max(revisions[activity],record.clientRevision);submitted[activity]=Boolean(record.submitted);
-        if(record.submitted){drafts[activity]=copy(record.answers||{});dirty[activity]=false;}
-        else if(!payload.ignored&&draftChanges[activity]===change){dirty[activity]=false;drafts[activity]=copy(record.answers||{});}
+        if(record.submitted){drafts[activity]=recordDraft(activity,record);dirty[activity]=false;}
+        else if(!payload.ignored&&draftChanges[activity]===change){dirty[activity]=false;drafts[activity]=recordDraft(activity,record);}
         answers={...answers,[activity]:record};
       }
       if(payload.ignored&&!submitted[activity]){saveAgain=true;finalAgain||=final;saveState='pending';saveMessage='수정한 생각을 다시 저장하고 있어요…';}
       else{saveState=confirmed?'saved':'pending';saveMessage=record?.submitted?'생각을 제출했어요.':confirmed?'저장했어요 ✓':'저장 상태를 확인하고 있어요…';}
-      receive({...payload,answers:undefined});persistDrafts();render();
+      receive({...payload,answers:undefined,beautyAnswer:undefined});persistDrafts();render();
     }
   }catch(error){if(session!==requestSession)return;saveState='error';saveMessage=error.status===409?error.message:'저장하지 못했어요. 다시 연결하면 이어서 보낼게요.';connectionError=error.status===409?'':error.message;updateSaveStatus();updateConnection();}
   finally{saving=false;if(saveAgain){const nextFinal=finalAgain;saveAgain=false;finalAgain=false;queueSave(nextFinal);}updateSaveStatus();}
@@ -331,20 +431,34 @@ function selectCountry(value){selectedCountry=value;app.querySelectorAll('[data-
 function endCountryDrag(){countryDragController.cancel();}
 function selectObject(id){if(!OBSERVATION_ARTIFACTS.some(a=>a.id===id))return;clearTimeout(saveTimer);if(dirty[2])queueSave();currentObject=id;renderStudent();}
 function heartbeatGame(){const frame=app.querySelector('.game-frame');if(!frame)return;const enabled=active(3)&&Date.now()-lastSuccessfulPoll<14000;frame.contentWindow?.postMessage({type:'celadon:classroom-state',active:enabled,runId:room.runId,endsAt:room.endsAt,serverNow:now()},location.origin);lastGameActive=enabled;}
+function pendingWorkExpired(entry){return !Number.isFinite(entry?.expiresAt)||Date.now()>=entry.expiresAt;}
+function dropPendingWork(entry){
+  if(!entry||pendingWorks.get(entry.id)!==entry)return;
+  pendingWorks.delete(entry.id);clearTimeout(entry.expiryTimer);clearTimeout(entry.uploadTimer);entry.controller?.abort();entry.controller=null;
+  entry.work=null;entry.preview=null;
+}
+function clearPendingWorks(){for(const entry of pendingWorks.values())dropPendingWork(entry);}
+function prunePendingWorks(){
+  for(const entry of pendingWorks.values())if(pendingWorkExpired(entry))dropPendingWork(entry);
+  for(const [id,expiresAt] of terminalWorks)if(Date.now()>=expiresAt)terminalWorks.delete(id);
+}
+function schedulePendingWorkExpiry(entry){clearTimeout(entry.expiryTimer);entry.expiryTimer=setTimeout(()=>{if(pendingWorkExpired(entry))dropPendingWork(entry);else schedulePendingWorkExpiry(entry);},Math.max(0,entry.expiresAt-Date.now()));}
 async function sendWork(entry){
-  if(!entry||uploadedWorks.has(entry.work.id)||entry.sending||!canSendWork()||entry.runId!==room.runId)return;
-  entry.sending=true;const requestSession=session,status=app.querySelector('[data-game-status]');if(status)status.textContent='완성한 작품을 선생님께 전달하고 있어요…';
-  try{await api('work',{method:'POST',body:{participantId:session.participantId,runId:entry.runId,work:entry.work,preview:entry.preview}});if(session!==requestSession)return;uploadedWorks.add(entry.work.id);pendingWorks.delete(entry.work.id);if(status)status.textContent='완성한 작품을 선생님께 전달했어요 ✓';}
-  catch(error){entry.error=error.message;if(status)status.textContent='작품을 아직 보내지 못했어요. 연결되면 다시 보낼게요.';}
-  finally{entry.sending=false;}
+  if(!entry)return;if(pendingWorkExpired(entry)){dropPendingWork(entry);return;}
+  if(pendingWorks.get(entry.id)!==entry||uploadedWorks.has(entry.id)||terminalWorks.has(entry.id)||entry.sending||!canSendWork()||entry.runId!==room.runId)return;
+  entry.sending=true;entry.controller=new AbortController();entry.uploadTimer=setTimeout(()=>entry.controller?.abort(),15000);
+  const requestSession=session,status=app.querySelector('[data-game-status]');if(status)status.textContent='완성한 작품을 선생님께 전달하고 있어요…';
+  try{await api('work',{method:'POST',signal:entry.controller.signal,body:{participantId:session.participantId,runId:entry.runId,work:entry.work,preview:entry.preview,expiresAt:entry.expiresAt}});if(session!==requestSession||pendingWorks.get(entry.id)!==entry)return;if(pendingWorkExpired(entry)){dropPendingWork(entry);return;}uploadedWorks.add(entry.id);dropPendingWork(entry);if(status)status.textContent='완성한 작품을 선생님께 전달했어요 ✓';}
+  catch(error){if(session!==requestSession||pendingWorks.get(entry.id)!==entry)return;if(pendingWorkExpired(entry)||error.status===410){if(error.status===410)terminalWorks.set(entry.id,entry.expiresAt);dropPendingWork(entry);if(status)status.textContent='보관 시간이 지난 작품 기록을 지웠어요.';return;}entry.error=error.message;if(status)status.textContent='작품을 아직 보내지 못했어요. 연결되면 다시 보낼게요.';}
+  finally{clearTimeout(entry.uploadTimer);entry.controller=null;entry.sending=false;}
 }
 // Mirrors WORK_UPLOAD_GRACE_MS on the server: keep delivering works finished just before the activity closed.
 function canSendWork(){if(active(3))return true;if(room?.activity!==3||room.status==='ended')return false;const closedAt=room.status==='paused'?room.pausedAt:room.endsAt;return Number.isFinite(closedAt)&&now()>=closedAt&&now()<closedAt+20000;}
-function retryWorks(){if(!teacherMode&&canSendWork())for(const entry of pendingWorks.values())sendWork(entry);}
+function retryWorks(){prunePendingWorks();if(!teacherMode&&canSendWork())for(const entry of pendingWorks.values())sendWork(entry);}
 window.addEventListener('message',event=>{
   if(teacherMode||event.origin!==location.origin)return;const frame=app.querySelector('.game-frame');if(!frame||event.source!==frame.contentWindow||!event.data||typeof event.data!=='object')return;
   if(event.data.type==='celadon:ready'){heartbeatGame();frame.contentWindow?.postMessage({type:'celadon:request-completed'},location.origin);}
-  if(event.data.type==='celadon:completed'&&event.data.work?.step===4&&typeof event.data.work.id==='string'&&event.data.runId===room?.runId){const {work,preview,runId}=event.data;if(typeof preview!=='string'||preview.length>420000||!/^data:image\/(png|webp);base64,/.test(preview))return;if(uploadedWorks.has(work.id))return;const existing=pendingWorks.get(work.id);if(!existing)pendingWorks.set(work.id,{work,preview,runId,sending:false});sendWork(pendingWorks.get(work.id));}
+  if(event.data.type==='celadon:completed'&&event.data.work?.step===4&&typeof event.data.work.id==='string'&&event.data.runId===room?.runId){const {work,preview,runId,expiresAt}=event.data;if(typeof preview!=='string'||preview.length>420000||!/^data:image\/(png|webp);base64,/.test(preview)||!Number.isFinite(expiresAt)||expiresAt<=Date.now()||expiresAt>Date.now()+GAME_DATA_TTL_MS)return;prunePendingWorks();if(uploadedWorks.has(work.id)||terminalWorks.has(work.id))return;let entry=pendingWorks.get(work.id);if(entry)entry.expiresAt=Math.min(entry.expiresAt,expiresAt);else{entry={id:work.id,work,preview,runId,expiresAt,sending:false};pendingWorks.set(work.id,entry);}schedulePendingWorkExpiry(entry);sendWork(entry);}
 });
 
 function restoreEntryName(form){
@@ -381,8 +495,8 @@ app.addEventListener('submit',async event=>{
       const payload=await api('join',{method:'POST',body:{code,number,name,...(previous?{participantToken:previous.participantToken}:{})}});
       student=payload.student||{number,name};session={code:payload.code||code,participantId:payload.participantId,participantToken:payload.participantToken,student,joinCode:payload.state?.joinCode||code};rememberStudentEntry(session);receive(payload,{initial:true});schedulePoll();
     }else if(form.dataset.form==='settings'){
-      const settings={durations:Object.fromEntries([1,2].map(n=>[n,Number(values.get(`duration-${n}`))])),autoPause:values.has('autoPause')};
-      await control('settings',{settings});settingsDirty=false;toast('시간과 제출 방식을 저장했어요.');teacherSignature='';render();
+      const settings={durations:Object.fromEntries([1,2].map(n=>[n,Number(values.get(`duration-${n}`))])),beautyDuration:Number(values.get('beauty-duration')),autoPause:values.has('autoPause')};
+      await control('settings',{settings});settingsDirty=false;toast('활동 시간을 저장했어요.');teacherSignature='';render();
     }
   }catch(error){const message=app.querySelector('[data-form-error]');if(message)message.textContent=error.message;else toast(error.message);}
   finally{if(button?.isConnected)button.disabled=false;}
@@ -403,7 +517,11 @@ async function handleClick(event){
     if(action==='next-object'||action==='previous-object'){const index=OBSERVATION_ARTIFACTS.findIndex(a=>a.id===currentObject),step=action==='next-object'?1:-1;selectObject(OBSERVATION_ARTIFACTS[(index+step+OBSERVATION_ARTIFACTS.length)%OBSERVATION_ARTIFACTS.length].id);return;}
     if(action==='select-object'){selectObject(button.dataset.id);return;}
     if(action==='teacher-activity'){teacherActivity=Number(button.dataset.activity);settingsDirty=false;renderTeacher();return;}
+    if(action==='teacher-a1-view'){teacherA1View=button.dataset.view==='beauty'?'beauty':'comparison';settingsDirty=false;renderTeacher();return;}
+    if(action==='start-beauty'){settingsDirty=false;await control('start-beauty');return;}
     if(action==='teacher-object'){teacherObject=button.dataset.id;renderTeacher();return;}
+    if(action==='works-sort'){worksSort=!observerMode&&button.dataset.sort==='number'?'number':'score';renderTeacher();app.querySelector(`[data-action="works-sort"][data-sort="${worksSort}"]`)?.focus({preventScroll:true});return;}
+    if(action==='view-work'){openWorkDialog(button.dataset.workKey);return;}
     if(action==='teacher-result-view'){if([1,2].includes(teacherActivity)&&(button.dataset.view==='responses'||room.revealed?.[teacherActivity])){teacherResultViews[teacherActivity]=button.dataset.view==='exhibit'?'exhibit':'responses';renderTeacher();}return;}
     if(['exhibit-object','exhibit-previous','exhibit-next'].includes(action)){
       if(![1,2].includes(teacherActivity)||!room.revealed?.[teacherActivity])return;
@@ -440,6 +558,7 @@ app.addEventListener('paste',event=>{
 app.addEventListener('change',event=>{const select=event.target.closest('[data-country-for]');if(select)setCountry(select.dataset.countryFor,select.value);if(event.target.closest('[data-form=settings]'))settingsDirty=true;});
 app.addEventListener('input',event=>{
   const entry=event.target.closest('[data-form=join]');if(entry){if(event.target.name==='name')event.target.dataset.edited='true';else if(['code','number'].includes(event.target.name))restoreEntryName(entry);}
+  const beautyField=event.target.closest('[data-beauty-answer]');if(beautyField&&!answerLocked('beauty')){drafts.beauty={text:beautyField.value};changed('beauty');}
   const field=event.target.closest('[data-observation-field]');if(field&&active(2)&&!submitted[2]){drafts[2][currentObject]={...(drafts[2][currentObject]||{}),[field.dataset.observationField]:field.value};changed(2);}
   if(event.target.closest('[data-form=settings]'))settingsDirty=true;
 });
@@ -454,7 +573,7 @@ app.addEventListener('pointerdown',event=>{
   const select=event.target.closest('[data-country-for]');
   if(select&&selectedCountry&&event.isPrimary&&event.button===0&&!answerLocked(1)){event.preventDefault();if(setCountry(select.dataset.countryFor,selectedCountry))selectCountry(null);}
 });
-document.addEventListener('visibilitychange',()=>{if(!document.hidden&&session)poll();else if(!teacherMode&&room&&dirty[room.activity])queueSave();});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&session)poll();else if(!teacherMode&&room&&dirty[answerActivity()])queueSave();});
 window.addEventListener('online',()=>{if(session)poll();});
 window.addEventListener('pageshow',event=>{
   if(!teacherMode){
@@ -463,15 +582,21 @@ window.addEventListener('pageshow',event=>{
     if(viewKey==='welcome')app.querySelector('[data-form=join]')?.reset();
   }else if(event.persisted&&session){render();poll();}
 });
+let lastRetentionSweep=0;
+window.addEventListener('focus',pruneLocalGameData);
 const clock=setInterval(()=>{
+  prunePendingWorks();
+  if(Date.now()-lastRetentionSweep>=60000){lastRetentionSweep=Date.now();pruneLocalGameData();}
+  if(teacherMode&&pruneTeacherWorks())renderTeacher();
   if(!room)return;updateTimer();
-  if(!teacherMode&&active(room.activity)&&[1,2].includes(room.activity)&&dirty[room.activity]&&remaining()<=2&&!saving)queueSave();
+  if(!teacherMode&&active(room.activity)&&[1,2].includes(room.activity)&&dirty[answerActivity()]&&remaining()<=2&&!saving)queueSave();
   if(timeExpired()){render();heartbeatGame();}
   if(!teacherMode&&lastGameActive&&Date.now()-lastSuccessfulPoll>14000)heartbeatGame();
 },250);
-window.addEventListener('pagehide',event=>{if(event.persisted)return;disposed=true;clearTimeout(pollTimer);clearTimeout(saveTimer);clearInterval(clock);closeCompletionDialog();disposeViewers();disposeTeacherBoard();});
+window.addEventListener('pagehide',event=>{if(event.persisted)return;disposed=true;clearTimeout(pollTimer);clearTimeout(saveTimer);clearInterval(clock);clearPendingWorks();terminalWorks.clear();closeWorkDialog({restoreFocus:false});closeCompletionDialog();disposeViewers();disposeTeacherBoard();});
 
 async function boot(){
+  pruneLocalGameData();
   document.title=observerMode?`참관 · ${TITLE}`:teacherMode?`교사용 · ${TITLE}`:TITLE;
   const queryCode=(new URLSearchParams(location.search).get('code')||'').toUpperCase();
   if(session&&queryCode&&session.code!==queryCode&&session.joinCode!==queryCode&&!teacherMode){session=null;clearActiveStudentSession();}

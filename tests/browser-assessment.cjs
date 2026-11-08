@@ -33,8 +33,19 @@ async function seed(page, draft) {
     assert.equal(await page.locator('.explanation-popup input[type=checkbox]').count(),0);
     assert.match(await page.locator('label[for=explain-use]').innerText(), /어떤 모양과 문양[\s\S]*어디에 쓰면/);
     assert.match(await page.locator('label[for=explain-beauty]').innerText(), /어느 부분에 가장 공[\s\S]*어떻게 만들었는지/);
-    assert.match(await page.locator('.name-scaffold').innerText(),/청자[\s\S]*상감[\s\S]*운학문[\s\S]*베개/);
-    assert.match(await page.inputValue('#work-title'),/청자 상감 운학문 베개/);
+    assert.equal(await page.locator('.name-scaffold,#title-motif,[data-action=suggest-title]').count(),0);
+    assert.equal(await page.inputValue('#work-title'),'');
+    assert.equal(await page.getAttribute('#work-title','placeholder'),'내가 지은 작품 이름');
+    assert.match(await page.locator('#naming-hint').innerText(),/재료.*만드는 방법.*무늬.*모양/);
+    assert.doesNotMatch(await page.locator('.name-workshop').innerText(),/상감|운학문|베개/,'title hint does not reveal selected-work answers');
+    await page.fill('#work-title','   ');await page.click('[data-action=submit]');
+    assert.equal(api.length,0,'a blank title does not submit an automatic answer');
+    assert.equal(await page.locator('#title-feedback').innerText(),'작품에 붙이고 싶은 이름을 적어 주세요.');
+    assert.equal(await page.locator('#work-title').getAttribute('aria-invalid'),'true');
+    assert.equal(await page.locator('#work-title').evaluate(el=>el===document.activeElement),true);
+    await page.fill('#work-title','구름이 쉬어 가는 곳');
+    await page.click('[data-action=close-popup]');await page.click('[data-action=explain]');
+    assert.equal(await page.inputValue('#work-title'),'구름이 쉬어 가는 곳','reopening preserves the learner’s own title');
     for(const id of ['#explain-use','#explain-beauty']) {
       assert.match(await page.getAttribute(id,'placeholder'),/때문/);
       const style=await page.locator(id).evaluate(el=>({color:getComputedStyle(el,'::placeholder').color,opacity:getComputedStyle(el,'::placeholder').opacity}));
@@ -83,6 +94,7 @@ async function seed(page, draft) {
     const incense = {...work,id:'short-incense-assessment',orderId:'lady-lotus-fragrance',shape:'incense',modelId:'incense',technique:'openwork',pattern:'lotus',
       placements:[{x:180,y:180,uv:[.45,.5],pattern:'lotus'}]};
     await seed(page,incense);await page.click('[data-action=explain]');
+    await page.fill('#work-title','따뜻한 향기');
     await page.fill('#explain-use',shortIncenseUse);
     await page.fill('#explain-beauty','오늘 점심은 피자였어요.');
     await page.click('[data-action=submit]');
@@ -104,6 +116,6 @@ async function seed(page, draft) {
     assert.equal(await page.locator('#popup').evaluate(el=>el.open),false);
     assert.equal(api.at(-1).accepted,true);
     assert.deepEqual(errors,[]);
-    console.log('Naming scaffold, 40% hints, real API rejection/revision, short incense explanation, saved title, safe text, and character review passed.');
+    console.log('Blank learner title, generic naming hints, required-title feedback, real API rejection/revision, short incense explanation, saved title, safe text, and character review passed.');
   } finally {await browser.close();}
 })().catch(error=>{console.error(error);process.exit(1);});

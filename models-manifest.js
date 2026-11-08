@@ -28,14 +28,14 @@ export const MODEL_ARTIFACTS = Object.freeze({
     referenceTint: false, repository, collection,
   }),
   incense: Object.freeze({
-    id: 'incense', shortName: '칠보 향로', name: '청자 투각 칠보문 뚜껑 향로',
+    id: 'incense', shortName: '칠보 향로', name: '청자 투각 칠보무늬 향로',
     use: '향을 피울 때 사용합니다.',
     src: local('celadon-incense.glb'), detailedSrc: local('detail/celadon-incense.glb'),
     sourceUrl: 'https://www.museum.go.kr/MUSEUM/contents/M0201020000.do?relicId=1227&schM=search',
-    source: '국립중앙박물관 소장 · 사용자 제공 PLY 스캔 형상',
+    source: '국립중앙박물관 소장 · 사용자 제공 STL 형상 · PLY 대조',
     note: '형상은 스캔 자료이며, 청자색은 참고 표현입니다. 원본 스캔에 기록된 색을 복원한 것은 아닙니다.',
     clue: '향 연기가 나오는 뚜껑의 구멍과 받침을 살펴보세요.',
-    referenceTint: true, repository, collection,
+    referenceTint: false, repository, collection,
   }),
   stool: Object.freeze({
     id: 'stool', shortName: '의자', name: '청자 투각 의자',
@@ -108,7 +108,7 @@ export const MODEL_ARTIFACTS = Object.freeze({
     referenceTint: false,
   }),
   cloudCraneMaebyeong: Object.freeze({
-    id: 'cloudCraneMaebyeong', shortName: '구름·학 매병 (스캔)', name: '청자 상감 구름 학무늬 매병 · 덕수2182',
+    id: 'cloudCraneMaebyeong', shortName: '구름·학 매병', name: '청자 상감 구름 학무늬 매병 · 덕수2182',
     use: '내용물을 담아 두는 병입니다. 구름 사이를 나는 학 무늬로 꾸몄습니다.',
     src: local('celadon-cloud-crane-maebyeong.glb'),
     sourceUrl: 'https://www.museum.go.kr/MUSEUM/contents/M0505000000.do?relicId=1126&schM=view&searchId=search',
