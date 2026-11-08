@@ -59,7 +59,7 @@ export const OBSERVATION_ANSWERS = freezeAnswers({
   '5': {
     name: '청자 투각 칠보무늬 향로', shortName: '향로', date: '고려',
     use: '향을 피울 때 사용합니다.',
-    source: '국립중앙박물관 소장 · 사용자 제공 STL 형상 · PLY 대조',
+    source: '국립중앙박물관 소장 · 사용자 제공 OBJ 형상과 원본 사진 질감',
     sourceUrl: 'https://www.museum.go.kr/MUSEUM/contents/M0201020000.do?relicId=1227&schM=search',
     note: '구멍을 뚫어 칠보무늬를 낸 뚜껑으로 향 연기가 빠져나갑니다. 향을 피우는 몸통과 이를 받치는 받침이 함께 어우러져 있습니다.',
   },

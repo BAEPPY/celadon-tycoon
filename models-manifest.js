@@ -32,10 +32,10 @@ export const MODEL_ARTIFACTS = Object.freeze({
     use: '향을 피울 때 사용합니다.',
     src: local('celadon-incense.glb'), detailedSrc: local('detail/celadon-incense.glb'),
     sourceUrl: 'https://www.museum.go.kr/MUSEUM/contents/M0201020000.do?relicId=1227&schM=search',
-    source: '국립중앙박물관 소장 · 사용자 제공 STL 형상 · PLY 대조',
-    note: '형상은 스캔 자료이며, 청자색은 참고 표현입니다. 원본 스캔에 기록된 색을 복원한 것은 아닙니다.',
+    source: '국립중앙박물관 소장 · 사용자 제공 OBJ 형상과 원본 사진 질감',
+    note: '뚜껑과 몸체의 원본 사진 질감을 사용했습니다. 투각 구멍과 연꽃, 토끼 받침의 모양과 표면의 빛깔을 살펴보세요.',
     clue: '향 연기가 나오는 뚜껑의 구멍과 받침을 살펴보세요.',
-    referenceTint: false, repository, collection,
+    referenceTint: false, opening: {lidMesh: 1}, repository, collection,
   }),
   stool: Object.freeze({
     id: 'stool', shortName: '의자', name: '청자 투각 의자',

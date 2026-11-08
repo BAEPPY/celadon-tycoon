@@ -1,5 +1,8 @@
 """Rebuild the incense observation model from the supplied museum STL archive.
 
+Historical geometry-only fallback. Current textured assets are reproduced with
+scripts/convert-incense-photo.py and the supplied original OBJ/photo archives.
+
 Run with Blender 4.3+: blender -b --python scripts/convert-observation-5.py -- \
   /path/to/프린트_STL.zip --output /path/to/output.glb
 

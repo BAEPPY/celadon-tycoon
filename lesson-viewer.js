@@ -1,5 +1,6 @@
 // Observation-only 3D viewer. The public artifact contains neutral labels,
 // never the country, object name, date, use, or the teacher's answer key.
+import {createArtifactOpening} from './artifact-opening.js';
 const mounted = new WeakMap();
 let libraries;
 let viewerNumber = 0;
@@ -61,7 +62,7 @@ function releaseObject(object) {
  * getExpandedInfo may return information already revealed by the server. Without
  * it the enlarged view only offers neutral observation prompts.
  */
-export function mountLessonViewer(container, artifact, {expand = true, getExpandedInfo} = {}) {
+export function mountLessonViewer(container, artifact, {expand = true, getExpandedInfo, openingState = {open: false}} = {}) {
   if (!(container instanceof HTMLElement)) throw new TypeError('A viewer container is required.');
   if (!artifact || typeof artifact.src !== 'string') throw new TypeError('An artifact source is required.');
   mounted.get(container)?.dispose();
@@ -72,7 +73,7 @@ export function mountLessonViewer(container, artifact, {expand = true, getExpand
   let THREE, renderer, scene, camera, controls, object, floor, environment;
   let radius = 1.5, modelHeight = 2.6, homePosition, homeTarget, fitDistance = 0;
   let lastWidth = 0, lastHeight = 0;
-  let expanded;
+  let expanded, opening, openingButton;
   container.replaceChildren();
   container.classList.add('lesson-viewer');
   container.dataset.viewerStatus = 'loading';
@@ -116,6 +117,7 @@ export function mountLessonViewer(container, artifact, {expand = true, getExpand
     expanded = null;
     if (closeExpandedViewer === closeExpanded) closeExpandedViewer = null;
     current.viewer?.dispose();
+    if (!disposed) controller.setLidOpen(openingState.open, {animate: false});
     if (current.dialog.open) current.dialog.close();
     current.dialog.remove();
     expandButton?.setAttribute('aria-expanded', 'false');
@@ -169,6 +171,7 @@ export function mountLessonViewer(container, artifact, {expand = true, getExpand
 
   function openExpanded() {
     if (disposed || expanded || !expandButton) return;
+    controller.setLidOpen(openingState.open, {animate: false});
     closeExpandedViewer?.(false);
     installDialogStyles();
     const dialog = element('dialog', 'lesson-viewer__dialog');
@@ -211,7 +214,7 @@ export function mountLessonViewer(container, artifact, {expand = true, getExpand
     closeExpandedViewer = closeExpanded;
     expandButton.setAttribute('aria-expanded', 'true');
     dialog.showModal();
-    expanded.viewer = mountLessonViewer(host, artifact, {expand: false});
+    expanded.viewer = mountLessonViewer(host, artifact, {expand: false, openingState});
     Object.assign(host.querySelector('.lesson-viewer__viewport').style, {flex: '1 1 0', height: 'auto', minHeight: '120px'});
     expanded.viewer.resize();
   }
@@ -234,6 +237,7 @@ export function mountLessonViewer(container, artifact, {expand = true, getExpand
   };
   const cleanResources = () => {
     abort?.abort();
+    opening?.dispose(); opening = null;
     cancelAnimationFrame(frame); frame = 0;
     controls?.removeEventListener('change', invalidate);
     controls?.dispose(); controls = null;
@@ -282,9 +286,10 @@ export function mountLessonViewer(container, artifact, {expand = true, getExpand
     if (!camera || !THREE || !controls || !object) return;
     const vertical = THREE.MathUtils.degToRad(camera.fov);
     const horizontal = 2 * Math.atan(Math.tan(vertical / 2) * aspect);
-    const previousFit = fitDistance;
-    fitDistance = radius / Math.sin(Math.min(vertical, horizontal) / 2) * 1.12;
-    const target = new THREE.Vector3(0, modelHeight / 2, 0);
+    const previousFit = fitDistance, previousTarget = homeTarget;
+    const bounds = opening?.getBounds(), frameRadius = bounds ? bounds.getSize(new THREE.Vector3()).length() / 2 : radius;
+    fitDistance = frameRadius / Math.sin(Math.min(vertical, horizontal) / 2) * 1.12;
+    const target = bounds ? bounds.getCenter(new THREE.Vector3()) : new THREE.Vector3(0, modelHeight / 2, 0);
     const homeOffset = new THREE.Vector3(Math.sin(0.43), 0.22, Math.cos(0.43)).normalize().multiplyScalar(fitDistance);
     homeTarget = target.clone(); homePosition = target.clone().add(homeOffset);
     controls.minDistance = radius * 0.85;
@@ -294,6 +299,7 @@ export function mountLessonViewer(container, artifact, {expand = true, getExpand
     } else {
       const offset = camera.position.clone().sub(controls.target);
       offset.multiplyScalar(fitDistance / previousFit);
+      if (opening && previousTarget) controls.target.add(target.clone().sub(previousTarget));
       camera.position.copy(controls.target).add(offset);
     }
     controls.update();
@@ -301,6 +307,7 @@ export function mountLessonViewer(container, artifact, {expand = true, getExpand
   const controller = {
     ready: null,
     refreshExpandedInfo,
+    setLidOpen(open, options) {if (!disposed && opening) opening.setOpen(open, options);},
     dispose() {
       if (disposed) return;
       disposed = true; attempt++;
@@ -346,10 +353,12 @@ export function mountLessonViewer(container, artifact, {expand = true, getExpand
     ['−', '축소하기', () => controller.zoom(1.18)],
     ['처음 시점', '처음 시점으로 되돌리기', () => controller.reset()],
   ];
+  if (artifact.opening) buttons.push(['뚜껑 열기', '뚜껑 열기', () => controller.setLidOpen(!opening?.open)]);
   for (const [text, description, action] of buttons) {
     const button = element('button', 'lesson-viewer__control', text);
     button.type = 'button'; button.disabled = true;
     button.setAttribute('aria-label', description); button.title = description;
+    if (description === '뚜껑 열기') {openingButton = button; button.classList.add('lesson-viewer__opening'); button.setAttribute('aria-pressed', 'false');}
     Object.assign(button.style, {font: 'inherit', fontSize: '14px', lineHeight: '1.2', minHeight: '34px', minWidth: '36px', padding: '7px 10px', border: '1px solid #b4c8b7', borderRadius: '9px', background: '#fffdf5', color: '#315540', cursor: 'pointer'});
     button.addEventListener('click', action); toolbar.append(button);
   }
@@ -427,6 +436,18 @@ export function mountLessonViewer(container, artifact, {expand = true, getExpand
       modelHeight = size.y * scale; group.position.y = modelHeight / 2;
       radius = size.length() * scale / 2;
       scene.add(group);
+      opening = createArtifactOpening(gltf, artifact.opening, {THREE, initialOpen: openingState.open, onChange: state => {
+        openingState.open = state.open;
+        container.dataset.opening = state.state;
+        if (openingButton) {
+          const label = state.open ? '뚜껑 닫기' : '뚜껑 열기';
+          openingButton.textContent = label; openingButton.setAttribute('aria-label', label); openingButton.title = label;
+          openingButton.setAttribute('aria-pressed', String(state.open));
+        }
+        updateHome(camera.aspect); invalidate();
+      }});
+      if (opening) opening.setOpen(openingState.open, {animate: false});
+      else {openingButton?.remove(); openingButton = null; delete container.dataset.opening;}
       updateHome(camera.aspect);
       status.hidden = true; status.style.display = 'none';
       toolbar.querySelectorAll('button').forEach(button => {button.disabled = false;});

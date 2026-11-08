@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "start": "node server.mjs",
-    "test": "node --test domain.test.js models.test.js arcade.test.js illustration.test.js assessment.test.js inspection.test.js surface-warp.test.js reactions.test.js workflow.test.js classroom.test.js classroom-game-bridge.test.js classroom-access.test.js lesson-cloud.test.js classroom-entry.test.js game-retention.test.js",
+    "test": "node --test domain.test.js models.test.js arcade.test.js illustration.test.js assessment.test.js inspection.test.js surface-warp.test.js reactions.test.js workflow.test.js classroom.test.js classroom-game-bridge.test.js classroom-access.test.js lesson-cloud.test.js classroom-entry.test.js game-retention.test.js artifact-opening.test.js",
     "build": "node build.mjs",
     "test:browser": "node tests/browser-workshop.cjs",
     "test:entry": "node tests/browser-entry.cjs",
@@ -28,7 +28,8 @@
     "test:game-retention": "node tests/browser-game-retention.cjs",
     "test:classroom-works": "node tests/browser-classroom-works.cjs",
     "test:game-upload-retention": "node tests/browser-game-upload-retention.cjs",
-    "test:classroom-beauty": "node tests/browser-classroom-beauty.cjs"
+    "test:classroom-beauty": "node tests/browser-classroom-beauty.cjs",
+    "test:incense-texture": "node tests/browser-incense-texture.cjs"
   },
   "dependencies": {
     "@vercel/blob": "2.8.2",

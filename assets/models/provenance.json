@@ -13,64 +13,112 @@
     },
     {
       "name": "celadon-incense.glb",
-      "bytes": 2509500,
-      "sha256": "32eb5a4698b092023e3dee6ca6390e07e09aa2e86788670a86d4b899910c6479",
-      "extensionsRequired": [],
-      "meshes": 2,
-      "materials": 1,
-      "extensionsUsed": [
-        "KHR_materials_clearcoat"
+      "bytes": 7299008,
+      "sha256": "77e7d0ed2615b01d9e661a1e080b8fac0bbcdd0dfe9db86b1f3aadc3187b2bf8",
+      "extensionsRequired": [
+        "KHR_materials_unlit"
       ],
+      "extensionsUsed": [
+        "KHR_materials_unlit"
+      ],
+      "meshes": 2,
+      "materials": 2,
+      "textures": 2,
       "sourceProvider": "국립중앙박물관",
       "artifactId": "duk002990",
       "sourceUrl": "https://www.museum.go.kr/MUSEUM/contents/M0201020000.do?relicId=1227&schM=search",
-      "sourceArchive": "프린트_STL.zip",
-      "sourceArchiveSha256": "c1da20b7327aa24e62e463d0cb4f48d32d0df5bcfc3a299bdb0583c74ff1f3f6",
-      "conversionScript": "scripts/convert-observation-5.py",
-      "conversionDate": "2026-11-08",
-      "blenderVersion": "4.3.2",
-      "geometry": "Original STL body and lid, common source alignment preserved. No reconstruction or generated motifs.",
-      "rotation": "Source Z-up to glTF Y-up; common centering and millimeters-to-meters conversion.",
-      "material": "Uniform reference celadon glaze; no photographic texture or original surface color is claimed. Metallic 0, roughness 0.32, coat 0.35, coat roughness 0.16, IOR 1.5.",
-      "sourceColorInspection": {
-        "plyArchive": "스캔_PLY (2).zip",
-        "plyArchiveSha256": "93b1656dbd99e208ca1d030f0ade5230390fd50c5767f7a4f983f21e5b43aefd",
-        "result": "Both PLY files have only grayscale RGB (254,254,254) and (255,255,255); no photographic color is present. STL attributes are also uniform gray.",
-        "files": [
-          {
-            "name": "duk002990-001-30000_step3.ply",
-            "sha256": "0912db38d5bb6d2e0e8317ea0625d725873462c9e1d441a8bbe0a921186ab591"
-          },
-          {
-            "name": "duk002990-002-30000_step3.ply",
-            "sha256": "fa10e45f3ab4d0be06fa5b96853bbe8acf9b6dbfc70ed33b5b61afa77efd95ef"
-          }
-        ]
-      },
-      "parts": [
+      "sourceArchives": [
         {
-          "name": "duk002990-001-30000_step3.stl",
-          "sourceSha256": "00c91d532ddfc07600839898b088d2cc6316128448f7a5fa5fddd2f64ab310cd",
-          "sourceTriangles": 240549,
-          "outputTriangles": 64999,
-          "outputVertices": 32198,
-          "connectedComponents": 1,
-          "boundaryEdges": 0,
-          "nonmanifoldEdges": 290,
-          "topologyNote": "Preserves the source nonmanifold region at one foot; no new boundaries or disconnected components."
+          "name": "duk002990_001_30000.zip",
+          "sha256": "1004fc9e33e0c96c84e5c06824a0f1877c046b9a9a69730888234dc12241a046",
+          "contents": "Body OBJ, MTL, and color JPG"
         },
         {
-          "name": "duk002990-002-30000_step3.stl",
-          "sourceSha256": "4070543c5407b00bd6fed0dcf26ebc66a229728cd3e64a835717398bda5ce2a6",
-          "sourceTriangles": 252424,
-          "outputTriangles": 75000,
-          "outputVertices": 37280,
+          "name": "duk002990_002_30000.zip",
+          "sha256": "054892ceddb13fff97cacefa909ad94e0e2bf3553976d3ec78de2e754e71c02a",
+          "contents": "Lid color JPG only"
+        },
+        {
+          "name": "duk002990_002_30000 (2).zip",
+          "sha256": "70505afc70407bd507351bc2fa4627789ac6f717c827ac2c6a5413d6e7905153",
+          "contents": "Lid OBJ and MTL; essential geometry complement"
+        },
+        {
+          "name": "duk002990_001_30000_nor.zip",
+          "sha256": "60dfdd809b0da9b9c4bd728b2f9f494001caee88c5c1571e4d26ef3d2b0bfbfb",
+          "contents": "Body normal map inspected; unused in final unlit material"
+        },
+        {
+          "name": "duk002990_002_30000_nor.zip",
+          "sha256": "6fec07eec42ad5d9cfb70bccebc70af3ad68514513ae21d4f9433e6dd969bd4f",
+          "contents": "Lid normal map inspected; unused in final unlit material"
+        }
+      ],
+      "sourceFilesSha256": {
+        "duk002990_001_30000.jpg": "ff0567a265d82f34c70483faf266425c0efe287f94abfe0197640a36942684fe",
+        "duk002990_001_30000.obj": "18cf239f0455826ab00a4e0c4b4032fe335ce8dcab912ad30ea3ad3ab6d199cc",
+        "duk002990_001_30000.mtl": "97734a36727e8aaf1b5f6f6d1eba97c23083b220ff801be92c1fe64381ba8313",
+        "duk002990_001_30000_nor.jpg": "f3d1db1d614241e1f668059f0502af6dddf690f71c6c6b5e1e98e3530e84778a",
+        "duk002990_002_30000.jpg": "b07d47697211af0bf6d44be3fa1edb5e39513427a95d106be82a0c0916100034",
+        "duk002990_002_30000_nor.jpg": "3d2163722af2f8bded975601cd74adad910f8add27ea65bf9ba43784f70a070f",
+        "duk002990_002_30000.obj": "22da37aa316079bf9db5de27d16ad6c17b079c08f73d388d7d4d80beda72d2bc",
+        "duk002990_002_30000.mtl": "4c8e890906e96b29c3ce2e05dc41094a8391a8067ed0bbfdb2196cb9bd1b5345"
+      },
+      "conversionScript": "scripts/convert-incense-photo.py",
+      "conversionDate": "2026-11-08",
+      "geometry": "All 187,034 original OBJ triangles, UV seams, and vertex normals retained. No simplification or reconstructed surfaces. Body and lid retain their source assembly; the body includes its scanned inner bowl.",
+      "rotation": "Unchanged Y-up. Shared offset [-0.8713635, 0.095891, -4.8121445] mm subtracted before converting millimeters to meters.",
+      "textureCoordinates": "Original OBJ UVs, with V flipped to the glTF image convention. Body and lid have separate original photographic atlases.",
+      "materialPathRepair": "Source MTL map_Kd names 0_001_30000.png / 0_002_30000.png do not exist. Explicitly bind matching supplied duk002990_001_30000.jpg / duk002990_002_30000.jpg.",
+      "material": "KHR_materials_unlit; original photographed colors and baked lighting preserved. No reference tint, generated surface marks, or exposure correction. Source normal maps are unused because unlit photos need no additional lighting and the source tangent basis is unspecified.",
+      "textureConversion": "8192x8192 source JPGs resized with Lanczos to 4096x4096; JPEG quality 90; no chroma subsampling; embedded separately as sRGB base-color textures.",
+      "verification": "Every ordered source triangle corner preserved within float32 precision (position error <7.5e-9 m; UV/normal error <3e-8). Original closed-manifold topology retained for both parts. Embedded textures differ from source Lanczos downsample by mean 0.42/255 with negligible brightness shift. Actual lesson viewer inspected from four angles; both atlases correctly connected.",
+      "parts": [
+        {
+          "part": 1,
+          "role": "body",
+          "meshIndex": 0,
+          "nodeIndex": 0,
+          "sourceObj": "duk002990_001_30000.obj",
+          "sourceTexture": "duk002990_001_30000.jpg",
+          "sourceVertices": 36324,
+          "sourceTriangles": 72668,
+          "outputTriangles": 72668,
+          "outputVerticesWithUVSeams": 43311,
+          "textureResolution": [
+            4096,
+            4096
+          ],
+          "textureBytes": 1350143,
+          "textureSha256": "091354430ffe58cc161893436e7c34a0c5e1f173f80dc762b4d1ab58d3b2ca3d",
+          "connectedComponents": 1,
+          "boundaryEdges": 0,
+          "nonmanifoldEdges": 0,
+          "eulerCharacteristic": -10,
+          "genus": 6
+        },
+        {
+          "part": 2,
+          "role": "lid",
+          "meshIndex": 1,
+          "nodeIndex": 1,
+          "sourceObj": "duk002990_002_30000.obj",
+          "sourceTexture": "duk002990_002_30000.jpg",
+          "sourceVertices": 56963,
+          "sourceTriangles": 114366,
+          "outputTriangles": 114366,
+          "outputVerticesWithUVSeams": 63347,
+          "textureResolution": [
+            4096,
+            4096
+          ],
+          "textureBytes": 1411014,
+          "textureSha256": "af3d0ad2c04b157cb1a47b1d89bb95ec11272eb09d7af61cb6fc8b0423f2b7bd",
           "connectedComponents": 1,
           "boundaryEdges": 0,
           "nonmanifoldEdges": 0,
           "eulerCharacteristic": -220,
-          "genus": 111,
-          "topologyNote": "All source through-openings preserved."
+          "genus": 111
         }
       ]
     },
