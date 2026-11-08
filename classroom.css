@@ -344,6 +344,7 @@ dialog.student-manager::backdrop{background:#1c2b3055}
 .observer-invite-details>p{font-size:17px;line-height:1.7;color:#607780}
 .observer-invite-features{display:flex;flex-wrap:wrap;gap:8px}.observer-invite-features span{font-size:15px;font-weight:650;padding:8px 12px;border-radius:7px;background:#eaf6f1;color:#397c6a}
 .observer-invite-details>.observer-invite-privacy{font-size:15px;line-height:1.7;color:#6e8185;padding-bottom:3px}
+.observer-invite-details>.observer-invite-fixed{font-size:15px;line-height:1.6;color:#2b6a5e;padding:10px 13px;border-radius:8px;background:#eef8f4;word-break:keep-all}
 .observer-invite-address{font-size:14px;gap:7px;color:#627d81}.observer-invite-address input{width:100%;font-size:16px;font-weight:400;padding:11px;background:#f6f9f8;color:#4f6c70;text-overflow:ellipsis}
 .observer-invite-footer{display:flex;justify-content:center;flex-wrap:wrap;gap:12px;padding:17px 24px 22px;border-top:1px solid #e1eae6;background:#fbfdfb}
 @media(max-width:1100px) and (min-width:801px){.teacher-header{flex-wrap:wrap}.teacher-header .teacher-tools{margin-left:auto}.teacher-header .observer-invite-open{padding:7px 10px}}
@@ -368,7 +369,7 @@ dialog.student-manager::backdrop{background:#1c2b3055}
   .observer-invite-qr{width:100mm;max-width:100%;border:0;border-radius:0;print-color-adjust:exact}
   .observer-invite-status{font-size:16pt}.observer-invite-details{align-items:center;text-align:center;gap:5mm}
   .observer-invite-details h3{font-size:22pt}.observer-invite-details>p{font-size:14pt}
-  .observer-invite .button,.observer-invite-address,.observer-invite-footer,.observer-invite-features{display:none!important}
+  .observer-invite .button,.observer-invite-address,.observer-invite-footer,.observer-invite-features,.observer-invite-fixed{display:none!important}
 }
 
 /* Teacher passcode on the 새 수업 열기 form (only when the server has one configured). */

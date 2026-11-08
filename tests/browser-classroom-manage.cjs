@@ -39,7 +39,7 @@ const base = process.env.BASE_URL || 'http://127.0.0.1:4173';
     await teacher.click('.manage-menu>summary'); await teacher.click('[data-action=copy-observer]');
     await teacher.waitForFunction(() => document.querySelector('#classroom-toast')?.textContent.includes('참관 주소'));
     const link = await teacher.evaluate(() => navigator.clipboard.readText());
-    assert.match(link, /\/observe\?code=[A-Z2-9]{6}#key=[A-Za-z0-9_-]{30,}$/);
+    assert.match(link, /\/observe\?code=%ED%83%91%ED%85%90%EB%B0%98#key=[A-Za-z0-9_-]{30,}$/, 'the 탑텐반 class shares the fixed 탑텐반 QR');
     const observer = await page('observer');
     await observer.goto(link); await observer.locator('.teacher-stage-nav').waitFor();
     assert.equal(await observer.locator('[data-action=start],[data-action=pause],[data-action=reveal],.manage-menu,[data-form=settings],.participant-panel,[data-action=copy-code],[data-action=delete-room]').count(), 0);
@@ -83,14 +83,15 @@ const base = process.env.BASE_URL || 'http://127.0.0.1:4173';
       return (await response.json()).observerToken;
     });
     assert.equal(repeatedToken, new URLSearchParams(new URL(link).hash.slice(1)).get('key'));
-    const stillVisible = await observer.request.get(`${base}/api/classroom`, {headers: {Authorization: `Bearer ${repeatedToken}`}, params: {action: 'observe', code: teacherSession.code}});
+    const stillVisible = await observer.request.get(`${base}/api/classroom`, {headers: {Authorization: `Bearer ${repeatedToken}`}, params: {action: 'observe', code: '탑텐반'}});
     assert.equal(stillVisible.status(), 200);
-    // Deleting the class revokes its QR and clears an already-open observer board.
+    // Deleting the class clears an already-open observer board; the fixed QR waits for the next 탑텐반 class.
     const deleted = await teacher.request.post(`${base}/api/classroom`, {headers: {Authorization: `Bearer ${teacherSession.teacherToken}`}, data: {action: 'control', code: teacherSession.code, command: 'delete'}});
     assert.equal(deleted.status(), 200);
-    await observer.waitForFunction(() => document.querySelector('[data-form-error]')?.textContent.includes('참관할 수업을 찾지 못했어요'), {}, {timeout: 15000});
+    await observer.getByTestId('observer-waiting').waitFor({timeout: 15000});
+    assert.ok(!(await observer.locator('#classroom-app').innerText()).includes('봄샘'));
     assert.deepEqual(errors, []);
-    console.log('Classroom management: unified names, anonymous observer, entry lock, release/rejoin, removal, untimed activity 3, stable QR link and deletion revocation passed.');
+    console.log('Classroom management: unified names, anonymous observer, entry lock, release/rejoin, removal, untimed activity 3, stable QR link and waiting after deletion passed.');
   } finally {
     if(teacherSession&&teacher)await teacher.request.post(`${base}/api/classroom`,{headers:{Authorization:`Bearer ${teacherSession.teacherToken}`},data:{action:'control',code:teacherSession.code,command:'delete'}}).catch(()=>{});
     await browser.close();

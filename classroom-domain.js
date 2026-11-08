@@ -47,6 +47,10 @@ function authorized(value, storedHash) {
 // room's teacher hash is private; observers cannot derive it from their token.
 const observerDigest = (room, purpose) => createHmac('sha256', room.teacherHash).update(`${room.code}:${purpose}`).digest('base64url');
 const observerLinkToken = room => observerDigest(room, 'observer-link-v1');
+// One observer QR for 탑텐반: its key comes from a random seed kept with the 탑텐반 pointer, so the same printed QR keeps
+// working across 새 수업 and data deletion and always shows whichever class 탑텐반 currently points to.
+const fixedObserverToken = seed => createHmac('sha256', seed).update('tapten-observer-v1').digest('base64url');
+const OBSERVER_WAITING = '지금은 열린 탑텐반 수업이 없어요. 수업이 열리면 이 화면에 자동으로 나타나요.';
 const observerWorkReference = (room, participantId, workId) => `obs_${observerDigest(room, `observer-work-v1:${participantId}:${workId}`)}`;
 function observerWorkParticipant(room, reference, workId) {
   if (typeof reference !== 'string' || !/^obs_[A-Za-z0-9_-]{43}$/.test(reference)) fail(403, 'observer-artwork', '참관 화면에서 작품을 다시 열어 주세요.');
@@ -288,7 +292,7 @@ export class ClassroomService {
     return timingSafeEqual(actual, expected);
   }
   async writeJoinAlias(code, previous) {
-    const data = {code, updatedAt: this.now()};
+    const data = {code, updatedAt: this.now(), ...(previous?.data.observerSeed ? {observerSeed: previous.data.observerSeed} : {})};
     if (previous) await this.store.update(joinAliasKey(), data, previous.etag);
     else await this.store.create(joinAliasKey(), data);
   }
@@ -297,10 +301,28 @@ export class ClassroomService {
       const current = await this.store.read(joinAliasKey());
       if (current?.data.code !== code) return;
       // A conditional tombstone prevents an old delete from erasing a newly assigned class.
-      try { await this.store.update(joinAliasKey(), {code: null, updatedAt: this.now()}, current.etag); return; }
+      try { await this.store.update(joinAliasKey(), {code: null, updatedAt: this.now(), ...(current.data.observerSeed ? {observerSeed: current.data.observerSeed} : {})}, current.etag); return; }
       catch (error) { if (!(error instanceof StoreConflict)) throw error; }
     }
     fail(409, 'try-again', '수업 연결을 정리하는 중이에요. 다시 눌러 주세요.');
+  }
+  async fixedObserverLink({rotate = false} = {}) {
+    for (let retry = 0; retry < 6; retry++) {
+      const alias = await this.store.read(joinAliasKey());
+      if (alias?.data.observerSeed && !rotate) return fixedObserverToken(alias.data.observerSeed);
+      const seed = this.makeToken(), data = {code: alias?.data.code ?? null, updatedAt: this.now(), observerSeed: seed};
+      try { if (alias) await this.store.update(joinAliasKey(), data, alias.etag); else await this.store.create(joinAliasKey(), data); return fixedObserverToken(seed); }
+      catch (error) { if (!(error instanceof StoreConflict)) throw error; }
+    }
+    fail(409, 'try-again', '참관 QR을 준비하는 중이에요. 다시 눌러 주세요.');
+  }
+  // Resolves a fixed 탑텐반 observer link to the class it currently points to.
+  async fixedObserverRoom(bearer, options) {
+    const alias = await this.store.read(joinAliasKey(), options);
+    if (!alias?.data.observerSeed || !authorized(bearer, hash(fixedObserverToken(alias.data.observerSeed)))) fail(403, 'observer-auth', '참관 QR이 바뀌었어요. 선생님께 새 참관 QR을 받아 주세요.');
+    if (!alias.data.code) fail(409, 'observer-waiting', OBSERVER_WAITING);
+    try { return (await this.room(alias.data.code, options)).data; }
+    catch (error) { if (error.code === 'room-not-found') fail(409, 'observer-waiting', OBSERVER_WAITING); throw error; }
   }
   async claimJoinCode(code, bearer) {
     const {data: room} = await this.room(code, undefined, TEACHER_ROOM_GONE); this.teacher(room, bearer);
@@ -443,8 +465,13 @@ export class ClassroomService {
   }
   // Read-only view for visitors at an open class: results and works without student names or numbers.
   async observe(raw, bearer) {
-    const code = validateCode(raw.code), {data: room} = await this.room(code, {maxAge: 500}, '참관할 수업을 찾지 못했어요. 선생님께 확인해 주세요.');
-    if (!authorized(bearer, room.observerHash)) fail(403, 'observer-auth', '참관 주소가 바뀌었어요. 선생님께 새 참관 주소를 받아 주세요.');
+    let room;
+    if (publicJoinCode(raw.code) === CLASSROOM_JOIN_CODE) room = await this.fixedObserverRoom(bearer, {maxAge: 500});
+    else {
+      room = (await this.room(validateCode(raw.code), {maxAge: 500}, '참관할 수업을 찾지 못했어요. 선생님께 확인해 주세요.')).data;
+      if (!authorized(bearer, room.observerHash)) fail(403, 'observer-auth', '참관 주소가 바뀌었어요. 선생님께 새 참관 주소를 받아 주세요.');
+    }
+    const code = room.code;
     const [students, reveal] = await Promise.all([this.students(code), this.revealedAnswers(room)]);
     const summary = classroomSummary(room, students, this.now());
     return {state: classroomState(room, this.now()), comparison: summary.comparison, observations: summary.observations, beauty: summary.beauty,
@@ -467,6 +494,11 @@ export class ClassroomService {
     if (raw.command === 'delete') return this.removeRoom(code, bearer);
     if (raw.command === 'claim-join-code') return this.claimJoinCode(code, bearer);
     if (raw.command === 'release-student' || raw.command === 'remove-student') return this.manageStudent(code, raw, bearer);
+    if (raw.command === 'observer-link') {
+      const {data: room} = await this.room(code, undefined, TEACHER_ROOM_GONE); this.teacher(room, bearer);
+      const alias = await this.store.read(joinAliasKey());
+      if (alias?.data.code === code) return {state: classroomState(room, this.now()), observerToken: await this.fixedObserverLink({rotate: raw.rotate === true}), observerCode: CLASSROOM_JOIN_CODE};
+    }
     let observerToken;
     for (let retry = 0; retry < 6; retry++) {
       const current = await this.room(code, undefined, TEACHER_ROOM_GONE), room = structuredClone(current.data); this.teacher(room, bearer);
@@ -641,8 +673,9 @@ export class ClassroomService {
     fail(409, 'save-retry', '작품의 모양을 저장하는 중이에요. 잠시 뒤 다시 보내 주세요.');
   }
   async artwork(raw, bearer) {
-    const code = validateCode(raw.code), workId = validateWorkId(raw.workId), {data: room} = await this.room(code);
-    const teacher = authorized(bearer, room.teacherHash), observer = !teacher && authorized(bearer, room.observerHash);
+    const workId = validateWorkId(raw.workId), viaFixedLink = publicJoinCode(raw.code) === CLASSROOM_JOIN_CODE;
+    const room = viaFixedLink ? await this.fixedObserverRoom(bearer) : (await this.room(validateCode(raw.code))).data, code = room.code;
+    const teacher = !viaFixedLink && authorized(bearer, room.teacherHash), observer = viaFixedLink || (!teacher && authorized(bearer, room.observerHash));
     const id = observer ? observerWorkParticipant(room, raw.participantId, workId) : validateNumber(raw.participantId);
     if (!teacher && !observer) await this.student(code, id, bearer);
     const student = await this.expireStudentWorks(code, id);
