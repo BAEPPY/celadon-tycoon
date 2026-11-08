@@ -1,4 +1,4 @@
-import {ClassroomError, ClassroomService} from '../classroom-domain.js';
+import {ClassroomError, ClassroomService, configuredTeacherPasscode} from '../classroom-domain.js';
 import {classroomStorageStatus, classroomStore, StoreUnavailable} from '../classroom-store.js';
 
 // Includes a bounded full drawing plus its preview, below Vercel's 4.5 MB request limit.
@@ -34,7 +34,7 @@ export function createClassroomHandler({store, now, makeCode, makeToken} = {}) {
         if (host && originHost !== host) return send(res, 403, {error: '수업 화면에서 다시 시도해 주세요.', code: 'origin'});
       }
       const raw = req.method === 'POST' ? await body(req) : Object.fromEntries(new URL(req.url, 'http://localhost').searchParams);
-      if (req.method === 'GET' && raw.action === 'health') return send(res, 200, {...classroomStorageStatus(), serverNow: now ? now() : Date.now()});
+      if (req.method === 'GET' && raw.action === 'health') return send(res, 200, {...classroomStorageStatus(), teacherPasscode: Boolean(configuredTeacherPasscode()), serverNow: now ? now() : Date.now()});
       const service = new ClassroomService(store || classroomStore(), {now, makeCode, makeToken});
       const auth = bearer(req);
       let result;

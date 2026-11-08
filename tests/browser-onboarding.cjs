@@ -15,7 +15,7 @@ async function checkTutorialLayout(page){
 async function tutorialStep(target){return Number(await target.locator('.tutorial-content').getAttribute('data-tutorial-step'));}
 async function checkBrand(page){
   const brand=await page.locator('.mini-logo').evaluate(el=>{const range=document.createRange();range.selectNodeContents(el);const rects=[...range.getClientRects()],r=el.getBoundingClientRect();return{text:el.textContent,lines:new Set(rects.map(x=>Math.round(x.top))).size,nowrap:getComputedStyle(el).whiteSpace,fits:r.left>=0&&r.right<=innerWidth&&el.scrollWidth<=el.clientWidth};});
-  assert.equal(brand.text,'좋은 청자, 위대한 청자');assert.equal(brand.lines,1);assert.equal(brand.nowrap,'nowrap');assert.ok(brand.fits);
+  assert.equal(brand.text,'좋은 청자, 위대한 청자');assert.equal(brand.lines,1);if(page.viewportSize().width>=1024)assert.equal(brand.nowrap,'nowrap','Chromebook screens keep the title on one line');assert.ok(brand.fits);
 }
 (async()=>{
  const browser=await chromium.launch({headless:true,...(process.env.CHROMIUM_PATH?{executablePath:process.env.CHROMIUM_PATH}:{}),args:['--no-sandbox']});

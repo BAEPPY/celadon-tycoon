@@ -320,3 +320,8 @@ dialog.student-manager::backdrop{background:#1c2b3055}
   .lesson-viewer__info-title{font-size:21px}
   .work-dialog-stage{height:300px}
 }
+
+/* Teacher passcode on the 새 수업 열기 form (only when the server has one configured). */
+.passcode-field{display:grid;gap:6px;margin:0 0 12px;font-size:15px}
+.passcode-field[hidden]{display:none}
+.passcode-field input{min-height:46px}

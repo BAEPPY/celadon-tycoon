@@ -197,6 +197,35 @@ test('fixed join code replacement requires the current teacher, preserves old da
   assert.equal((await service.join({code: '탑텐반', number: 1, name: '다음 학생'})).code, replacement.code);
 });
 
+test('with a teacher passcode set, only the teacher can open or take back 탑텐반, and replacing a class ends it', async () => {
+  const store = new MemoryStore(), service = new ClassroomService(store, {teacherPasscode: '청자-1234'});
+  await rejectsCode(service.create({joinCode: '탑텐반'}), 'teacher-passcode');
+  await rejectsCode(service.create({joinCode: '탑텐반', passcode: '틀린 번호'}), 'teacher-passcode');
+  await rejectsCode(service.create(), 'teacher-passcode');
+  const first = await service.create({joinCode: '탑텐반', passcode: '청자-1234'});
+  const student = await service.join({code: '탑텐반', number: 1, name: '봄샘'});
+  // The same browser replaces its own class without the passcode; the replaced class ends but keeps its records.
+  const second = await service.create({joinCode: '탑텐반', previousCode: first.code}, first.teacherToken);
+  const old = await service.overview({code: first.code}, first.teacherToken);
+  assert.equal(old.state.status, 'ended'); assert.equal(old.participants[0].name, '봄샘');
+  assert.equal((await service.state({code: first.code, participantId: student.participantId}, student.participantToken)).state.status, 'ended');
+  // A teacher whose browser data was wiped takes the code back with the passcode; strangers cannot.
+  await rejectsCode(service.create({joinCode: '탑텐반'}), 'teacher-passcode');
+  const third = await service.create({joinCode: '탑텐반', passcode: ' 청자-1234 '});
+  assert.equal((await service.overview({code: second.code}, second.teacherToken)).state.status, 'ended');
+  assert.equal((await service.join({code: '탑텐반', number: 2, name: '하늘'})).code, third.code);
+  // Without a configured passcode the earlier behaviour stays: a held code cannot be taken over.
+  const open = new ClassroomService(new MemoryStore()), held = await open.create({joinCode: '탑텐반'});
+  await rejectsCode(open.create({joinCode: '탑텐반', passcode: '청자-1234'}), 'join-code-in-use');
+  assert.equal((await open.join({code: '탑텐반', number: 1, name: '학생'})).code, held.code);
+});
+
+test('a student joining 탑텐반 after its class ended is told to wait for a new class', async () => {
+  const store = new MemoryStore(), service = new ClassroomService(store), room = await service.create({joinCode: '탑텐반'});
+  await service.control({code: room.code, command: 'end'}, room.teacherToken);
+  await assert.rejects(service.join({code: '탑텐반', number: 1, name: '학생'}), error => error.code === 'room-ended' && /선생님이 새 수업을 열면/.test(error.message));
+});
+
 test('an existing teacher can claim an unused fixed code, but other rooms and students cannot reassign it', async () => {
   const f = await fixture(), student = await f.join(1), stranger = await f.service.create();
   await rejectsCode(f.service.control({code: f.room.code, command: 'claim-join-code'}, student.participantToken), 'teacher-auth');
@@ -496,7 +525,9 @@ test('an observer link shows class results without student names and cannot cont
   assert.ok(!JSON.stringify(view).includes('실명하나'));
   assert.ok(!('name' in view.works[0]) && !('number' in view.works[0]));
   assert.deepEqual(Object.keys(view.participants[0]).sort(), ['activity1Complete', 'activity2Complete', 'beautyComplete', 'beautySubmitted', 'completedWorkCount']);
-  assert.equal((await f.service.artwork({code, participantId: a.participantId, workId: 'finished-1'}, link.observerToken)).preview, png);
+  assert.notEqual(view.works[0].participantId, a.participantId, 'observers get an opaque reference, not the student number');
+  assert.equal((await f.service.artwork({code, participantId: view.works[0].participantId, workId: 'finished-1'}, link.observerToken)).preview, png);
+  await rejectsCode(f.service.artwork({code, participantId: a.participantId, workId: 'finished-1'}, link.observerToken), 'work-not-found');
   await rejectsCode(f.service.control({code, command: 'pause'}, link.observerToken), 'teacher-auth');
   await rejectsCode(f.service.overview({code}, link.observerToken), 'teacher-auth');
   await rejectsCode(f.service.observe({code}, a.participantToken), 'observer-auth');
@@ -504,6 +535,14 @@ test('an observer link shows class results without student names and cannot cont
   const replaced = await f.control('observer-link');
   await rejectsCode(f.service.observe({code}, link.observerToken), 'observer-auth');
   assert.equal((await f.service.observe({code}, replaced.observerToken)).works.length, 1);
+});
+
+test('a rejected upload does not leave its picture behind', async () => {
+  const f = await fixture(), student = await f.join(1), {state} = await f.control('start', 3), create = f.store.create.bind(f.store);
+  // The teacher releases the student's number while the picture is being stored.
+  f.store.create = async (key, data) => { const result = await create(key, data); if (key.includes('/artworks/')) await f.control('release-student', undefined, {participantId: student.participantId}); return result; };
+  await rejectsCode(f.service.submitWork({code: f.room.code, participantId: student.participantId, runId: state.runId, work: rawWork(), preview: png}, student.participantToken), 'student-auth');
+  assert.ok(![...f.store.records.keys()].some(key => key.includes('/artworks/')), 'no orphaned picture');
 });
 
 test('a teacher deletion interrupted part-way can be run again and still removes every student record', async () => {
@@ -663,8 +702,9 @@ test('completed works expire exactly at 24 hours for owner, teacher and observer
   const before = await f.store.read(studentPath), roomBefore = await f.store.read(roomPath), aliasBefore = await f.store.read(`${classroomPrefix()}/aliases/tapten.json`);
   const query = {code, participantId: student.participantId, workId: payload.work.id};
   f.advance(WORK_RETENTION_MS - 1);
-  for (const bearer of [student.participantToken, f.room.teacherToken, observer.observerToken]) {
-    assert.equal((await f.service.artwork(query, bearer)).preview, png);
+  const observerQuery = {...query, participantId: (await f.service.observe({code}, observer.observerToken)).works[0].participantId};
+  for (const [bearer, asked] of [[student.participantToken, query], [f.room.teacherToken, query], [observer.observerToken, observerQuery]]) {
+    assert.equal((await f.service.artwork(asked, bearer)).preview, png);
   }
   assert.equal((await f.service.state(query, student.participantToken)).completedWorks.length, 1);
   f.advance(1);
@@ -673,7 +713,7 @@ test('completed works expire exactly at 24 hours for owner, teacher and observer
   ]);
   assert.deepEqual(owner.completedWorks, []); assert.deepEqual(teacher.works, []); assert.deepEqual(visitor.works, []);
   assert.equal(teacher.participants[0].completedWorkCount, 0); assert.equal(visitor.participants[0].completedWorkCount, 0);
-  for (const bearer of [student.participantToken, f.room.teacherToken, observer.observerToken]) await rejectsCode(f.service.artwork(query, bearer), 'work-not-found');
+  for (const [bearer, asked] of [[student.participantToken, query], [f.room.teacherToken, query], [observer.observerToken, observerQuery]]) await rejectsCode(f.service.artwork(asked, bearer), 'work-not-found');
   assert.deepEqual(owner.answers, before.data.answers);
   const after = (await f.store.read(studentPath)).data;
   for (const key of ['id', 'number', 'name', 'tokenHash', 'joinedAt', 'answers']) assert.deepEqual(after[key], before.data[key]);
@@ -1019,8 +1059,9 @@ test('private artwork preserves complete rendering data for authorized readers w
   assert.equal(submitted.work.designVersion, 1); assert.equal(submitted.work.score, evaluateWork(original).total);
   assert.equal(submitted.work.explanationScore, 17);
   const query = {code: f.room.code, participantId: '1', workId: original.id};
-  for (const bearer of [f.student.participantToken, f.room.teacherToken, observer.observerToken]) {
-    const artifact = await f.service.artwork(query, bearer);
+  const observerQuery = {...query, participantId: (await f.service.observe({code: f.room.code}, observer.observerToken)).works[0].participantId};
+  for (const [bearer, asked] of [[f.student.participantToken, query], [f.room.teacherToken, query], [observer.observerToken, observerQuery]]) {
+    const artifact = await f.service.artwork(asked, bearer);
     assert.equal(artifact.preview, png); assert.deepEqual(artifact.design, design);
     assert.equal(artifact.design.strokes[0].points.length, 512);
   }
