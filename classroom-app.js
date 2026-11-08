@@ -45,7 +45,7 @@ const actionAllowed=action=>canUseClassroomAction(action,{teacherMode:teacherMod
 const logo=`<svg viewBox="0 0 40 40" aria-hidden="true"><path d="M15 5h10v7c0 5 9 8 8 15-1 8-6 9-13 9S8 35 7 27c-1-7 8-10 8-15Z" fill="#88ae8d" stroke="currentColor" stroke-width="1.8"/><path d="M11 25c5-6 13-6 18 0M13 30c5-4 9-4 14 0" fill="none" stroke="#e7edcf" stroke-width="1.7"/></svg>`;
 const timerIcon=`<svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="18" r="11"/><path d="M16 10v8l5 3M12 3h8M16 3v4M24 7l3 3"/></svg>`;
 const laptopIcon=`<svg viewBox="0 0 100 100" aria-hidden="true"><path d="M20 30h60v39H20z"/><path d="M14 74h72l-6 7H20zM38 49l9 8 16-18"/></svg>`;
-const closedLaptopIcon=`<svg viewBox="0 0 100 100" aria-hidden="true"><path d="M16 65h68l-7 11H23Z" fill="#c6e5df"/><path d="m22 43 58 11-3 10-58-10Z" fill="#f6fcfa"/><path d="m27 48 46 9M40 70h20"/><path d="M30 25c18-12 43-5 48 16" stroke-width="3.5"/><path d="m70 36 9 8 5-11" stroke-width="3.5"/></svg>`;
+const closedLaptopIcon='<img class="closed-laptop-image" src="/assets/classroom-ui/close-chromebook.webp" width="512" height="512" alt="" aria-hidden="true" decoding="async">';
 
 function toast(message){clearTimeout(toastTimer);toastElement.textContent=message;toastElement.classList.add('visible');toastTimer=setTimeout(()=>toastElement.classList.remove('visible'),3500);}
 async function copyClassroomValue(value,label){
@@ -174,7 +174,7 @@ function waitingMarkup(){
   const status=effectiveStatus(),initial=!room.activity||status==='waiting';
   const title=initial?'선생님이 수업을 시작하면<br>함께 관찰해요.':'크롬북을 닫고<br>선생님을 보세요';
   const detail=initial?`${esc(student?.name)} 학생, 반가워요.<br>잠시 선생님의 안내를 기다려 주세요.`:status==='ended'?'오늘 만든 청자와 친구들의 생각을<br>함께 나누어 보아요.':'관찰한 점과 떠오른 생각을<br>친구들과 함께 이야기해 보아요.';
-  return `<section class="waiting" data-testid="${initial?'waiting-screen':'lock-screen'}"><div class="waiting-inner"><div class="waiting-illustration">${initial?laptopIcon:closedLaptopIcon}</div><h1>${title}</h1><p>${detail}</p><div class="waiting-status"><i></i>${status==='ended'?'수업을 마쳤어요':initial?'수업 시작을 기다리고 있어요':'다음 활동은 선생님이 열어 주세요'}</div></div></section>`;
+  return `<section class="waiting" data-testid="${initial?'waiting-screen':'lock-screen'}"><div class="waiting-inner"><div class="waiting-illustration${initial?'':' is-closed-chromebook'}">${initial?laptopIcon:closedLaptopIcon}</div><h1>${title}</h1><p>${detail}</p><div class="waiting-status"><i></i>${status==='ended'?'수업을 마쳤어요':initial?'수업 시작을 기다리고 있어요':'다음 활동은 선생님이 열어 주세요'}</div></div></section>`;
 }
 function progress(activity){if(activity==='beauty')return drafts.beauty.text?.trim()?1:0;if(activity===1)return COMPARISON_ARTIFACTS.filter(a=>drafts[1][a.id]).length;return OBSERVATION_ARTIFACTS.filter(a=>drafts[2][a.id]?.name?.trim()&&drafts[2][a.id]?.use?.trim()).length;}
 function saveMarkup(){return `<span class="save-status" data-save-status data-status="${saveState}">${esc(saveMessage||'생각을 적으면 자동으로 저장돼요.')}</span>`;}

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as T from 'three';
-import {carveAlong,newKiln,stepKiln,fanKiln,KILN_HEAT_RULES,timingHit,timingPosition} from './arcade-rules.js';
+import {carveAlong,newKiln,stepKiln,fanKiln,KILN_HEAT_RULES,timingHit,timingPosition,dryingFanGeometry,dryingFanGrabOffset,dryWithFan} from './arcade-rules.js';
 import {subtractPunch,makePunch} from './openwork.js';
 import {CHARACTERS,castForOrder} from './characters.js';
 import {ORDERS} from './domain.js';
@@ -33,4 +33,50 @@ test('선별 연습은 정상·금·기울어짐·유약 비교품을 하나씩 
 
 test('불량품을 납품으로 잘못 골라도 이유를 알려 주고 중복 채점하지 않는다',async()=>{
  const {classifySample,nextSample}=await import('./inspection.js');const state={items:['crack'],index:0,correct:0,answer:null,done:false};const judged=classifySample(state,'deliver');assert.equal(judged.correct,0);assert.match(judged.answer.feedback,/금/);assert.equal(classifySample(judged,'hold').correct,0);assert.equal(nextSample(judged).done,true);assert.equal(state.answer,null);
+});
+
+const dryTargets=bounds=>Array.from({length:24},(_,row)=>Array.from({length:36},(_,col)=>({x:bounds.x+(col+.5)/36*bounds.width,y:bounds.y+(row+.5)/24*bounds.height}))).flat();
+const sum=values=>values.reduce((a,b)=>a+b,0);
+test('말리기는 손잡이가 낮은 청자 밖에 있어도 보이는 부채 면의 접촉을 따른다',()=>{
+ const viewport={width:600,height:400},bounds={x:.2,y:.52,width:.6,height:.18},targets=dryTargets(bounds),from=[.45,.7626],to=[.48,.7626];
+ const blade=dryingFanGeometry(from,viewport);
+ assert.ok(from[1]>bounds.y+bounds.height,'the handle lies below the short vessel');
+ assert.ok(blade.center[1]/viewport.height>bounds.y&&blade.center[1]/viewport.height<bounds.y+bounds.height);
+ const progress=dryWithFan([0,0,0],from,to,viewport,targets,bounds);
+ assert.ok(sum(progress)>.03&&sum(progress)<.07,'an 18px sweep contributes only a small amount');
+ assert.ok(progress[1]>progress[0]&&progress[1]>progress[2],'the blade over the middle mainly dries the middle');
+});
+test('아주 작은 이동도 누적되며 같은 부채 경로의 진행도는 이벤트 횟수에 좌우되지 않는다',()=>{
+ const viewport={width:600,height:400},bounds={x:.2,y:.52,width:.6,height:.18},targets=dryTargets(bounds),from=[.45,.7626],to=[.48,.7626];
+ const coarse=dryWithFan([0,0,0],from,to,viewport,targets,bounds);let fine=[0,0,0];
+ for(let i=0;i<72;i++){const a=[from[0]+(to[0]-from[0])*i/72,from[1]],b=[from[0]+(to[0]-from[0])*(i+1)/72,from[1]];fine=dryWithFan(fine,a,b,viewport,targets,bounds);}
+ assert.ok(sum(fine)>.03,'0.25px moves are not discarded');
+ fine.forEach((value,i)=>assert.ok(Math.abs(value-coarse[i])<.001));
+});
+test('한 곳만 부채질하면 다른 건조 구역은 완료되지 않는다',()=>{
+ const viewport={width:600,height:500},bounds={x:.35,y:.12,width:.3,height:.74},targets=dryTargets(bounds);
+ const handleY=bounds.y+bounds.height/6+(.928571-.42)*120/viewport.height,from=[.46,handleY],to=[.54,handleY];
+ let progress=[0,0,0];for(let i=0;i<20;i++)progress=dryWithFan(progress,i%2?to:from,i%2?from:to,viewport,targets,bounds);
+ assert.equal(progress[0],1);assert.equal(progress[1],0);assert.equal(progress[2],0);
+});
+test('정지·빈 공간·화면 끝에서 부채가 움직이지 않는 드래그는 건조되지 않는다',()=>{
+ const viewport={width:600,height:400},bounds={x:.2,y:.52,width:.6,height:.18},targets=dryTargets(bounds),initial=[.1,.2,.3];
+ for(const [a,b] of [[[.5,.76],[.5,.76]],[[.1,.2],[.2,.2]],[[0,.75],[.01,.75]]])assert.deepEqual(dryWithFan(initial,a,b,viewport,targets,bounds),initial);
+ assert.deepEqual(dryWithFan(initial,[.45,.76],[.48,.76],viewport,[],bounds),initial,'transparent openings have no drying targets');
+});
+test('키보드 부채질도 같은 보이는 부채 접촉을 사용하고 한 번에 전체를 완료하지 않는다',()=>{
+ const viewport={width:600,height:400},bounds={x:.2,y:.52,width:.6,height:.18},targets=dryTargets(bounds),point=[.5,.7626];
+ const progress=dryWithFan([0,0,0],point,point,viewport,targets,bounds,{keyboard:true});
+ assert.ok(sum(progress)>.3&&sum(progress)<=.34);
+ assert.ok(progress[1]>progress[0]&&progress[1]>progress[2]);
+ assert.deepEqual(dryWithFan([0,0,0],[.1,.2],[.1,.2],viewport,targets,bounds,{keyboard:true}),[0,0,0]);
+});
+test('부채 면을 잡아도 그림이 뛰지 않고 가장자리에서도 실제 보이는 손잡이를 기준으로 끈다',()=>{
+ const viewport={width:390,height:330};
+ for(const current of [[.5,.7],[.01,.01],[.99,.99]]){
+  const before=dryingFanGeometry(current,viewport),point=[before.center[0]/viewport.width,before.center[1]/viewport.height],offset=dryingFanGrabOffset(point,current,viewport);
+  const after=dryingFanGeometry(point.map((v,i)=>v+offset[i]),viewport);
+  assert.ok(Math.abs(before.x-after.x)<1e-8&&Math.abs(before.y-after.y)<1e-8);
+ }
+ assert.deepEqual(dryingFanGrabOffset([.95,.05],[.5,.7],viewport),[0,0],'empty-space presses place the fan normally');
 });
