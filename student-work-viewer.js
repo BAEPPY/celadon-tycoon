@@ -72,7 +72,7 @@ export function mountStudentWorkViewer(container, design, {onError}={}) {
   }
   async function rotate(delta) {
     if(disposed||failed||!rotating)return;
-    await craft.setRotation((work.viewFrame||0)+delta);
+    await craft.rotateBy(delta);
   }
   function resetView() {
     if(disposed||failed)return;

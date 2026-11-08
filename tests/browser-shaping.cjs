@@ -42,6 +42,21 @@ async function pull(page, canvas, index) {
         await enter(page, draft(model, shape));
         const canvas = page.locator('.sculpt-canvas'), guide = await points(canvas, 'guide'), box = await canvas.boundingBox();
         assert.ok(guide.every(p => p.every(v => v >= 0 && v <= 1)), 'all outline edges are reachable');
+        const xs=guide.map(p=>p[0]),ys=guide.map(p=>p[1]),left=Math.min(...xs),topY=Math.min(...ys),guideWidth=Math.max(...xs)-left,guideHeight=Math.max(...ys)-topY;
+        const localGuide=guide.map(p=>[(p[0]-left)/guideWidth,(p[1]-topY)/guideHeight]);
+        const imperfect=shapePoints=>({...draft(model,shape),sculpt:{mode:'free',complete:false,fraction:0,points:shapePoints}});
+        // Regression: the previous mean-only score passed these 10% undersized
+        // real vessel outlines at roughly 90–92%, despite the clear missing clay.
+        await enter(page,imperfect(localGuide.map(p=>p.map(v=>.5+(v-.5)*.9))));
+        const undersizeScore=(await saved(page)).sculpt.fraction;
+        assert.ok(undersizeScore<.85, `${model}: visible undersize cannot pass (${undersizeScore})`);
+        assert.equal(await page.locator('[data-action=next-shape]').isDisabled(),true);
+        if(model==='pomegranatePitcher'){
+          await enter(page,imperfect(localGuide.map(([x,y])=>[x,Math.max(y,.2)])));
+          assert.ok((await saved(page)).sculpt.fraction<.85,'a correct body cannot hide a flattened upper fifth');
+          await page.screenshot({path:`/tmp/shape-local-mismatch-${viewport.width}.png`});
+        }
+        await enter(page,draft(model,shape));
         const top = guide.reduce((best, p, i) => p[1] < guide[best][1] ? i : best, 0);
         const initialScore = Number(await canvas.getAttribute('data-coverage'));
         await page.mouse.click(box.x + guide[top][0] * box.width, box.y + guide[top][1] * box.height);
@@ -54,7 +69,7 @@ async function pull(page, canvas, index) {
         assert.ok(partial.sculpt.fraction > 0 && partial.sculpt.fraction < .9);
         assert.ok((await points(canvas, 'matches'))[top] >= .99, 'the upper outline can be matched');
         // A matched grip can still move sideways or back down: no target-direction rail.
-        const matched = (await points(canvas, 'current'))[top], scoreBeforeAway = partial.sculpt.fraction;
+        const matched = (await points(canvas, 'current'))[top];
         await page.mouse.move(box.x + matched[0] * box.width, box.y + matched[1] * box.height);
         await page.mouse.down();
         await page.mouse.move(box.x + matched[0] * box.width + 46, box.y + matched[1] * box.height + 32, {steps: 5});
@@ -67,7 +82,7 @@ async function pull(page, canvas, index) {
         await page.mouse.down();
         await page.mouse.move(box.x + box.width * .025, box.y + box.height * .04, {steps: 6});
         await page.mouse.up();
-        assert.ok((await saved(page)).sculpt.fraction < scoreBeforeAway, 'a large outward drag lowers actual shape match');
+        assert.ok((await saved(page)).sculpt.fraction < .9, 'one large outward pull cannot complete the partly shaped clay');
         await pull(page, canvas, top);
         const afterFreeDrag = await saved(page);
         assert.equal(await page.locator('[data-action=next-shape]').isDisabled(), true);
@@ -77,19 +92,24 @@ async function pull(page, canvas, index) {
         assert.ok((await saved(page)).sculpt.points.every((p,i) => p.every((v,j) => Math.abs(v-afterFreeDrag.sculpt.points[i][j]) < 1e-10)), 'reload preserves local deformations');
         // Test rescaling on a contour inside the workspace; a deliberately far-out grip is safely clamped at a smaller boundary.
         await enter(page, partial);
-        const localBeforeResize = (await saved(page)).sculpt.points;
+        const beforeResize = (await saved(page)).sculpt, localBeforeResize = beforeResize.points;
         await page.setViewportSize({width: viewport.width - 100, height: viewport.height});
         await page.waitForTimeout(120);
         const localAfterResize = (await saved(page)).sculpt.points;
         assert.ok(localAfterResize.every((p, i) => p.every((v, j) => Math.abs(v - localBeforeResize[i][j]) < .00001)), 'resize preserves normalized clay deformations');
+        assert.ok(Math.abs((await saved(page)).sculpt.fraction-beforeResize.fraction)<.001, 'the same clay keeps its score after viewport resize');
         await page.setViewportSize(viewport);
         await page.waitForTimeout(120);
         for (let pass = 0; pass < 4; pass++) {
-          for (let i = 0; i < 40; i += 3) {
+          for (let i = 0; i < 40; i++) {
             if (await page.locator('.sculpt-success').count()) break;
             await pull(page, canvas, i);
           }
           if (await page.locator('.sculpt-success').count()) break;
+        }
+        if(!await page.locator('.sculpt-success').count()){
+          await page.screenshot({path:`/tmp/shape-incomplete-${model}-${viewport.width}.png`});
+          assert.fail(`${model} remains at ${(await saved(page)).sculpt.fraction} after shaping`);
         }
         await page.waitForSelector('.sculpt-success');
         assert.ok((await saved(page)).sculpt.fraction >= .9);
@@ -137,7 +157,7 @@ async function pull(page, canvas, index) {
       const restartedPoints=await points(restartedCanvas,'current'), starts=await points(restartedCanvas,'starts');
       assert.ok(restartedPoints.every((p,i)=>p.every((v,j)=>Math.abs(v-starts[i][j])<1e-10)), 'back to shape restores the untouched clay mound');
       assert.deepEqual(errors, []);
-      console.log(`Shaping ${viewport.width}×${viewport.height}: top/flat/tall contours, drag, reload, 90%, keyboard passed`);
+      console.log(`Shaping ${viewport.width}×${viewport.height}: undersize/local-mismatch rejection, stable score, drag, reload, 90%, keyboard passed`);
       await page.close();
     }
   } finally { await browser.close(); }

@@ -1,3 +1,5 @@
+import {Craft2D} from './craft-2d.js';
+
 const KINDS=Object.freeze(['sound','crack','warped','glaze']);
 const FEEDBACK=Object.freeze({sound:'금이나 기울어짐이 없고 유약도 고른 청자예요. 이 한 점을 남겨야 해요.',crack:'몸통에 금이 있어 물이 새거나 더 깨질 수 있어요.',warped:'몸통과 입이 기울고 균형이 흐트러졌어요.',glaze:'유약이 벗겨진 듯한 거친 갈색 부분이 보여요.'});
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -31,17 +33,35 @@ export function inspectionMarkup(work){
 }
 
 function cropBounds(data,width,height){let x=width,y=height,r=-1,b=-1;for(let yy=0;yy<height;yy++)for(let xx=0;xx<width;xx++)if(data[(yy*width+xx)*4+3]>48){x=Math.min(x,xx);y=Math.min(y,yy);r=Math.max(r,xx);b=Math.max(b,yy);}return r<0?{x:0,y:0,width,height}:{x,y,width:r-x+1,height:b-y+1};}
-async function copies(source){
- const img=new Image();img.src=source;await img.decode();
- const raw=document.createElement('canvas');raw.width=img.naturalWidth;raw.height=img.naturalHeight;const rc=raw.getContext('2d',{willReadFrequently:true});rc.drawImage(img,0,0);
+async function inspectionSource(work,signal){
+ // Re-render the saved marks at source resolution. The saved preview is a
+ // 512px-wide scene thumbnail, so cropping/enlarging it softens small vessels.
+ if(work.modelId||work.shape){
+  const renderer=new Craft2D(()=>{},()=>{},()=>{},()=>{},{readOnly:true}),dispose=()=>renderer.dispose();
+  signal.addEventListener('abort',dispose,{once:true});
+  try{
+   await renderer.update({...structuredClone(work),step:3,tool:'rotate'},'finished');
+   if(signal.aborted)throw new DOMException('Inspection closed','AbortError');
+   const surface=renderer.exportWorkSurface()?.glazedImage;
+   if(surface)return surface;
+  }finally{signal.removeEventListener('abort',dispose);renderer.dispose();}
+ }
+ if(signal.aborted)throw new DOMException('Inspection closed','AbortError');
+ const img=new Image();img.src=work.preview||`./assets/vessels/${/^[a-zA-Z]+$/.test(work.modelId||'')?work.modelId:'stool'}.webp`;await img.decode();return img;
+}
+async function copies(work,signal){
+ const img=await inspectionSource(work,signal);
+ if(signal.aborted)throw new DOMException('Inspection closed','AbortError');
+ const raw=document.createElement('canvas');raw.width=img.naturalWidth||img.width;raw.height=img.naturalHeight||img.height;const rc=raw.getContext('2d',{willReadFrequently:true});rc.drawImage(img,0,0);
  const bounds=cropBounds(rc.getImageData(0,0,raw.width,raw.height).data,raw.width,raw.height),scale=Math.min(340/bounds.width,352/bounds.height),dw=bounds.width*scale,dh=bounds.height*scale,dx=(400-dw)/2,dy=394-dh,result={};
- for(const kind of KINDS){const canvas=document.createElement('canvas');canvas.width=400;canvas.height=400;const c=canvas.getContext('2d');
-  if(kind==='warped'){for(let i=0;i<60;i++){const t=i/60,sh=bounds.height/60,lean=(1-t)*(1-t)*dw*.18,squash=.82+.18*t,sw=dw*squash;c.drawImage(img,bounds.x,bounds.y+i*sh,bounds.width,sh,dx+(dw-sw)/2+lean,dy+t*dh,sw,dh/60+1);}}
+ const density=Math.min(2,Math.max(1,globalThis.devicePixelRatio||1));
+ for(const kind of KINDS){const canvas=document.createElement('canvas');canvas.width=Math.round(400*density);canvas.height=canvas.width;const c=canvas.getContext('2d');c.scale(density,density);c.imageSmoothingEnabled=true;c.imageSmoothingQuality='high';
+  if(kind==='warped'){const slices=Math.ceil(dh*density);for(let i=0;i<slices;i++){const t=i/slices,sh=bounds.height/slices,lean=(1-t)*(1-t)*dw*.18,squash=.82+.18*t,sw=dw*squash;c.drawImage(img,bounds.x,bounds.y+i*sh,bounds.width,sh,dx+(dw-sw)/2+lean,dy+t*dh,sw,dh/slices+.5/density);}}
   else c.drawImage(img,bounds.x,bounds.y,bounds.width,bounds.height,dx,dy,dw,dh);
   c.globalCompositeOperation='source-atop';
   if(kind==='crack'){c.lineCap='round';c.lineJoin='round';c.strokeStyle='#e4d5ab';c.lineWidth=6.5;const path=new Path2D();if(dw>dh*1.45){path.moveTo(dx+dw*.15,dy+dh*.42);path.lineTo(dx+dw*.31,dy+dh*.56);path.lineTo(dx+dw*.46,dy+dh*.38);path.lineTo(dx+dw*.62,dy+dh*.58);path.lineTo(dx+dw*.86,dy+dh*.45);path.moveTo(dx+dw*.46,dy+dh*.38);path.lineTo(dx+dw*.5,dy+dh*.77);}else{path.moveTo(dx+dw*.48,dy+dh*.15);path.lineTo(dx+dw*.39,dy+dh*.34);path.lineTo(dx+dw*.53,dy+dh*.47);path.lineTo(dx+dw*.41,dy+dh*.61);path.lineTo(dx+dw*.54,dy+dh*.76);path.lineTo(dx+dw*.46,dy+dh*.92);path.moveTo(dx+dw*.41,dy+dh*.61);path.lineTo(dx+dw*.25,dy+dh*.67);path.lineTo(dx+dw*.21,dy+dh*.8);}c.stroke(path);c.strokeStyle='#654e43';c.lineWidth=3.8;c.stroke(path);}
   if(kind==='glaze'){c.fillStyle='#c69d79';c.strokeStyle='#aa7b61';c.lineWidth=2;for(const [u,v,rr]of[[.37,.58,.2],[.65,.8,.13]]){const x=dx+dw*u,y=dy+dh*v,rx=dw*rr,ry=dh*rr;c.beginPath();c.moveTo(x-rx,y);c.bezierCurveTo(x-rx*.9,y-ry*1.2,x-rx*.2,y-ry*1.25,x+rx*.4,y-ry*.8);c.bezierCurveTo(x+rx*1.25,y-ry*.5,x+rx*1.2,y+ry*.6,x+rx*.3,y+ry);c.bezierCurveTo(x-rx*.3,y+ry*1.2,x-rx*1.2,y+ry*.7,x-rx,y);c.fill();c.stroke();c.fillStyle='#e0bb94';for(let j=0;j<8;j++){c.beginPath();c.arc(x+Math.sin(j*2.3)*rx*.7,y+Math.cos(j*3.8)*ry*.7,2,0,Math.PI*2);c.fill();}c.fillStyle='#c69d79';}}
-  c.globalCompositeOperation='destination-over';c.fillStyle='#70534038';c.beginPath();c.ellipse(200,395,Math.min(147,dw*.43),4,0,0,Math.PI*2);c.fill();result[kind]=canvas.toDataURL('image/webp',.94);
+  c.globalCompositeOperation='destination-over';c.fillStyle='#70534038';c.beginPath();c.ellipse(200,395,Math.min(147,dw*.43),4,0,0,Math.PI*2);c.fill();result[kind]=canvas.toDataURL('image/png');
  }
  return {images:result,hitY:(dy+dh*.52)/400};
 }
@@ -51,10 +71,15 @@ export class InspectionGame{
   element.addEventListener('click',e=>{const retry=e.target.closest('[data-inspection-retry]');if(retry){e.preventDefault();e.stopPropagation();if(this.locked)return;this.state=retryInspection(this.state);this.work.inspection=this.state;this.onChange(this.state,{settled:true});return;}const pot=e.target.closest('[data-inspect-index]');if(!pot||pot.disabled||this.locked)return;e.preventDefault();e.stopPropagation();this.strike(pot,Number(pot.dataset.inspectIndex));},{signal:this.abort.signal});
   this.resize=new ResizeObserver(()=>this.place());this.resize.observe(element);this.place();
   element.setAttribute('aria-busy','true');for(const pot of element.querySelectorAll('[data-inspect-index]'))pot.disabled=true;const note=element.querySelector('.inspection-note'),noteText=note.textContent;if(!this.state.failed&&!this.state.done)note.textContent='청자 네 점을 꺼내고 있어요…';
-  const source=work.preview||`./assets/vessels/${/^[a-zA-Z]+$/.test(work.modelId||'')?work.modelId:'stool'}.webp`;
-  this.ready=copies(source).then(({images,hitY})=>{if(this.disposed)return;this.hitY=hitY;for(const pot of element.querySelectorAll('[data-inspect-index]')){pot.querySelector('img').src=images[this.state.items[Number(pot.dataset.inspectIndex)]];pot.style.setProperty('--hit-y',`${hitY*100}%`);pot.disabled=this.state.failed||this.state.done||this.state.broken.includes(Number(pot.dataset.inspectIndex));}this.place();element.dataset.inspectionReady='true';element.removeAttribute('aria-busy');note.textContent=noteText;const focus=this.state.failed?element.querySelector('[data-inspection-retry]'):this.state.done?element.querySelector('[data-action=inspection-finish]'):(this.state.lastBroken!==null||this.state.attempts>0)?element.querySelector('[data-inspect-index]:not([disabled])'):null;focus?.focus({preventScroll:true});}).catch(()=>{if(!this.disposed){element.dataset.inspectionReady='error';element.querySelector('.inspection-note').textContent='청자 그림을 불러오지 못했어요. 새로고침해서 다시 살펴봐요.';for(const pot of element.querySelectorAll('[data-inspect-index]'))pot.disabled=true;}});
+  this.ready=copies(work,this.abort.signal).then(({images,hitY})=>{if(this.disposed)return;this.hitY=hitY;for(const pot of element.querySelectorAll('[data-inspect-index]')){pot.querySelector('img').src=images[this.state.items[Number(pot.dataset.inspectIndex)]];pot.style.setProperty('--hit-y',`${hitY*100}%`);pot.disabled=this.state.failed||this.state.done||this.state.broken.includes(Number(pot.dataset.inspectIndex));}this.place();element.dataset.inspectionReady='true';element.removeAttribute('aria-busy');note.textContent=noteText;const focus=this.state.failed?element.querySelector('[data-inspection-retry]'):this.state.done?element.querySelector('[data-action=inspection-finish]'):(this.state.lastBroken!==null||this.state.attempts>0)?element.querySelector('[data-inspect-index]:not([disabled])'):null;focus?.focus({preventScroll:true});}).catch(()=>{if(!this.disposed){element.dataset.inspectionReady='error';element.querySelector('.inspection-note').textContent='청자 그림을 불러오지 못했어요. 새로고침해서 다시 살펴봐요.';for(const pot of element.querySelectorAll('[data-inspect-index]'))pot.disabled=true;}});
  }
- place(){const w=this.el.clientWidth,h=this.el.clientHeight,s=Math.max(w/1672,h/941);this.el.style.setProperty('--inspection-baseline',`${(h-941*s)/2+800*s}px`);for(const pot of this.el.querySelectorAll('[data-inspect-index]'))pot.style.setProperty('--shatter-rise',`${-pot.clientHeight*(.98-(this.hitY||.5))}px`);}
+ place(){
+  const w=this.el.clientWidth,h=this.el.clientHeight,s=Math.max(w/1672,h/941),intro=this.el.querySelector('.inspection-intro'),nav=this.el.querySelector('.inspection-navigation');
+  const top=(intro?.offsetTop||0)+(intro?.offsetHeight||0)+18,navTop=nav?.offsetTop||h-48;
+  const baseline=Math.min(h-941*s+800*s,navTop-70),available=Math.max(60,baseline-top),size=Math.max(60,Math.min(230,available,(w*.92-48)/4*.9));
+  this.el.style.setProperty('--inspection-baseline',`${baseline}px`);this.el.style.setProperty('--inspection-pot-size',`${Math.floor(size)}px`);
+  for(const pot of this.el.querySelectorAll('[data-inspect-index]'))pot.style.setProperty('--shatter-rise',`${-pot.clientHeight*(.98-(this.hitY||.5))}px`);
+ }
  later(fn,delay){const id=setTimeout(()=>{if(!this.disposed)fn();},delay);this.timers.push(id);}
  strike(pot,index){if(this.el.dataset.inspectionReady!=='true'||this.state.failed||this.state.done)return;this.locked=true;this.el.setAttribute('aria-busy','true');for(const b of this.el.querySelectorAll('[data-inspect-index]'))b.disabled=true;pot.classList.add('is-striking');
   this.later(()=>{pot.classList.add('is-shattering');this.state=smashSample(this.state,index);this.work.inspection=this.state;this.onChange(this.state,{settled:false});},220);

@@ -1,4 +1,4 @@
-/* Large, self-contained activities with word-safe Korean instructions. */
+/* Readable kiln controls and in-place tools with word-safe Korean instructions. */
 .kiln-minigame{position:fixed;inset:59px 14px 26px;z-index:30;border-radius:12px;background:#f1e3cce8;backdrop-filter:blur(2px);padding:12px}
 .kiln-minigame .minigame-card{width:min(620px,100%);padding:19px 25px;max-height:100%;box-sizing:border-box;border-radius:22px}
 .kiln-minigame h2{font-size:28px;line-height:1.3;margin:6px 0 10px;word-break:keep-all;overflow-wrap:normal}
@@ -35,3 +35,48 @@
  .gesture-keyboard{font-size:16px!important;margin:4px 0 6px}
  .gesture-game .mini-status{font-size:17px;margin:5px 0}
 }
+/* Firing: keep the apprentice scene beside the controls, including on a 600px Chromebook. */
+.kiln-minigame:not(.gesture-game) .minigame-card{width:min(780px,100%)}
+.kiln-firing-work{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);align-items:center;gap:24px}
+.kiln-fanning-scene{position:relative;width:100%;aspect-ratio:4/3;max-height:270px;overflow:hidden}
+.kiln-static-scene,.kiln-fanning-frame{position:absolute;inset:0;display:block;width:100%;height:100%;object-fit:contain}
+.kiln-fanning-frame[hidden]{display:none}
+.kiln-heat-controls{min-width:0;display:flex;flex-direction:column;gap:14px;justify-content:center}
+.kiln-heat-controls .heat-meter{height:35px;margin:0}
+.kiln-heat-controls .mini-status{margin:0;min-height:54px;font-size:18px}
+.kiln-heat-controls .bellows-button{width:100%;font-size:18px}
+.kiln-minigame.paused .kiln-fanning-scene{filter:grayscale(.6);opacity:.7}
+/* Drying and glazing operate on a transparent layer over the original workbench canvas. */
+.station-info.kiln-gesture-controls>:not(.kiln-gesture-dock){display:none!important}
+.kiln-minigame.kiln-gesture-dock{position:static;inset:auto;display:block;z-index:auto;padding:0;border:0;border-radius:0;background:none;backdrop-filter:none;box-shadow:none}
+.kiln-gesture-dock .minigame-card{width:100%;max-height:none;overflow:visible;padding:0!important;border:0;border-radius:0;background:transparent;box-shadow:none;text-align:left}
+.kiln-gesture-dock h2{font-size:22px;line-height:1.35;margin:0 0 12px}
+.kiln-gesture-dock .mini-instruction{font-size:17px;line-height:1.5;margin:0 0 12px}
+.kiln-gesture-dock .gesture-keyboard{font-size:15px!important;line-height:1.5;margin:0 0 12px}
+.kiln-gesture-dock .mini-status{font-size:16px;line-height:1.5;min-height:24px;margin:10px 0}
+.kiln-gesture-dock .mini-controls{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.kiln-gesture-dock .mini-controls button{font-size:16px;line-height:1.35;padding:7px 10px;min-height:36px}
+.kiln-inplace-canvas{background:transparent;touch-action:none;cursor:none}
+.kiln-inplace-canvas.held{cursor:none}
+.kiln-inplace-canvas:focus-visible{outline:none}
+@media(max-height:650px){
+ .kiln-minigame:not(.gesture-game) .minigame-card{width:min(740px,100%)}
+ .kiln-firing-work{gap:20px}
+ .kiln-fanning-scene{max-height:210px}
+ .kiln-heat-controls{gap:11px}
+ .kiln-heat-controls .heat-meter{height:30px;margin:0}
+ .kiln-heat-controls .mini-status{font-size:17px;min-height:48px;margin:0}
+ .kiln-gesture-dock h2{font-size:20px;margin:0 0 9px}
+ .kiln-gesture-dock .mini-instruction{font-size:16px;margin-bottom:9px}
+ .kiln-gesture-dock .mini-status{font-size:15px;margin:8px 0}
+}
+@media(max-width:600px){.kiln-firing-work{grid-template-columns:1fr 1fr;gap:12px}.kiln-heat-controls .mini-status{font-size:16px}.kiln-heat-controls .bellows-button{font-size:16px;padding:8px}}
+
+/* Outrank station copy typography so inline controls stay above the bottom navigation. */
+.kiln-scene .station-info.kiln-gesture-controls{gap:0;padding:14px}
+.kiln-scene .station-info .kiln-gesture-dock h2{font-size:20px;line-height:1.35;margin:0 0 8px}
+.kiln-scene .station-info .kiln-gesture-dock .mini-instruction{font-size:16px;line-height:1.4;margin:0 0 8px}
+.kiln-scene .station-info .kiln-gesture-dock .gesture-keyboard{font-size:14px!important;line-height:1.4;margin:0 0 8px}
+.kiln-scene .station-info .kiln-gesture-dock .mini-status{font-size:15px;line-height:1.4;min-height:0;margin:8px 0}
+.kiln-scene .station-info .kiln-gesture-dock .mini-controls{gap:6px;margin-top:8px;flex-wrap:nowrap}
+.kiln-scene .station-info .kiln-gesture-dock .mini-controls button{font-size:14px;line-height:1.3;padding:6px 7px;min-height:34px;flex:1;white-space:nowrap}

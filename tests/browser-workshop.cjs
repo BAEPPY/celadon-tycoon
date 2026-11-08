@@ -72,8 +72,9 @@ async function sweepInlay(page,mode) {
 }
 async function turn(page, n) {
   for (let i = 0; i < n; i++) {
+    const current = Number(await page.locator('.illustration-viewport').getAttribute('data-view-frame'));
     await page.click('[data-turn="1"]');
-    await page.waitForSelector(".illustration-viewport[data-status=ready]");
+    await page.waitForSelector(`.illustration-viewport[data-view-frame="${(current + 1) % 24}"][data-rotation-settled="true"]`);
   }
   await page.waitForTimeout(250);
 }
@@ -85,7 +86,8 @@ async function fire(page, kind, length) {
   );
   if (kind === "dry") {
     const canvas = page.locator(".kiln-gesture-canvas"), box = await canvas.boundingBox();
-    for (const y of [.27, .52, .77]) {
+    const surface = JSON.parse(await canvas.getAttribute("data-surface-bounds"));
+    for (const y of [1/6, .5, 5/6].map(f=>surface.y+surface.height*f)) {
       await page.mouse.move(box.x + box.width * .12, box.y + box.height * y);
       await page.mouse.down();
       await page.mouse.move(box.x + box.width * .88, box.y + box.height * y, {steps: 12});
@@ -95,13 +97,12 @@ async function fire(page, kind, length) {
     const canvas = page.locator(".kiln-gesture-canvas"), box = await canvas.boundingBox();
     for (const y of [.12, .25, .38, .51, .64, .77, .9]) {
       if (await page.locator(".mini-won").count()) break;
-      await page.mouse.move(box.x + box.width * .24, box.y + box.height * y);
+      await page.mouse.move(box.x + box.width * .08, box.y + box.height * y);
       await page.mouse.down();
-      await page.mouse.move(box.x + box.width * .76, box.y + box.height * y, {steps: 12});
+      await page.mouse.move(box.x + box.width * .92, box.y + box.height * y, {steps: 12});
       await page.mouse.up();
     }
   } else {
-    let held = false;
     for (let i = 0; i < 400; i++) {
       const info = await page
         .locator(".minigame-overlay")
@@ -112,11 +113,7 @@ async function fire(page, kind, length) {
         }));
       if (info.won) break;
       assert.ok(!info.status.includes("다시 도전"), info.status);
-      const next = info.value < 0.51;
-      if (next !== held) {
-        held = next;
-        await page.keyboard[held ? "down" : "up"]("Space");
-      }
+      if (info.value < 0.52) await page.keyboard.press("Space");
       await page.waitForTimeout(60);
     }
     await page.keyboard.up("Space");
@@ -173,7 +170,7 @@ async function fire(page, kind, length) {
     for (let pass = 0; pass < 4; pass++) {
       if (!(await page.locator("[data-action=next-shape]").isDisabled())) break;
       const guide = JSON.parse(await sculptCanvas.getAttribute("data-guide"));
-      for (let i = 0; i < guide.length; i += 3) {
+      for (let i = 0; i < guide.length; i++) {
         if (!(await page.locator("[data-action=next-shape]").isDisabled())) break;
         const current = JSON.parse(await sculptCanvas.getAttribute("data-current"));
         await page.mouse.move(box.x + current[i][0] * box.width, box.y + current[i][1] * box.height);
@@ -310,7 +307,7 @@ async function fire(page, kind, length) {
           String(i),
         );
         await page.click('[data-turn="1"]');
-        await page.waitForSelector(".illustration-viewport[data-status=ready]");
+        await page.waitForSelector(`.illustration-viewport[data-view-frame="${(i + 1) % 24}"][data-rotation-settled="true"]`);
       }
       assert.equal(
         await page

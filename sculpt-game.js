@@ -1,25 +1,9 @@
 import {clamp} from './arcade-rules.js';
-
-// Sampling the closed outline keeps the rim and base just as reachable as either side.
-function sampleOutline(points,count=40){
- const lengths=points.map((p,i)=>Math.hypot(p[0]-points[(i+1)%points.length][0],p[1]-points[(i+1)%points.length][1]));
- const total=lengths.reduce((a,b)=>a+b,0),out=[];let edge=0,offset=0;
- for(let i=0;i<count;i++){const d=i/count*total;while(edge<lengths.length-1&&offset+lengths[edge]<d){offset+=lengths[edge++];}const a=points[edge],b=points[(edge+1)%points.length],t=(d-offset)/(lengths[edge]||1);out.push([a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t]);}
- return out;
-}
+import {sculptMatch, sampleSculptOutline} from './sculpt-rules.js';
 function inside(p,points){let yes=false;for(let i=0,j=points.length-1;i<points.length;j=i++){const a=points[i],b=points[j];if((a[1]>p[1])!==(b[1]>p[1])&&p[0]<(b[0]-a[0])*(p[1]-a[1])/(b[1]-a[1])+a[0])yes=!yes;}return yes;}
 function bounds(points){const xs=points.map(p=>p[0]),ys=points.map(p=>p[1]);return {left:Math.min(...xs),top:Math.min(...ys),width:Math.max(...xs)-Math.min(...xs),height:Math.max(...ys)-Math.min(...ys)};}
 function localPoint(p,b){return [(p[0]-b.left)/(b.width||1),(p[1]-b.top)/(b.height||1)];}
 function worldPoint(p,b){return [b.left+p[0]*b.width,b.top+p[1]*b.height];}
-export function sculptMatch(points,guide,starts,width=1,height=1){
- const scaled=list=>list.map(p=>[p[0]*width,p[1]*height]),clay=scaled(points),target=scaled(guide),b=bounds(target);
- const nearest=(p,polygon)=>{let result=Infinity;polygon.forEach((a,i)=>{const b=polygon[(i+1)%polygon.length],dx=b[0]-a[0],dy=b[1]-a[1],t=clamp(((p[0]-a[0])*dx+(p[1]-a[1])*dy)/(dx*dx+dy*dy||1));result=Math.min(result,Math.hypot(p[0]-a[0]-t*dx,p[1]-a[1]-t*dy));});return result;};
- // Compare both contours: an overgrown or collapsed lump cannot score by covering only one edge.
- const tolerance=clamp(Math.hypot(b.width,b.height)*.018,3,8),scale=Math.max(20,Math.hypot(b.width,b.height)*.18);
- const similarity=d=>clamp(1-Math.max(0,d-tolerance)/scale);
- const matches=target.map(p=>similarity(nearest(p,clay))),reverse=sampleOutline(clay,40).map(p=>similarity(nearest(p,target)));
- return {matches,fraction:[...matches,...reverse].reduce((a,b)=>a+b,0)/Math.max(1,matches.length+reverse.length)};
-}
 export class SculptGame {
  constructor(craft,work,onProgress){
   this.craft=craft;this.work=work;this.onProgress=onProgress;this.abort=new AbortController();this.running=true;this.guide=[];this.starts=[];this.points=[];this.matches=[];this.selected=0;this.drag=null;
@@ -55,13 +39,18 @@ export class SculptGame {
  resize(){
   const r=this.canvas.getBoundingClientRect();this.canvas.width=Math.max(1,Math.round(r.width*devicePixelRatio));this.canvas.height=Math.max(1,Math.round(r.height*devicePixelRatio));if(this.craft.el.dataset.status!=='ready')return;
   const outline=this.craft.getSculptGuide();if(outline.length<3)return;const oldLocal=this.box&&this.points.length?this.points.map(p=>localPoint(p,this.box)):null;
-  this.guide=sampleOutline(outline);this.box=bounds(this.guide);const {left,top,width:W,height:H}=this.box,bottom=top+H,cx=left+W/2;
+  this.guide=sampleSculptOutline(outline,40,r.width,r.height);this.box=bounds(outline);const {left,top,width:W,height:H}=this.box,bottom=top+H,cx=left+W/2;
   const rx=Math.min(W*.42,H*r.height/r.width*.5),ry=Math.min(H*.23,W*r.width/r.height*.3),cy=bottom-ry;
   this.starts=this.guide.map((_,i)=>{const theta=-Math.PI/2-i/this.guide.length*Math.PI*2;return [cx+rx*Math.cos(theta),cy+ry*Math.sin(theta)];});
   if(oldLocal)this.points=oldLocal.map(p=>worldPoint(p,this.box));
   else{
    const old=this.work.sculpt;
-   if(old?.mode==='free'&&old.points?.length===this.guide.length&&old.points.every(p=>Array.isArray(p)&&p.length===2&&p.every(Number.isFinite)))this.points=old.points.map(p=>worldPoint(p,this.box));
+   if(old?.mode==='free'&&old.points?.length===this.guide.length&&old.points.every(p=>Array.isArray(p)&&p.length===2&&p.every(Number.isFinite))){
+    // Older saves used the screen-sampled guide's bounds. Convert their actual
+    // clay once before storing against stable, unsampled target bounds.
+    const savedBox=old.outlineVersion===2?this.box:bounds(sampleSculptOutline(outline));
+    this.points=old.points.map(p=>worldPoint(p,savedBox));
+   }
    else{const amounts=old?.mode==='stretch'&&old.amounts?.length===this.guide.length?old.amounts.map(n=>clamp(Number(n)||0)):this.guide.map(()=>Math.min(.85,old?.fraction||0));this.points=this.guide.map((goal,i)=>this.starts[i].map((v,j)=>v+(goal[j]-v)*amounts[i]));}
   }
   this.points=this.points.map(p=>p.map(v=>clamp(v,.015,.985)));
@@ -79,8 +68,8 @@ export class SculptGame {
   this.publish(true);this.draw();
  }
  publish(notify){
-  const r=this.canvas.getBoundingClientRect(),match=sculptMatch(this.points,this.guide,this.starts,r.width,r.height),fraction=match.fraction,complete=fraction>=.9;
-  this.matches=match.matches;this.work.sculpt={mode:'free',fraction,complete,points:this.points.map(p=>localPoint(p,this.box))};this.work.knead=complete?3:Math.min(2,Math.floor(fraction*3));
+  const r=this.canvas.getBoundingClientRect(),match=sculptMatch(this.points,this.guide,r.width,r.height),fraction=match.fraction,complete=fraction>=.9;
+  this.matches=match.matches;this.work.sculpt={mode:'free',outlineVersion:2,fraction,complete,points:this.points.map(p=>localPoint(p,this.box))};this.work.knead=complete?3:Math.min(2,Math.floor(fraction*3));
   this.canvas.dataset.current=JSON.stringify(this.points);this.canvas.dataset.coverage=String(fraction);this.canvas.dataset.selected=String(this.selected);this.canvas.dataset.matches=JSON.stringify(this.matches);
   this.craft.setSculptMesh(this.points,this.guide,fraction);this.craft.setSculptProgress(complete?1:fraction);
   if(notify)this.onProgress(this.work.sculpt);

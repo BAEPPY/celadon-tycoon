@@ -1,5 +1,6 @@
 import { motifPath, cutoutPath } from "./motif-paths.js";
 import { normalizeStampSize } from './motif-size.js';
+import {ROTATION_PIXELS_PER_FRAME, ROTATION_BLEND_MS, followRotation, releasedRotationTarget} from './rotation-motion.js';
 import {
   ROTATION_IDS,
   FRAME_COUNT,
@@ -32,12 +33,14 @@ function sampledPaths(data) {
 const makeCanvas = (w, h) =>
   Object.assign(document.createElement("canvas"), { width: w, height: h });
 const cache = new Map();
-async function loadIllustration(id, frame = null) {
+async function loadIllustration(id, frame = null, {prefetch = false} = {}) {
   const modelId = id;
   const rotating = frame !== null;
   id = rotating ? id + ":" + wrapFrame(frame) : id;
-  if (cache.size >= 6 && !cache.has(id))
-    cache.delete(cache.keys().next().value);
+  if (cache.has(id) && !prefetch) {
+    const recent=cache.get(id);cache.delete(id);cache.set(id,recent);
+  }
+  if (cache.size >= 8 && !cache.has(id)) cache.delete(cache.keys().next().value);
   if (!cache.has(id))
     cache.set(
       id,
@@ -80,31 +83,24 @@ async function loadIllustration(id, frame = null) {
               .getContext("2d")
               .getImageData(0, 0, base.width, base.height),
             versions = { finished: base };
-          for (const [name, color] of [
-            ["clay", [190, 145, 113]],
-            ["biscuit", [224, 196, 159]],
-          ]) {
-            const next = new ImageData(
-              new Uint8ClampedArray(pixels.data),
-              pixels.width,
-              pixels.height,
-            );
-            for (let i = 0; i < next.data.length; i += 4) {
-              const lum =
-                  0.2126 * pixels.data[i] +
-                  0.7152 * pixels.data[i + 1] +
-                  0.0722 * pixels.data[i + 2],
-                shade = clamp(lum / 172, 0.36, 1.2);
-              for (let j = 0; j < 3; j++) next.data[i + j] = color[j] * shade;
-            }
-            const tinted = makeCanvas(base.width, base.height);
-            tinted.getContext("2d").putImageData(next, 0, 0);
-            versions[name] = tinted;
+          // Neighbour preloads decode only the original. Derive the current
+          // clay/biscuit appearance on demand, not two full pixel loops per fetch.
+          for (const [name, color] of [["clay", [190, 145, 113]], ["biscuit", [224, 196, 159]]]) {
+            Object.defineProperty(versions,name,{configurable:true,get(){
+              const next=new ImageData(new Uint8ClampedArray(pixels.data),pixels.width,pixels.height);
+              for(let i=0;i<next.data.length;i+=4){
+                const lum=.2126*pixels.data[i]+.7152*pixels.data[i+1]+.0722*pixels.data[i+2],shade=clamp(lum/172,.36,1.2);
+                for(let j=0;j<3;j++)next.data[i+j]=color[j]*shade;
+              }
+              const tinted=makeCanvas(base.width,base.height);tinted.getContext('2d').putImageData(next,0,0);
+              Object.defineProperty(versions,name,{value:tinted,configurable:true});return tinted;
+            }});
           }
           resolve({
             versions,
             pixels,
             rows: silhouetteRows(pixels.data, base.width, base.height, 56),
+            artBounds: alphaBounds(pixels.data,base.width,base.height),
           });
         };
         image.onerror = () => reject(new Error("Illustration missing: " + id));
@@ -117,7 +113,8 @@ async function loadIllustration(id, frame = null) {
           : "./assets/vessels/" + modelId + ".webp";
       }),
     );
-  return cache.get(id);
+  const pending=cache.get(id);
+  try{return await pending;}catch(error){if(cache.get(id)===pending)cache.delete(id);throw error;}
 }
 
 // Illustration-only deformation. No WebGL, 3D geometry, lighting, or Cubism SDK.
@@ -149,7 +146,7 @@ export class Craft2D {
       const b = e.target.closest("[data-turn]");
       if (b) {
         e.stopPropagation();
-        this.setRotation((this.work.viewFrame || 0) + Number(b.dataset.turn));
+        this.rotateBy(Number(b.dataset.turn));
       }
     });
     this.ctx = this.canvas.getContext("2d");
@@ -160,6 +157,9 @@ export class Craft2D {
     this.sway = 0;
     this.pulse = 0;
     this.loadId = 0;
+    this.rotationMotion = null;
+    this.rotationPending = null;
+    this.rotationTransition = null;
     const opt = { signal: this.abort.signal };
     this.canvas.addEventListener("pointerdown", (e) => this.down(e), opt);
     this.canvas.addEventListener("pointermove", (e) => this.move(e), opt);
@@ -174,6 +174,7 @@ export class Craft2D {
         this.drag = null;
         this.stroke = null;
         this.stampPreview = null;
+        this.stopRotationMotion();
         this.paint();
       },
       opt,
@@ -188,9 +189,7 @@ export class Craft2D {
         }
         if (["ArrowLeft", "ArrowRight"].includes(e.code)) {
           e.preventDefault();
-          this.setRotation(
-            (this.work.viewFrame || 0) + (e.code === "ArrowLeft" ? -1 : 1),
-          );
+          this.rotateBy(e.code === "ArrowLeft" ? -1 : 1);
         }
       },
       opt,
@@ -204,7 +203,12 @@ export class Craft2D {
       if (!this.el.isConnected || document.hidden) return;
       const dt = Math.min(60, now - this.last);
       this.last = now;
-      let animate = false;
+      let animate = this.advanceRotation(now,dt);
+      if(this.rotationTransition){
+        if(now-this.rotationTransition.started>=ROTATION_BLEND_MS)this.rotationTransition=null;
+        animate=true;
+      }
+      this.el.dataset.rotationSettled=String(!this.rotationMotion&&!this.rotationPending&&!this.rotationTransition);
       if (Math.abs(this.target - this.progress) > 0.001) {
         this.progress +=
           (this.target - this.progress) * (1 - Math.exp(-dt / 160));
@@ -232,6 +236,8 @@ export class Craft2D {
     return ready;
   }
   async update(work, stage) {
+    this.stopRotationMotion();
+    this.rotationTransition=null;
     this.glaze = 0;
     this.work = work;
     this.stage = stage;
@@ -288,8 +294,7 @@ export class Craft2D {
         this.fitCamera();
         this.paint();
         if (rotating) {
-          loadIllustration(id, wrapFrame(frame + 1)).catch(() => {});
-          loadIllustration(id, wrapFrame(frame - 1)).catch(() => {});
+          this.preloadRotation(id,frame);
         }
       } catch (error) {
         if (token === this.loadId) {
@@ -493,20 +498,57 @@ export class Craft2D {
     if(!projection||!this.mask)return false;const [u,v]=projection.uv;if(u<0||u>=1||v<0||v>=1)return false;const x=Math.floor(u*this.mask.width),y=Math.floor(v*this.mask.height);return this.mask.data[(y*this.mask.width+x)*4+3]>64;
   }
   projectInlayTarget(target) {const p=this.surfacePoint(target.angle,target.level,false);return this.sampleOnBody(p)?p:null;}
-  async setRotation(frame) {
-    if (
-      !this.interactive ||
-      !this.rotating ||
-      (this.work.step === 0 &&
-        this.work.knead < 3 &&
-        !this.work.sculpt?.complete)
-    )
+  canRotate() {
+    return this.interactive&&this.rotating&&this.source&&this.el.dataset.status==='ready'&&!(this.work.step===0&&this.work.knead<3&&!this.work.sculpt?.complete);
+  }
+  rotateBy(delta){return this.setRotation((this.rotationPending?.frame??this.work?.viewFrame??0)+delta);}
+  preloadRotation(id,frame){
+    for(const direction of [1,-1,2,-2])loadIllustration(id,wrapFrame(frame+direction),{prefetch:true}).catch(()=>{});
+  }
+  stopRotationMotion(){
+    this.rotationMotion=null;
+    if(this.rotationPending){++this.loadId;this.rotationPending=null;}
+  }
+  advanceRotation(now,dt){
+    const motion=this.rotationMotion;if(!motion||!this.canRotate())return false;
+    motion.position=followRotation(motion.position,motion.target,dt,this.motion);
+    const next=wrapFrame(motion.position);
+    if(this.rotationPending&&this.rotationPending.frame!==next&&next===wrapFrame(this.work.viewFrame||0)){++this.loadId;this.rotationPending=null;}
+    if(next!==wrapFrame(this.work.viewFrame||0)&&this.rotationPending?.frame!==next)void this.setRotation(next,{fromGesture:true});
+    if(!this.drag&&Math.abs(motion.position-motion.target)<.015&&!this.rotationPending&&next===wrapFrame(this.work.viewFrame||0))this.rotationMotion=null;
+    return true;
+  }
+  async setRotation(frame,{fromGesture=false}={}) {
+    if(!this.canRotate())return;
+    if(!fromGesture)this.rotationMotion=null;
+    frame=wrapFrame(frame);
+    if(this.rotationPending?.frame===frame)return this.rotationPending.promise;
+    if(frame===wrapFrame(this.work.viewFrame||0)){
+      if(this.rotationPending){++this.loadId;this.rotationPending=null;}
       return;
-    this.work.viewFrame = wrapFrame(frame);
-    this.stampPreview = null;
-    this.sway = this.readOnly || this.motion ? 0 : 0.012;
-    this.onView?.();
-    await this.update(this.work, this.stage);
+    }
+    const work=this.work,stage=this.stage,id=work.modelId||work.shape,token=++this.loadId;
+    this.stampPreview=null;this.el.dataset.rotationSettled='false';
+    const pending={frame,promise:null};this.rotationPending=pending;
+    pending.promise=(async()=>{
+      try{
+        const source=await loadIllustration(id,frame);
+        if(token!==this.loadId||this.work!==work||this.stage!==stage)return;
+        let previous=null;
+        if(!this.motion&&this.surface){
+          const surface=makeCanvas(this.surface.width,this.surface.height);surface.getContext('2d').drawImage(this.surface,0,0);
+          previous={surface,rows:this.source.rows,bounds:this.source.artBounds};
+        }
+        work.viewFrame=frame;this.source=source;this.shape=id+':'+frame;
+        this.surface=makeCanvas(source.pixels.width,source.pixels.height);this.backWall=makeCanvas(source.pixels.width,source.pixels.height);this.mask=source.pixels;
+        this.fitCamera();this.paint();
+        this.rotationTransition=previous?{...previous,started:performance.now()}:null;
+        this.turns.querySelector('.turn-label').textContent=frame*15+'°';
+        this.onView?.();this.preloadRotation(id,frame);
+      }catch(error){if(token===this.loadId){this.rotationMotion=null;this.rotationTransition=null;this.onError?.(error);}}
+      finally{if(this.rotationPending===pending){this.rotationPending=null;this.dirty=true;}}
+    })();
+    return pending.promise;
   }
 
   projectedPath(c, points, closed = false) {
@@ -568,6 +610,35 @@ export class Craft2D {
     }
     c.restore();
   }
+  drawRotationTransition(c,b,transition,blend){
+    const previous=transition.surface,current=this.surface,oldBounds=transition.bounds,newBounds=this.source.artBounds;
+    if(!oldBounds||!newBounds){c.drawImage(current,b.x,b.y,b.width,b.height);return;}
+    const rowAt=(rows,y)=>{
+      const index=clamp(y*rows.length-.5,0,rows.length-1),lo=Math.floor(index),hi=Math.ceil(index);
+      const closest=index=>{for(let d=0;d<rows.length;d++){if(rows[index-d])return rows[index-d];if(rows[index+d])return rows[index+d];}return [0,1];};
+      const a=closest(lo),z=closest(hi);return a.map((v,i)=>v+(z[i]-v)*(index-lo));
+    };
+    // Match the outer silhouette before blending. Each complete warped layer
+    // is blended once; blending strips separately would create bright seams.
+    const w=current.width,h=current.height,count=240,mix=(a,z)=>a+(z-a)*blend;
+    transition.fromWarp??=makeCanvas(w,h);transition.toWarp??=makeCanvas(w,h);
+    const from=transition.fromWarp.getContext('2d'),to=transition.toWarp.getContext('2d');
+    from.clearRect(0,0,w,h);to.clearRect(0,0,w,h);
+    for(let i=0;i<count;i++){
+      const f=i/count,next=(i+1)/count,middle=(i+.5)/count;
+      const oldY=oldBounds.y+oldBounds.height*f,newY=newBounds.y+newBounds.height*f;
+      const oldRow=rowAt(transition.rows,(oldBounds.y+oldBounds.height*middle)/previous.height),newRow=rowAt(this.source.rows,(newBounds.y+newBounds.height*middle)/current.height);
+      const left=mix(oldRow[0],newRow[0]),right=mix(oldRow[1],newRow[1]);
+      const destY=mix(oldY/previous.height,newY/current.height)*h,destBottom=mix((oldBounds.y+oldBounds.height*next)/previous.height,(newBounds.y+newBounds.height*next)/current.height)*h;
+      const oldScale=(right-left)/(oldRow[1]-oldRow[0]),newScale=(right-left)/(newRow[1]-newRow[0]);
+      from.drawImage(previous,0,oldY,previous.width,oldBounds.height/count,(left-oldRow[0]*oldScale)*w,destY,w*oldScale,destBottom-destY+.75);
+      to.drawImage(current,0,newY,current.width,newBounds.height/count,(left-newRow[0]*newScale)*w,destY,w*newScale,destBottom-destY+.75);
+    }
+    c.globalAlpha=1-blend;c.drawImage(transition.fromWarp,b.x,b.y,b.width,b.height);
+    c.globalAlpha=blend;c.globalCompositeOperation='lighter';c.drawImage(transition.toWarp,b.x,b.y,b.width,b.height);
+    c.globalAlpha=1;c.globalCompositeOperation='source-over';
+  }
+
   draw(showPreview = true) {
     const c = this.ctx,
       w = this.canvas.width,
@@ -590,7 +661,11 @@ export class Craft2D {
       return;
     }
     if (p >= 0.995) {
-      c.drawImage(this.surface, b.x, b.y, b.width, b.height);
+      const transition=showPreview?this.rotationTransition:null;
+      if(transition){
+        const linear=clamp((performance.now()-transition.started)/ROTATION_BLEND_MS),blend=linear*linear*(3-2*linear);
+        this.drawRotationTransition(c,b,transition,blend);
+      }else c.drawImage(this.surface, b.x, b.y, b.width, b.height);
       if (showPreview) this.drawStampPreview(c);
       c.restore();
       return;
@@ -727,7 +802,7 @@ export class Craft2D {
   }
   editable() {
     return (
-      !this.readOnly &&
+      !this.readOnly && !this.rotationMotion && !this.rotationPending && !this.rotationTransition &&
       this.el.dataset.status === "ready" &&
       this.work?.step === 1 &&
       !this.work.inlayMode && !this.work.inlay &&
@@ -763,6 +838,8 @@ export class Craft2D {
   }
   down(e) {
     if (!this.interactive || !this.source || this.el.dataset.status !== "ready") return;
+    // A click immediately after turning starts from one exact authored pose.
+    this.stopRotationMotion();this.rotationTransition=null;
     this.canvas.focus({ preventScroll: true });
     const hit = this.hit(e);
     if (!hit && !this.readOnly) return;
@@ -775,6 +852,10 @@ export class Craft2D {
       viewFrame: this.work.viewFrame || 0,
     };
     if (this.editable() && this.work.tool !== "rotate") this.stroke = [hit];
+    else if(this.canRotate()){
+      this.rotationMotion={position:this.work.viewFrame||0,target:this.work.viewFrame||0,velocity:0,lastX:e.clientX,lastTime:performance.now()};
+      this.el.dataset.rotationSettled='false';
+    }
   }
   move(e) {
     if (!this.interactive) return;
@@ -797,11 +878,13 @@ export class Craft2D {
         this.stroke.push(hit);
         this.paint();
       }
-    } else if (!this.stroke) {
-      const next = wrapFrame(
-        this.drag.viewFrame + Math.round((e.clientX - this.drag.x) / 22),
-      );
-      if (next !== wrapFrame(this.work.viewFrame || 0)) this.setRotation(next);
+    } else if (!this.stroke&&this.rotationMotion) {
+      const motion=this.rotationMotion,now=performance.now(),elapsed=Math.max(1,now-motion.lastTime);
+      const velocity=(e.clientX-motion.lastX)/ROTATION_PIXELS_PER_FRAME/elapsed;
+      motion.velocity=elapsed>90?velocity:motion.velocity*.55+velocity*.45;
+      motion.target=this.drag.viewFrame+(e.clientX-this.drag.x)/ROTATION_PIXELS_PER_FRAME;
+      motion.lastX=e.clientX;motion.lastTime=now;
+      if(this.motion){motion.position=motion.target;void this.setRotation(wrapFrame(motion.target),{fromGesture:true});}
     }
   }
   up(e) {
@@ -811,8 +894,13 @@ export class Craft2D {
     this.drag = null;
     this.stroke = null;
     this.stampPreview = null;
-    this.pulse = this.readOnly ? 0 : 0.65;
-    this.sway = this.readOnly || this.motion ? 0 : 0.015;
+    this.pulse = !points||this.readOnly ? 0 : 0.65;
+    this.sway = !points||this.readOnly||this.motion ? 0 : 0.015;
+    if(!points&&this.rotationMotion){
+      const motion=this.rotationMotion;
+      motion.target=releasedRotationTarget(motion.target,motion.velocity,performance.now()-motion.lastTime,this.motion);
+      if(this.motion){motion.position=motion.target;void this.setRotation(wrapFrame(motion.target),{fromGesture:true});}
+    }
     if (points) {
       if (this.work.tool === "draw") {
         if (points.length > 1)
@@ -863,6 +951,43 @@ export class Craft2D {
       }
     }
   }
+  // Export the authored surface, not the screen-sized preview. The kiln keeps
+  // the same proportions, decoration and openings throughout drying/glazing.
+  exportWorkSurface() {
+    if (!this.source || !this.surface || !this.work) return null;
+    this.paint();
+    const pixels=this.surface.getContext('2d').getImageData(0,0,this.surface.width,this.surface.height);
+    const bounds=alphaBounds(pixels.data,pixels.width,pixels.height);
+    if (!bounds) return null;
+    const width=Math.max(1,Math.round(bounds.width*(this.work.width||1))), height=bounds.height;
+    const crop=source=>{
+      const out=makeCanvas(width,height),ctx=out.getContext('2d');
+      ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
+      ctx.drawImage(source,bounds.x,bounds.y,bounds.width,bounds.height,0,0,width,height);
+      return out;
+    };
+    const image=crop(this.surface),front=makeCanvas(this.surface.width,this.surface.height),c=front.getContext('2d');
+    c.drawImage(this.base(),0,0);
+    if(this.work.technique==='openwork'){
+      const layer=this.layer;this.layer='front';
+      c.globalCompositeOperation='destination-out';
+      for(const mark of this.work.placements||[])this.mark(c,mark,true,true);
+      for(const stroke of this.work.strokes||[])this.drawStroke(c,stroke,true,true);
+      this.layer=layer;
+    }
+    const mask=crop(front),glaze=this.glaze;
+    this.glaze=1;this.paint();
+    const glazedImage=crop(this.surface);
+    this.glaze=glaze;this.paint();
+    // Placement is live so the in-place tools stay aligned after resizing.
+    const placement=()=>({
+      x:(this.box.x+bounds.x/this.surface.width*this.box.width)/this.canvas.width,
+      y:(this.box.y+bounds.y/this.surface.height*this.box.height)/this.canvas.height,
+      width:bounds.width/this.surface.width*this.box.width/this.canvas.width,
+      height:bounds.height/this.surface.height*this.box.height/this.canvas.height,
+    });
+    return {image,mask,glazedImage,placement};
+  }
   snapshot() {
     this.draw(false);
     this.dirty = true;
@@ -874,6 +999,7 @@ export class Craft2D {
     return out.toDataURL("image/webp", 0.92);
   }
   dispose() {
+    this.stopRotationMotion();this.rotationTransition=null;
     ++this.loadId;
     cancelAnimationFrame(this.frame);
     this.abort.abort();

@@ -1,0 +1,524 @@
+{
+  "size": [
+    512,
+    384
+  ],
+  "order": [
+    [
+      1,
+      1
+    ],
+    [
+      1,
+      2
+    ],
+    [
+      2,
+      1
+    ],
+    [
+      1,
+      3
+    ],
+    [
+      2,
+      2
+    ],
+    [
+      1,
+      4
+    ],
+    [
+      2,
+      3
+    ],
+    [
+      2,
+      4
+    ],
+    [
+      2,
+      5
+    ],
+    [
+      1,
+      5
+    ],
+    [
+      3,
+      1
+    ],
+    [
+      4,
+      1
+    ],
+    [
+      3,
+      2
+    ],
+    [
+      3,
+      3
+    ],
+    [
+      3,
+      4
+    ],
+    [
+      4,
+      2
+    ],
+    [
+      4,
+      3
+    ],
+    [
+      3,
+      5
+    ],
+    [
+      4,
+      4
+    ],
+    [
+      4,
+      5
+    ]
+  ],
+  "frames": [
+    {
+      "phase": 1,
+      "pose": 1,
+      "source": "exec-57972082-0830-4327-b942-82aca7c20982.png",
+      "crop": [
+        0,
+        0,
+        405,
+        793
+      ],
+      "topknot_center_x": 283.0,
+      "solid_y_range": [
+        161,
+        631
+      ],
+      "scale": 0.7468085106382979,
+      "translation": [
+        199,
+        -104
+      ]
+    },
+    {
+      "phase": 1,
+      "pose": 2,
+      "source": "exec-57972082-0830-4327-b942-82aca7c20982.png",
+      "crop": [
+        405,
+        0,
+        777,
+        793
+      ],
+      "topknot_center_x": 246.0,
+      "solid_y_range": [
+        161,
+        631
+      ],
+      "scale": 0.7468085106382979,
+      "translation": [
+        226,
+        -104
+      ]
+    },
+    {
+      "phase": 1,
+      "pose": 3,
+      "source": "exec-57972082-0830-4327-b942-82aca7c20982.png",
+      "crop": [
+        777,
+        0,
+        1166,
+        793
+      ],
+      "topknot_center_x": 252.0,
+      "solid_y_range": [
+        161,
+        631
+      ],
+      "scale": 0.7468085106382979,
+      "translation": [
+        222,
+        -104
+      ]
+    },
+    {
+      "phase": 1,
+      "pose": 4,
+      "source": "exec-57972082-0830-4327-b942-82aca7c20982.png",
+      "crop": [
+        1166,
+        0,
+        1570,
+        793
+      ],
+      "topknot_center_x": 287.5,
+      "solid_y_range": [
+        161,
+        630
+      ],
+      "scale": 0.7484008528784648,
+      "translation": [
+        195,
+        -104
+      ]
+    },
+    {
+      "phase": 1,
+      "pose": 5,
+      "source": "exec-57972082-0830-4327-b942-82aca7c20982.png",
+      "crop": [
+        1570,
+        0,
+        1983,
+        793
+      ],
+      "topknot_center_x": 267.5,
+      "solid_y_range": [
+        161,
+        631
+      ],
+      "scale": 0.7468085106382979,
+      "translation": [
+        210,
+        -104
+      ]
+    },
+    {
+      "phase": 2,
+      "pose": 1,
+      "source": "exec-1371e031-df12-42a8-8dee-61a0b153f3df.png",
+      "crop": [
+        0,
+        0,
+        407,
+        793
+      ],
+      "topknot_center_x": 279.5,
+      "solid_y_range": [
+        167,
+        618
+      ],
+      "scale": 0.7782705099778271,
+      "translation": [
+        192,
+        -114
+      ]
+    },
+    {
+      "phase": 2,
+      "pose": 2,
+      "source": "exec-1371e031-df12-42a8-8dee-61a0b153f3df.png",
+      "crop": [
+        407,
+        0,
+        785,
+        793
+      ],
+      "topknot_center_x": 245.5,
+      "solid_y_range": [
+        168,
+        619
+      ],
+      "scale": 0.7782705099778271,
+      "translation": [
+        219,
+        -115
+      ]
+    },
+    {
+      "phase": 2,
+      "pose": 3,
+      "source": "exec-1371e031-df12-42a8-8dee-61a0b153f3df.png",
+      "crop": [
+        785,
+        0,
+        1176,
+        793
+      ],
+      "topknot_center_x": 255.5,
+      "solid_y_range": [
+        169,
+        619
+      ],
+      "scale": 0.78,
+      "translation": [
+        211,
+        -116
+      ]
+    },
+    {
+      "phase": 2,
+      "pose": 4,
+      "source": "exec-1371e031-df12-42a8-8dee-61a0b153f3df.png",
+      "crop": [
+        1176,
+        0,
+        1566,
+        793
+      ],
+      "topknot_center_x": 256.0,
+      "solid_y_range": [
+        171,
+        620
+      ],
+      "scale": 0.7817371937639198,
+      "translation": [
+        210,
+        -118
+      ]
+    },
+    {
+      "phase": 2,
+      "pose": 5,
+      "source": "exec-1371e031-df12-42a8-8dee-61a0b153f3df.png",
+      "crop": [
+        1566,
+        0,
+        1983,
+        793
+      ],
+      "topknot_center_x": 269.5,
+      "solid_y_range": [
+        168,
+        619
+      ],
+      "scale": 0.7782705099778271,
+      "translation": [
+        200,
+        -115
+      ]
+    },
+    {
+      "phase": 3,
+      "pose": 1,
+      "source": "exec-95165cef-5591-4085-9b57-0241db344c42.png",
+      "crop": [
+        0,
+        0,
+        440,
+        793
+      ],
+      "topknot_center_x": 305.5,
+      "solid_y_range": [
+        233,
+        592
+      ],
+      "scale": 0.9777158774373259,
+      "translation": [
+        111,
+        -212
+      ]
+    },
+    {
+      "phase": 3,
+      "pose": 2,
+      "source": "exec-95165cef-5591-4085-9b57-0241db344c42.png",
+      "crop": [
+        440,
+        0,
+        825,
+        793
+      ],
+      "topknot_center_x": 239.5,
+      "solid_y_range": [
+        232,
+        592
+      ],
+      "scale": 0.975,
+      "translation": [
+        176,
+        -210
+      ]
+    },
+    {
+      "phase": 3,
+      "pose": 3,
+      "source": "exec-95165cef-5591-4085-9b57-0241db344c42.png",
+      "crop": [
+        825,
+        0,
+        1205,
+        793
+      ],
+      "topknot_center_x": 225.5,
+      "solid_y_range": [
+        232,
+        592
+      ],
+      "scale": 0.975,
+      "translation": [
+        190,
+        -210
+      ]
+    },
+    {
+      "phase": 3,
+      "pose": 4,
+      "source": "exec-95165cef-5591-4085-9b57-0241db344c42.png",
+      "crop": [
+        1205,
+        0,
+        1582,
+        793
+      ],
+      "topknot_center_x": 222.5,
+      "solid_y_range": [
+        232,
+        592
+      ],
+      "scale": 0.975,
+      "translation": [
+        193,
+        -210
+      ]
+    },
+    {
+      "phase": 3,
+      "pose": 5,
+      "source": "exec-95165cef-5591-4085-9b57-0241db344c42.png",
+      "crop": [
+        1582,
+        0,
+        1983,
+        793
+      ],
+      "topknot_center_x": 212.5,
+      "solid_y_range": [
+        232,
+        592
+      ],
+      "scale": 0.975,
+      "translation": [
+        203,
+        -210
+      ]
+    },
+    {
+      "phase": 4,
+      "pose": 1,
+      "source": "exec-f9469fdf-8742-4a8f-b115-54e6f6106e98.png",
+      "crop": [
+        0,
+        0,
+        436,
+        793
+      ],
+      "topknot_center_x": 319.5,
+      "solid_y_range": [
+        211,
+        614
+      ],
+      "scale": 0.8709677419354839,
+      "translation": [
+        132,
+        -168
+      ]
+    },
+    {
+      "phase": 4,
+      "pose": 2,
+      "source": "exec-f9469fdf-8742-4a8f-b115-54e6f6106e98.png",
+      "crop": [
+        436,
+        0,
+        819,
+        793
+      ],
+      "topknot_center_x": 251.5,
+      "solid_y_range": [
+        209,
+        614
+      ],
+      "scale": 0.8666666666666667,
+      "translation": [
+        192,
+        -165
+      ]
+    },
+    {
+      "phase": 4,
+      "pose": 3,
+      "source": "exec-f9469fdf-8742-4a8f-b115-54e6f6106e98.png",
+      "crop": [
+        819,
+        0,
+        1210,
+        793
+      ],
+      "topknot_center_x": 229.5,
+      "solid_y_range": [
+        207,
+        614
+      ],
+      "scale": 0.8624078624078624,
+      "translation": [
+        212,
+        -163
+      ]
+    },
+    {
+      "phase": 4,
+      "pose": 4,
+      "source": "exec-f9469fdf-8742-4a8f-b115-54e6f6106e98.png",
+      "crop": [
+        1210,
+        0,
+        1601,
+        793
+      ],
+      "topknot_center_x": 252.5,
+      "solid_y_range": [
+        207,
+        614
+      ],
+      "scale": 0.8624078624078624,
+      "translation": [
+        192,
+        -163
+      ]
+    },
+    {
+      "phase": 4,
+      "pose": 5,
+      "source": "exec-f9469fdf-8742-4a8f-b115-54e6f6106e98.png",
+      "crop": [
+        1601,
+        0,
+        1983,
+        793
+      ],
+      "topknot_center_x": 232.0,
+      "solid_y_range": [
+        207,
+        614
+      ],
+      "scale": 0.8624078624078624,
+      "translation": [
+        210,
+        -163
+      ]
+    }
+  ],
+  "kiln": {
+    "source": "exec-03d95d6a-2544-4ca4-b2db-84f666787dba.png",
+    "solid_bbox": [
+      26,
+      92,
+      786,
+      1016
+    ],
+    "scale": 0.3463203463203463,
+    "translation": [
+      1,
+      4
+    ]
+  }
+}

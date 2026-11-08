@@ -4,4 +4,6 @@ export function carveAlong(guide,visited,from,to,radius=.045){const next=[...vis
 export function timingPosition(seconds){return .5+.46*Math.sin(seconds*2.1-Math.PI/2);}
 export function timingHit(position){return position>=.57&&position<=.79;}
 export function newKiln(kind){return {kind,heat:.5,steady:0,elapsed:0,overheat:0,complete:false,failed:false};}
-export function stepKiln(state,dt,held){if(state.complete||state.failed)return {...state};dt=clamp(dt,0,.1);const heat=clamp(state.heat+(held?(state.kind==='fire'?.38:.32):-.23)*dt),inZone=heat>=.38&&heat<=.73;const elapsed=state.elapsed+dt,steady=state.steady+(inZone?dt:0),overheat=(heat>.95||heat<.04)&&elapsed>1.4?state.overheat+dt:0;return {...state,heat,elapsed,steady,overheat,complete:steady>=5.5,failed:overheat>.85};}
+export const KILN_HEAT_RULES=Object.freeze({safeMin:.46,safeMax:.64,tapImpulse:.10,cooling:.20,steadySeconds:5.5});
+export function fanKiln(state){return state.complete||state.failed?{...state}:{...state,heat:clamp(state.heat+KILN_HEAT_RULES.tapImpulse)};}
+export function stepKiln(state,dt){if(state.complete||state.failed)return {...state};dt=clamp(dt,0,.1);const heat=clamp(state.heat-KILN_HEAT_RULES.cooling*dt),inZone=heat>=KILN_HEAT_RULES.safeMin&&heat<=KILN_HEAT_RULES.safeMax;const elapsed=state.elapsed+dt,steady=state.steady+(inZone?dt:0),overheat=(heat>.95||heat<.04)&&elapsed>1.4?state.overheat+dt:0;return {...state,heat,elapsed,steady,overheat,complete:steady>=KILN_HEAT_RULES.steadySeconds,failed:overheat>.85};}
