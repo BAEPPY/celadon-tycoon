@@ -227,7 +227,7 @@ function clearObserverRoom(){
 function renderObserverWaiting(){
   if(room)clearObserverRoom();pollFailures=0;connectionError='';lastSuccessfulPoll=Date.now();
   if(viewKey==='observer-waiting')return;viewKey='observer-waiting';
-  app.innerHTML=`<section class="waiting" data-testid="observer-waiting"><div class="waiting-inner"><div class="waiting-illustration">${laptopIcon}</div><h1>탑텐반 수업을<br>기다리고 있어요.</h1><p>지금은 열린 탑텐반 수업이 없어요.<br>선생님이 수업을 열면 이 화면에 바로 나타나요.</p><div class="waiting-status"><i></i>화면을 그대로 두면 자동으로 이어져요</div></div></section>`;
+  app.innerHTML=`<section class="waiting" data-testid="observer-waiting"><div class="waiting-inner"><div class="waiting-illustration">${laptopIcon}</div><h1>탑텐반 수업을<br>기다리고 있어요.</h1><p>지금은 열린 탑텐반 수업이 없어요.<br>선생님이 수업을 열면 바로 보여요.</p><div class="waiting-status"><i></i>화면을 그대로 두면 자동으로 이어져요</div></div></section>`;
 }
 function receive(payload,{initial=false}={}){
   // A fixed 탑텐반 observer QR follows 탑텐반 to each new class; start that class's view afresh.
