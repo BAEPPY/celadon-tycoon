@@ -687,7 +687,7 @@ async function handleClick(event){
     if(action==='remove-student'){if(confirm(`${button.dataset.id}번 ${button.dataset.name||''} 학생을 내보낼까요?\n\n이 학생의 답과 완성작이 서버에서 삭제되고 되돌릴 수 없어요.`))await control('remove-student',{participantId:button.dataset.id});return;}
     if(action==='observer-link'){await openObserverInvite();return;}
     if(action==='copy-observer'){await copyObserverAddress();return;}
-    if(action==='new-room'){if(!confirm('탑텐반 코드를 새 수업에 연결할까요?\n\n지금 수업은 마무리되고 학생 화면도 함께 끝나요. 지금 수업의 응답은 서버에 남지만 이 화면에서 다시 열거나 지울 수 없어요. 지우려면 먼저 \'수업 데이터 삭제\'를 눌러 주세요.'))return;button.disabled=true;try{await createTeacherClassroom();}finally{if(button.isConnected)button.disabled=false;}return;}
+    if(action==='new-room'){if(!confirm('탑텐반 코드를 새 수업에 연결할까요?\n\n지금 수업은 끝나고, 이 수업의 학생 정보·답변·작품이 서버에서 모두 지워집니다. 되돌릴 수 없어요.'))return;button.disabled=true;try{await createTeacherClassroom();}finally{if(button.isConnected)button.disabled=false;}return;}
     if(action==='delete-room'){if(!confirm('이 수업의 학생 정보, 답변, 작품을 모두 삭제할까요? 삭제한 자료는 되돌릴 수 없습니다.'))return;await api('control',{method:'POST',body:{command:'delete'}});resetRoom();renderWelcome();toast('수업 자료를 삭제했어요.');return;}
   }catch(error){toast(error.message);}
 }
