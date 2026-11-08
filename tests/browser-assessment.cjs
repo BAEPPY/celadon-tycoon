@@ -18,7 +18,7 @@ const shortIncenseUse = '연꽃무늬를 넣고, 향로예요';
 const shortIncenseBeauty = '따뜻한 손길로 곳곳에 연꽃무늬를 넣는데 신경 썼다. 투각기법을 사용했다.';
 async function saved(page) {return page.evaluate(key => JSON.parse(localStorage.getItem(key)), KEY);}
 async function seed(page, draft) {
-  await page.goto(base);
+  await page.goto(new URL('/game', base).href);
   await page.evaluate(({key,draft}) => localStorage.setItem(key, JSON.stringify({history:[draft.orderId],gallery:[],draft})), {key:KEY,draft});
   await page.reload();await page.click('[data-action=start]');await page.waitForSelector('.counter-scene');
 }

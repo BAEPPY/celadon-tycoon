@@ -35,7 +35,7 @@ async function layout(page,stage,problems){
  try{
   for(const [width,height] of sizes){
    const page=await browser.newPage({viewport:{width,height}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
-   await page.goto(base);await page.evaluate(()=>document.fonts.ready);await layout(page,`${width} cover`,problems);
+   await page.goto(new URL('/game',base).href);await page.evaluate(()=>document.fonts.ready);await layout(page,`${width} cover`,problems);
    assert.equal(await page.locator('[data-action=start]').count(),0);await page.click('[data-action=new-order]');await page.click('[data-action=accept]');
    await page.waitForSelector('.clay-scene');const initial=(await saved(page)).draft;
    assert.equal(initial.clay.body,true,'body clay is automatically ready');assert.equal(await page.locator('[data-clay]').count(),0,'no redundant clay selection');assert.equal(await page.locator('.knead-pad svg path').count()>0,true);

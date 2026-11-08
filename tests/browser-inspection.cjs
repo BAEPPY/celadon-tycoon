@@ -6,7 +6,7 @@ const work={id:'inspection-browser',orderId:'royal-rest',accepted:true,shape:'st
 (async()=>{const browser=await chromium.launch({headless:true,...(process.env.CHROMIUM_PATH?{executablePath:process.env.CHROMIUM_PATH}:{}),args:['--no-sandbox']});try{
  for(const [width,height]of [[1366,768],[1024,600],[1280,720],[1536,864]]){
   const page=await browser.newPage({viewport:{width,height},reducedMotion:width===1024?'reduce':'no-preference'}),errors=[];
-  page.on('pageerror',e=>errors.push(e.message));await page.goto(base);
+  page.on('pageerror',e=>errors.push(e.message));await page.goto(new URL('/game',base).href);
   await page.evaluate(({key,work})=>localStorage.setItem(key,JSON.stringify({history:['royal-rest'],gallery:[],draft:work})),{key:KEY,work});await page.reload();await page.click('[data-action=start]');await page.waitForSelector('[data-inspection-ready=true]');
   assert.equal(await page.locator('.inspection-pot').count(),4);
   assert.equal(new Set(await page.locator('.inspection-pot-art img').evaluateAll(imgs=>imgs.map(img=>img.src))).size,4,'each defect changes the actual pictured vessel');

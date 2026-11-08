@@ -151,7 +151,7 @@ async function fire(page, kind, length) {
     page.on("request", (r) => {
       if (r.url().includes(".glb")) glb.push(r.url());
     });
-    await page.goto(base);
+    await page.goto(new URL('/game', base).href);
     await page.click("[data-action=new-order]");
     await page.waitForSelector(".counter-scene");
     await page.click("[data-action=accept]");

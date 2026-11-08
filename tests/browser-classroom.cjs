@@ -139,6 +139,7 @@ async function capture(page, label) {
     const unfinished={...completed,id:'classroom-fixture-draft',step:3};
     await teacher.locator('[data-action=teacher-activity][data-activity="3"]').click();await teacher.locator('[data-action=start][data-activity="3"]').click();
     await Promise.all([studentA.getByTestId('classroom-game').waitFor(),studentB.getByTestId('classroom-game').waitFor()]);
+    assert.equal(new URL(await studentA.getByTestId('classroom-game').getAttribute('src'),base).pathname,'/game','activity 3 uses the dedicated game route');
     await studentA.frameLocator('iframe').locator('.cover-start').first().waitFor();
     const firstGameRun=(await overview()).state.runId;
     const gameKey=`celadon-tycoon-v2:classroom:${teacherSession.code}:${a.participantId}:run:${firstGameRun}`;
