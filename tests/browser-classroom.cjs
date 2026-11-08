@@ -12,7 +12,7 @@ async function eventually(check, message, timeout=20000) {
   while(Date.now()-start<timeout) {try {last=await check();if(last)return last;}catch(error){last=error.message;}await delay(150);}
   throw new Error(`${message}: ${JSON.stringify(last)}`);
 }
-async function session(page, teacher=false) {return page.evaluate(key=>JSON.parse(localStorage.getItem(key)),teacher?'celadon-classroom-teacher-v1':'celadon-classroom-student-v1');}
+async function session(page, teacher=false) {return page.evaluate(teacher=>JSON.parse((teacher?localStorage:sessionStorage).getItem(teacher?'celadon-classroom-teacher-v1':'celadon-classroom-student-v1')),teacher);}
 async function capture(page, label) {
   for(const viewport of [{width:1366,height:768},{width:1024,height:600}]) {
     await page.setViewportSize(viewport);await page.waitForTimeout(150);
@@ -42,10 +42,11 @@ async function capture(page, label) {
     await teacher.goto(`${base}/teacher`);await teacher.locator('[data-form=create] button').click();
     await teacher.locator('.teacher-room-code strong').waitFor();teacherSession=await session(teacher,true);
     assert.match(teacherSession.code,/^[A-Z2-9]{6}$/);
+    assert.equal(await teacher.locator('.teacher-room-code strong').innerText(),'탑텐반');
     const overview=async()=>{const response=await api('teacher',{auth:teacherSession.teacherToken});assert.equal(response.status,200);return response.value;};
     const control=async(command,extra={})=>{const response=await api('control',{method:'POST',auth:teacherSession.teacherToken,body:{command,...extra}});assert.equal(response.status,200,JSON.stringify(response.value));return response.value;};
     async function join(page,number,name) {
-      await page.goto(`${base}/lesson?code=${teacherSession.code}`);
+      await page.goto(`${base}/lesson?code=${encodeURIComponent('탑텐반')}`);
       assert.match(await page.locator('h1').innerText(),/고려청자의 우수성/);
       if(number===1)await capture(page,'welcome');
       await page.locator('[name=number]').fill(String(number));await page.locator('[name=name]').fill(name);

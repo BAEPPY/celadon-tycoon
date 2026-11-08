@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {randomBytes} from 'node:crypto';
 import {mkdtemp, rm} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -82,6 +83,160 @@ test('room creation retries a code collision without overwriting the first class
   assert.equal(first.code, 'AAAAAA'); assert.equal(second.code, 'BBBBBB');
   assert.equal((await service.overview({code: first.code}, first.teacherToken)).state.code, first.code);
   await rejectsCode(service.overview({code: first.code}, second.teacherToken), 'teacher-auth');
+});
+
+test('fixed Korean join code resolves to a separate canonical room and does not expose teacher capabilities', async () => {
+  const store = new MemoryStore(), service = new ClassroomService(store);
+  await rejectsCode(service.join({code: '탑텐반', number: 1, name: '학생'}), 'room-not-found');
+  await rejectsCode(service.create({joinCode: '다른반'}), 'invalid-join-code');
+  const room = await service.create({joinCode: '  탑텐반  '});
+  assert.match(room.code, /^[A-Z2-9]{6}$/); assert.equal(room.state.joinCode, '탑텐반');
+  const joined = await service.join({code: ' 탑텐반 ', number: 1, name: '첫 학생'});
+  assert.equal(joined.code, room.code); assert.equal(joined.state.joinCode, '탑텐반');
+  assert.equal((await service.state({code: room.code, participantId: joined.participantId}, joined.participantToken)).student.name, '첫 학생');
+  assert.ok(!JSON.stringify(joined).includes(room.teacherToken));
+  const alias = store.records.get(`${classroomPrefix()}/aliases/tapten.json`);
+  assert.equal(alias.data.code, room.code); assert.ok(!JSON.stringify(alias).includes(room.teacherToken));
+  const legacy = await service.create();
+  assert.equal(legacy.state.joinCode, undefined); assert.notEqual(legacy.code, room.code);
+});
+
+test('a persisted create token recovers fixed-code creation and replacement after a lost HTTP response', async () => {
+  const store = new MemoryStore(), service = new ClassroomService(store);
+  for (const createToken of ['short', 'x'.repeat(43), 'a'.repeat(44), ' '.repeat(43)]) await rejectsCode(service.create({joinCode: '탑텐반', createToken}), 'invalid-create-token');
+  const firstRequest = {joinCode: '탑텐반', createToken: randomBytes(32).toString('base64url')};
+  const first = await service.create(firstRequest);
+  const recovered = await service.create(firstRequest);
+  assert.equal(recovered.code, first.code); assert.equal(recovered.teacherToken, firstRequest.createToken);
+  assert.equal([...store.records.keys()].filter(key => key.endsWith('/room.json')).length, 1);
+  await rejectsCode(service.create({joinCode: '탑텐반', createToken: randomBytes(32).toString('base64url')}), 'join-code-in-use');
+  const nextRequest = {joinCode: '탑텐반', previousCode: first.code, createToken: randomBytes(32).toString('base64url')};
+  const next = await service.create(nextRequest, first.teacherToken);
+  // After a lost replacement response, the browser still has the previous canonical ID and bearer.
+  const nextRetry = await service.create(nextRequest, first.teacherToken);
+  assert.equal(nextRetry.code, next.code); assert.equal(nextRetry.teacherToken, nextRequest.createToken);
+  assert.equal([...store.records.keys()].filter(key => key.endsWith('/room.json')).length, 2);
+  assert.ok(!JSON.stringify([...store.records.values()]).includes(firstRequest.createToken));
+  assert.ok(!JSON.stringify([...store.records.values()]).includes(nextRequest.createToken));
+  const legacy = await service.create({createToken: randomBytes(32).toString('base64url')});
+  assert.equal(legacy.state.joinCode, undefined, 'legacy random creation keeps its existing behavior');
+});
+
+test('simultaneous retries with the same create token return the same fixed-code class', async () => {
+  const store = new MemoryStore(), service = new ClassroomService(store), payload = {joinCode: '탑텐반', createToken: randomBytes(32).toString('base64url')};
+  const [one, two] = await Promise.all([service.create(payload), service.create(payload)]);
+  assert.equal(one.code, two.code); assert.equal(one.teacherToken, two.teacherToken);
+  assert.equal([...store.records.keys()].filter(key => key.endsWith('/room.json')).length, 1);
+});
+
+test('fixed-code creation recovers a committed alias write even when its acknowledgement fails', async () => {
+  for (const failReadAfterCommit of [false, true]) {
+    const store = new MemoryStore(), service = new ClassroomService(store), create = store.create.bind(store), read = store.read.bind(store);
+    let failed = false, interruptRead = false;
+    store.create = async (key, data) => {
+      const result = await create(key, data);
+      if (!failed && key.endsWith('/aliases/tapten.json')) {failed = true; interruptRead = failReadAfterCommit; throw new Error('write acknowledgement lost');}
+      return result;
+    };
+    store.read = async key => {if (interruptRead && key.endsWith('/aliases/tapten.json')) {interruptRead = false; throw new Error('temporary read failure');} return read(key);};
+    const payload = {joinCode: '탑텐반', createToken: randomBytes(32).toString('base64url')};
+    if (failReadAfterCommit) await assert.rejects(service.create(payload), /write acknowledgement lost/);
+    else assert.equal((await service.create(payload)).teacherToken, payload.createToken);
+    const recovered = await service.create(payload);
+    assert.equal(recovered.teacherToken, payload.createToken);
+    assert.equal([...store.records.keys()].filter(key => key.endsWith('/room.json')).length, 1, 'the committed alias target is never deleted');
+    assert.equal((await service.join({code: '탑텐반', number: 1, name: '학생'})).code, recovered.code);
+  }
+});
+
+test('a failed pre-commit alias write leaves the public code available for a retry', async () => {
+  const store = new MemoryStore(), service = new ClassroomService(store), create = store.create.bind(store); let failOnce = true;
+  store.create = async (key, data) => {
+    if (failOnce && key.endsWith('/aliases/tapten.json')) {failOnce = false; throw new Error('temporary write failure');}
+    return create(key, data);
+  };
+  const payload = {joinCode: '탑텐반', createToken: randomBytes(32).toString('base64url')};
+  await assert.rejects(service.create(payload), /temporary write failure/);
+  await rejectsCode(service.join({code: '탑텐반', number: 1, name: '학생'}), 'room-not-found');
+  const retried = await service.create(payload);
+  assert.equal(retried.teacherToken, payload.createToken);
+  assert.equal((await service.join({code: '탑텐반', number: 1, name: '학생'})).code, retried.code);
+});
+
+test('fixed join code replacement requires the current teacher, preserves old data, and clears stale public aliases', async () => {
+  const store = new MemoryStore(), service = new ClassroomService(store), room = await service.create({joinCode: '탑텐반'});
+  const oldStudent = await service.join({code: '탑텐반', number: 1, name: '이전 학생'});
+  const stranger = await service.create();
+  await rejectsCode(service.create({joinCode: '탑텐반'}), 'join-code-in-use');
+  await rejectsCode(service.create({joinCode: '탑텐반', previousCode: stranger.code}, stranger.teacherToken), 'join-code-in-use');
+  await rejectsCode(service.create({joinCode: '탑텐반', previousCode: room.code}, oldStudent.participantToken), 'teacher-auth');
+  await rejectsCode(service.create({joinCode: '탑텐반', previousCode: room.code}, stranger.teacherToken), 'teacher-auth');
+  const next = await service.create({joinCode: '탑텐반', previousCode: room.code}, room.teacherToken);
+  assert.notEqual(next.code, room.code); assert.equal(next.state.joinCode, '탑텐반');
+  const oldView = await service.overview({code: room.code}, room.teacherToken);
+  assert.equal(oldView.state.joinCode, undefined); assert.equal(oldView.participants[0].name, '이전 학생');
+  const nextStudent = await service.join({code: '탑텐반', number: 1, name: '새 학생'});
+  assert.equal(nextStudent.code, next.code);
+  assert.equal((await service.state({code: room.code, participantId: oldStudent.participantId}, oldStudent.participantToken)).student.name, '이전 학생');
+  // Deleting the old class cannot clear a pointer which has already moved to its successor.
+  await service.control({code: room.code, command: 'delete'}, room.teacherToken);
+  assert.equal((await service.join({code: '탑텐반', number: 2, name: '새 학생 둘'})).code, next.code);
+  await service.control({code: next.code, command: 'delete'}, next.teacherToken);
+  await rejectsCode(service.join({code: '탑텐반', number: 3, name: '학생'}), 'room-not-found');
+  const replacement = await service.create({joinCode: '탑텐반'});
+  assert.equal((await service.join({code: '탑텐반', number: 1, name: '다음 학생'})).code, replacement.code);
+});
+
+test('an existing teacher can claim an unused fixed code, but other rooms and students cannot reassign it', async () => {
+  const f = await fixture(), student = await f.join(1), stranger = await f.service.create();
+  await rejectsCode(f.service.control({code: f.room.code, command: 'claim-join-code'}, student.participantToken), 'teacher-auth');
+  const claimed = await f.control('claim-join-code'); assert.equal(claimed.state.joinCode, '탑텐반');
+  assert.equal((await f.control('claim-join-code')).state.joinCode, '탑텐반');
+  await rejectsCode(f.service.control({code: stranger.code, command: 'claim-join-code'}, stranger.teacherToken), 'join-code-in-use');
+  assert.equal((await f.service.join({code: '탑텐반', number: 2, name: '둘째 학생'})).code, f.room.code);
+  assert.equal((await f.service.overview({code: f.room.code}, f.room.teacherToken)).participants.length, 2);
+});
+
+test('concurrent alias creation and replacement have one winner and remove only the losing empty room', async () => {
+  const store = new MemoryStore(), service = new ClassroomService(store);
+  const claims = await Promise.allSettled([service.create({joinCode: '탑텐반'}), service.create({joinCode: '탑텐반'})]);
+  assert.equal(claims.filter(result => result.status === 'fulfilled').length, 1);
+  const first = claims.find(result => result.status === 'fulfilled').value;
+  assert.equal(claims.find(result => result.status === 'rejected').reason.code, 'join-code-in-use');
+  assert.equal([...store.records.keys()].filter(key => key.endsWith('/room.json')).length, 1);
+  const replacements = await Promise.allSettled([1, 2].map(() => service.create({joinCode: '탑텐반', previousCode: first.code}, first.teacherToken)));
+  assert.equal(replacements.filter(result => result.status === 'fulfilled').length, 1);
+  assert.equal([...store.records.keys()].filter(key => key.endsWith('/room.json')).length, 2, 'old class and only the winning new class remain');
+  const winner = replacements.find(result => result.status === 'fulfilled').value;
+  assert.equal((await service.join({code: '탑텐반', number: 1, name: '학생'})).code, winner.code);
+  assert.equal((await service.overview({code: first.code}, first.teacherToken)).state.joinCode, undefined);
+});
+
+test('a delayed old-room deletion cannot erase a newly assigned alias', async () => {
+  const store = new MemoryStore(), service = new ClassroomService(store), room = await service.create({joinCode: '탑텐반'});
+  const other = await service.create(), update = store.update.bind(store); let release, arrived, hold = true;
+  const held = new Promise(resolve => {release = resolve;}), ready = new Promise(resolve => {arrived = resolve;});
+  store.update = async (key, data, etag) => {
+    if (hold && key.endsWith('/aliases/tapten.json') && data.code === null) {hold = false; arrived(); await held;}
+    return update(key, data, etag);
+  };
+  const deleting = service.control({code: room.code, command: 'delete'}, room.teacherToken); await ready;
+  // Another completed release and claim may run while this older delete is still waiting.
+  await service.releaseJoinAlias(room.code);
+  await service.control({code: other.code, command: 'claim-join-code'}, other.teacherToken);
+  release(); await deleting;
+  assert.equal((await service.join({code: '탑텐반', number: 1, name: '학생'})).code, other.code);
+});
+
+test('API forwards teacher authorization when replacing the fixed-code classroom', async () => {
+  const store = new MemoryStore(), handler = createClassroomHandler({store});
+  const opened = await request(handler, {method: 'POST', payload: {action: 'create', joinCode: '탑텐반'}});
+  assert.equal(opened.statusCode, 200);
+  const payload = {action: 'create', joinCode: '탑텐반', previousCode: opened.body.code};
+  assert.equal((await request(handler, {method: 'POST', payload})).statusCode, 403);
+  const replaced = await request(handler, {method: 'POST', payload, auth: opened.body.teacherToken});
+  assert.equal(replaced.statusCode, 200); assert.equal(replaced.body.state.joinCode, '탑텐반');
+  assert.notEqual(replaced.body.code, opened.body.code);
 });
 
 test('thirty students join concurrently and individual answer writes preserve every participant', async () => {
@@ -359,6 +514,12 @@ test('filesystem adapter persists across instances and atomically rejects create
     assert.ok([2, 3].includes((await new FileClassroomStore(directory).read(key)).data.revision));
     assert.deepEqual(await one.list(`${classroomPrefix()}/ABC234/`), [key]);
     await assert.rejects(one.read('../../escape.json'));
+    const aliasKey = `${classroomPrefix()}/aliases/tapten.json`;
+    const alias = await one.create(aliasKey, {code: 'ABC234'});
+    assert.equal((await two.read(aliasKey)).data.code, 'ABC234');
+    await two.update(aliasKey, {code: null}, alias.etag);
+    assert.equal((await one.read(aliasKey)).data.code, null);
+    for (const invalid of [`${classroomPrefix()}/aliases/other.json`, `${classroomPrefix()}/aliases/탑텐반.json`, `${classroomPrefix()}/aliases/../tapten.json`]) await assert.rejects(one.read(invalid), /invalid-store-key/);
   } finally { await rm(directory, {recursive: true, force: true}); }
 });
 

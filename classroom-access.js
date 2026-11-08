@@ -1,6 +1,7 @@
 // These helpers keep sharing and UI roles unambiguous. The server remains the
 // authority for teacher capabilities and the currently open activity.
-const CODE = /^[A-Z2-9]{6}$/;
+export const CLASSROOM_JOIN_CODE = '탑텐반';
+const CODE = /^(?:탑텐반|[A-Z2-9]{6})$/;
 
 export function extractClassroomCode(value, {origin = globalThis.location?.origin} = {}) {
   if (typeof value !== 'string') return '';
@@ -21,7 +22,7 @@ export function extractClassroomCode(value, {origin = globalThis.location?.origi
 
 export const TEACHER_ONLY_ACTIONS = Object.freeze([
   'create', 'settings', 'teacher-activity', 'teacher-object', 'copy-code',
-  'copy-invite', 'cloud-kind', 'teacher-result-view', 'exhibit-object', 'exhibit-previous', 'exhibit-next', 'start', 'pause', 'reveal', 'end', 'new-room', 'delete-room',
+  'copy-invite', 'claim-join-code', 'cloud-kind', 'teacher-result-view', 'exhibit-object', 'exhibit-previous', 'exhibit-next', 'start', 'pause', 'reveal', 'end', 'new-room', 'delete-room',
   'manage-students', 'lock-room', 'release-student', 'remove-student', 'copy-observer', 'observer-link',
 ]);
 const teacherActions = new Set(TEACHER_ONLY_ACTIONS);

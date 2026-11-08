@@ -7,6 +7,7 @@ const base = process.env.BASE_URL || 'http://127.0.0.1:4173';
   assert.ok(['127.0.0.1', 'localhost'].includes(new URL(base).hostname), 'Classroom tests must use a local server, never a production class.');
   const browser = await chromium.launch({headless: true, ...(process.env.CHROMIUM_PATH ? {executablePath: process.env.CHROMIUM_PATH} : {}), args: ['--no-sandbox', '--enable-unsafe-swiftshader']});
   const errors = [];
+  let teacher,teacherSession;
   async function page(label) {
     const context = await browser.newContext({viewport: {width: 1366, height: 768}});
     await context.grantPermissions(['clipboard-read', 'clipboard-write'], {origin: base});
@@ -16,9 +17,11 @@ const base = process.env.BASE_URL || 'http://127.0.0.1:4173';
     return result;
   }
   try {
-    const teacher = await page('teacher');
+    teacher = await page('teacher');
     await teacher.goto(`${base}/teacher`); await teacher.locator('[data-form=create] button').click();
     const code = (await teacher.locator('.teacher-room-code strong').innerText()).trim();
+    assert.equal(code,'탑텐반');
+    teacherSession=await teacher.evaluate(()=>JSON.parse(localStorage.getItem('celadon-classroom-teacher-v1')));
     async function join(target, number, name) {
       await target.goto(`${base}/lesson?code=${code}`);
       await target.locator('[name=number]').fill(String(number)); await target.locator('[name=name]').fill(name);
@@ -52,6 +55,7 @@ const base = process.env.BASE_URL || 'http://127.0.0.1:4173';
     assert.equal(await teacher.locator('dialog.student-manager [data-action=manage-students]').count(), 0);
     await teacher.click('dialog.student-manager [data-action=release-student][data-id="1"]');
     await a.locator('[data-form=join]').waitFor({timeout: 15000});
+    await a.locator('[name=code]').fill('탑텐반');await a.locator('[name=number]').fill('1');await a.locator('[name=name]').fill('봄샘');
     await a.locator('[data-form=join] button[type=submit]').click(); await a.getByTestId('waiting-screen').waitFor();
 
     // Removing a student deletes them from the class.
@@ -79,5 +83,8 @@ const base = process.env.BASE_URL || 'http://127.0.0.1:4173';
     await observer.waitForFunction(() => document.querySelector('[data-form-error]')?.textContent.includes('참관 주소가 바뀌었어요'), {}, {timeout: 15000});
     assert.deepEqual(errors, []);
     console.log('Classroom management: unified names, observer link without names or controls, entry lock, release/rejoin, removal, untimed activity 3 and replaced observer link passed.');
-  } finally { await browser.close(); }
+  } finally {
+    if(teacherSession&&teacher)await teacher.request.post(`${base}/api/classroom`,{headers:{Authorization:`Bearer ${teacherSession.teacherToken}`},data:{action:'control',code:teacherSession.code,command:'delete'}}).catch(()=>{});
+    await browser.close();
+  }
 })().catch(error => { console.error(error); process.exitCode = 1; });

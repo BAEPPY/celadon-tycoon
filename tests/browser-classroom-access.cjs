@@ -10,7 +10,7 @@ const studentKey = 'celadon-classroom-student-v1';
   const browser = await chromium.launch({headless: true,
     ...(process.env.CHROMIUM_PATH ? {executablePath: process.env.CHROMIUM_PATH} : {}),
     args: ['--no-sandbox', '--enable-unsafe-swiftshader']});
-  const contexts = []; let teacherSession, teacher;
+  const contexts = []; let teacherSession, teacher, creationForCleanup;
   try {
     const teacherContext = await browser.newContext({viewport: {width: 1366, height: 768}});
     const studentContext = await browser.newContext({viewport: {width: 1366, height: 768}});
@@ -31,21 +31,39 @@ const studentKey = 'celadon-classroom-student-v1';
     const health = await teacher.request.get(`${base}/api/classroom?action=health`);
     assert.equal((await health.json()).storage, 'filesystem');
     await teacher.goto(`${base}/teacher`);
+    let lostCreate=false,firstCreateToken,secondCreateToken;
+    await teacher.route('**/api/classroom',async route=>{
+      const request=route.request(),body=request.method()==='POST'?request.postDataJSON():null;
+      if(body?.action==='create'){
+        if(!lostCreate){
+          firstCreateToken=body.createToken;const response=await route.fetch();assert.equal(response.status(),200);creationForCleanup=await response.json();lostCreate=true;
+          await route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'시험용 수업 생성 응답 유실'})});return;
+        }
+        secondCreateToken=body.createToken;
+      }
+      await route.continue();
+    });
+    await teacher.locator('[data-form=create] button[type=submit]').click();
+    await teacher.waitForFunction(()=>document.querySelector('[data-form-error]')?.textContent.includes('시험용 수업 생성 응답 유실'));
+    assert.equal(await teacher.evaluate(key=>localStorage.getItem(key),teacherKey),null);
     await teacher.locator('[data-form=create] button[type=submit]').click();
     await teacher.waitForFunction(key => Boolean(JSON.parse(localStorage.getItem(key) || 'null')?.teacherToken), teacherKey);
     teacherSession = await teacher.evaluate(key => JSON.parse(localStorage.getItem(key)), teacherKey);
+    assert.ok(Boolean(firstCreateToken)&&firstCreateToken===secondCreateToken,'retry reuses the persisted creation token');
+    assert.equal(teacherSession.code,creationForCleanup.code,'a lost response recovers the original room instead of claiming a second alias');
+    assert.equal(await teacher.evaluate(()=>localStorage.getItem('celadon-classroom-create-v1')),null);
     assert.match(teacherSession.code, /^[A-Z2-9]{6}$/);
     await teacher.locator('[data-action=copy-code]').click();
-    assert.equal(await teacher.evaluate(() => window.__copiedText), teacherSession.code, 'Code button copies exactly the six-character code.');
+    assert.equal(await teacher.evaluate(() => window.__copiedText), '탑텐반', 'Code button copies exactly the public class code.');
     await teacher.locator('[data-action=copy-invite]').click();
     const invitation = await teacher.evaluate(() => window.__copiedText);
     assert.equal(new URL(invitation).pathname, '/lesson');
-    assert.equal(new URL(invitation).searchParams.get('code'), teacherSession.code);
+    assert.equal(new URL(invitation).searchParams.get('code'), '탑텐반');
     await teacher.evaluate(() => {window.__clipboardReject = true;});
     await teacher.locator('[data-action=copy-code]').click();
     const fallback = teacher.locator('.copy-fallback');
     await fallback.waitFor();
-    assert.equal(await fallback.locator('input[readonly]').inputValue(), teacherSession.code, 'Manual-copy fallback shows the code, not https:.');
+    assert.equal(await fallback.locator('input[readonly]').inputValue(), '탑텐반', 'Manual-copy fallback shows the public code, not https:.');
     await fallback.getByRole('button', {name: /닫기|확인/}).last().click();
     await fallback.waitFor({state: 'hidden'});
 
@@ -55,12 +73,12 @@ const studentKey = 'celadon-classroom-student-v1';
       const clipboard = new DataTransfer(); clipboard.setData('text/plain', text);
       input.dispatchEvent(new ClipboardEvent('paste', {clipboardData: clipboard, bubbles: true, cancelable: true}));
     }, invitation);
-    assert.equal(await student.locator('[name=code]').inputValue(), teacherSession.code, 'Full invitation paste extracts code before maxlength truncation.');
+    assert.equal(await student.locator('[name=code]').inputValue(), '탑텐반', 'Full invitation paste extracts the public class code.');
     await student.locator('[name=number]').fill('97');
     await student.locator('[name=name]').fill('권한검증학생');
     await student.locator('[data-form=join] button[type=submit]').click();
     await student.getByTestId('waiting-screen').waitFor();
-    const studentSession = await student.evaluate(key => JSON.parse(localStorage.getItem(key)), studentKey);
+    const studentSession = await student.evaluate(key => JSON.parse(sessionStorage.getItem(key)), studentKey);
     const control = async (command, activity, auth = teacherSession.teacherToken) => {
       const response = await teacher.request.post(`${base}/api/classroom`, {
         headers: {Authorization: `Bearer ${auth}`}, data: {action: 'control', code: teacherSession.code, command, activity},
@@ -103,11 +121,12 @@ const studentKey = 'celadon-classroom-student-v1';
     assert.equal(await student.locator('[data-viewer="2"]').count(), 1, 'Students may still choose another artifact within the teacher-opened activity 2.');
     assert.equal(await student.getByTestId('classroom-game').count(), 0);
     assert.deepEqual(errors, []);
-    console.log('Classroom access: exact code/link copy, manual-copy fallback, URL paste, teacher-only controls and same-activity artifact browsing passed.');
+    console.log('Classroom access: lost-create-response recovery, fixed code/link copy, manual-copy fallback, URL paste, teacher-only controls and same-activity artifact browsing passed.');
   } finally {
-    if (teacherSession && teacher) await teacher.request.post(`${base}/api/classroom`, {
-      headers: {Authorization: `Bearer ${teacherSession.teacherToken}`},
-      data: {action: 'control', code: teacherSession.code, command: 'delete'},
+    const cleanup=teacherSession||creationForCleanup;
+    if (cleanup && teacher) await teacher.request.post(`${base}/api/classroom`, {
+      headers: {Authorization: `Bearer ${cleanup.teacherToken}`},
+      data: {action: 'control', code: cleanup.code, command: 'delete'},
     }).catch(() => {});
     await Promise.all(contexts.map(context => context.close()));
     await browser.close();

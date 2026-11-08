@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "start": "node server.mjs",
-    "test": "node --test domain.test.js models.test.js arcade.test.js illustration.test.js assessment.test.js inspection.test.js surface-warp.test.js reactions.test.js workflow.test.js classroom.test.js classroom-game-bridge.test.js classroom-access.test.js lesson-cloud.test.js",
+    "test": "node --test domain.test.js models.test.js arcade.test.js illustration.test.js assessment.test.js inspection.test.js surface-warp.test.js reactions.test.js workflow.test.js classroom.test.js classroom-game-bridge.test.js classroom-access.test.js lesson-cloud.test.js classroom-entry.test.js",
     "build": "node build.mjs",
     "test:browser": "node tests/browser-workshop.cjs",
     "test:entry": "node tests/browser-entry.cjs",
@@ -21,7 +21,8 @@
     "test:lesson-viewer": "node tests/browser-lesson-viewer.cjs",
     "test:classroom-manage": "node tests/browser-classroom-manage.cjs",
     "test:routing": "node tests/browser-routing.cjs",
-    "test:classroom-exhibits": "node tests/browser-classroom-exhibits.cjs"
+    "test:classroom-exhibits": "node tests/browser-classroom-exhibits.cjs",
+    "test:classroom-reentry": "node tests/browser-classroom-reentry.cjs"
   },
   "dependencies": {
     "@vercel/blob": "2.8.2",
