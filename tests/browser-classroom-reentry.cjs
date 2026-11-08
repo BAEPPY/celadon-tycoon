@@ -88,8 +88,8 @@ const ACTIVE='celadon-classroom-student-v1',TEACHER='celadon-classroom-teacher-v
     const nextStudent=await context.newPage();await nextStudent.goto(`${base}/lesson`);await entry(nextStudent);
     await nextStudent.locator('[name=code]').fill('탑텐반');await nextStudent.locator('[name=number]').fill('7');await nextStudent.waitForFunction(()=>document.querySelector('[name=name]')?.value==='돌봄');await nextStudent.locator('[data-form=join] button[type=submit]').click();await nextStudent.getByTestId('waiting-screen').waitFor();
     const nextIdentity=await active(nextStudent);assert.equal(nextIdentity.code,teacherSession.code);assert.ok(nextIdentity.participantToken!==original.participantToken,'new fixed-code class has a separate participant credential');
-    const preserved=await fetch(`${base}/api/classroom?`+new URLSearchParams({action:'state',code:previousRoom.code,participantId:original.participantId}),{headers:{Authorization:`Bearer ${original.participantToken}`}});assert.equal(preserved.status,200);assert.equal((await preserved.json()).answers[1].answers[1],'yuan');
+    const removed=await fetch(`${base}/api/classroom?`+new URLSearchParams({action:'state',code:previousRoom.code,participantId:original.participantId}),{headers:{Authorization:`Bearer ${original.participantToken}`}});assert.equal(removed.status,404,'새 수업 deletes the previous class');assert.match((await removed.json()).error,/새 수업이 열리면 탑텐반으로/);
     assert.deepEqual(errors,[]);
-    console.log('Persistent Chromium restart: blank student entry, manual saved-answer recovery, teacher continuity, and new-class fixed-code transfer with separate old answers passed.');
+    console.log('Persistent Chromium restart: blank student entry, manual saved-answer recovery, teacher continuity, and new-class fixed-code transfer that deletes the previous class passed.');
   }finally{for(const owned of [...ownedRooms].reverse()){teacherSession=owned;await api('control',{command:'delete'}).catch(()=>{});}await context?.close();await fs.rm(profile,{recursive:true,force:true});}
 })().catch(error=>{console.error(error);process.exit(1);});

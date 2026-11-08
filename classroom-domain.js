@@ -214,9 +214,10 @@ export class ClassroomService {
     this.store = store; this.now = now; this.makeToken = makeToken; this.teacherPasscode = configuredTeacherPasscode(teacherPasscode);
     this.makeCode = makeCode || (() => [...randomBytes(6)].map(value => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[value % 32]).join(''));
   }
-  async room(code, options, message = '수업 코드를 찾지 못했어요. 선생님께 확인해 주세요.') {
+  async room(code, options, message) {
     const result = await this.store.read(roomKey(validateCode(code)), options);
-    if (!result || result.data.deletedAt !== undefined) fail(404, 'room-not-found', message);
+    if (!result) fail(404, 'room-not-found', message || '수업 코드를 찾지 못했어요. 선생님께 확인해 주세요.');
+    if (result.data.deletedAt !== undefined) fail(404, 'room-not-found', message || '이 수업은 끝나서 자료가 지워졌어요. 새 수업이 열리면 탑텐반으로 다시 입장해 주세요.');
     // The pointer is authoritative: a teacher's old tab must not keep sharing an alias moved to a newer class.
     const alias = await this.store.read(joinAliasKey(), options), data = {...result.data};
     delete data.joinCode;
@@ -325,7 +326,10 @@ export class ClassroomService {
     // The browser persists this random capability before sending, so a lost response cannot strand the fixed alias.
     const createToken = joinCode && raw.createToken !== undefined ? validateCreateToken(raw.createToken) : null;
     const previousCode = raw.previousCode === undefined ? null : validateCode(raw.previousCode);
-    if (previousCode) this.teacher((await this.room(previousCode, undefined, TEACHER_ROOM_GONE)).data, bearer);
+    // A deleted class keeps its teacher hash in the tombstone, so a retried 새 수업 can still prove ownership.
+    const previous = previousCode ? await this.store.read(roomKey(previousCode)) : null;
+    if (previousCode && !previous) fail(404, 'room-not-found', TEACHER_ROOM_GONE);
+    if (previousCode) this.teacher(previous.data, bearer);
     const ownsPrevious = Boolean(previousCode);
     let alias;
     if (joinCode) {
@@ -338,10 +342,10 @@ export class ClassroomService {
     if (joinCode) {
       const held = alias?.data.code || null;
       if (held && held !== previousCode && !passcodeOk) fail(409, 'join-code-in-use', ALIAS_IN_USE);
-      // The class being replaced ends now, so students still in it see that it finished instead of a class that never ends.
-      // Its answers stay readable with its own teacher key, as before.
-      for (const replaced of new Set([ownsPrevious ? previousCode : null, held].filter(Boolean))) await this.endRoom(replaced);
     }
+    // 새 수업 (or taking 탑텐반 back with the passcode) deletes the class being replaced: its students' names, answers and
+    // works. 탑텐반 keeps pointing at it until the new class takes the pointer, so the code is never free in between.
+    for (const replaced of new Set([ownsPrevious ? previousCode : null, joinCode ? alias?.data.code : null].filter(Boolean))) await this.sweepRoom(replaced, {keepAlias: true});
     const teacherToken = createToken || this.makeToken(), now = this.now();
     for (let tries = 0; tries < 8; tries++) {
       const code = this.makeCode(), room = {code, teacherHash: hash(teacherToken), createdAt: now, activity: 0, activity1Stage: 'comparison', status: 'waiting',
@@ -655,26 +659,26 @@ export class ClassroomService {
     const current = await this.store.read(roomKey(code));
     if (!current || !current.data.teacherHash) fail(404, 'room-not-found', TEACHER_ROOM_GONE);
     this.teacher(current.data, bearer);
-    if (current.data.deletedAt === undefined) {
-      await this.store.update(roomKey(code), {...current.data, deletedAt: this.now(), status: 'ended'}, current.etag);
+    await this.sweepRoom(code);
+    return {deleted: true};
+  }
+  // Callers authorize. Marking the room deleted first stops new joins and answers; running it again finishes an
+  // interrupted sweep. The tombstone keeps only the code, the deletion time and the teacher hash (so the teacher can
+  // retry, and a stale client cannot recreate data under the same code).
+  async sweepRoom(code, {keepAlias = false} = {}) {
+    let current = await this.store.read(roomKey(code));
+    for (let retry = 0; current && current.data.deletedAt === undefined; retry++) {
+      try { await this.store.update(roomKey(code), {...current.data, deletedAt: this.now(), status: 'ended'}, current.etag); break; }
+      catch (error) { if (!(error instanceof StoreConflict) || retry >= 5) throw error; current = await this.store.read(roomKey(code)); }
     }
-    await this.releaseJoinAlias(code);
+    if (!current) return;
+    if (!keepAlias) await this.releaseJoinAlias(code);
     const keys = (await this.store.list(ROOM_ROOT(code))).filter(key => key !== roomKey(code));
     if (this.store.deleteMany) await this.store.deleteMany(keys);
     else for (const key of keys) await this.store.delete(key);
-    // Keep only a tombstone so a stale client cannot recreate data under a recycled code.
     const tombstone = await this.store.read(roomKey(code));
-    if (tombstone) await this.store.update(roomKey(code), {code, deletedAt: this.now()}, tombstone.etag);
-    return {deleted: true};
-  }
-  // Callers authorize. Ends a class that 탑텐반 no longer points to; its records are kept.
-  async endRoom(code) {
-    for (let retry = 0; retry < 6; retry++) {
-      const current = await this.store.read(roomKey(code));
-      if (!current || current.data.deletedAt !== undefined || current.data.status === 'ended') return;
-      try { await this.store.update(roomKey(code), {...current.data, status: 'ended', endedAt: this.now(), revision: (current.data.revision || 0) + 1}, current.etag); return; }
-      catch (error) { if (!(error instanceof StoreConflict)) throw error; }
+    if (tombstone && Object.keys(tombstone.data).some(key => !['code', 'deletedAt', 'teacherHash'].includes(key))) {
+      await this.store.update(roomKey(code), {code, deletedAt: tombstone.data.deletedAt ?? this.now(), ...(tombstone.data.teacherHash ? {teacherHash: tombstone.data.teacherHash} : {})}, tombstone.etag);
     }
-    fail(409, 'try-again', '다른 화면에서 수업이 바뀌었어요. 다시 눌러 주세요.');
   }
 }
