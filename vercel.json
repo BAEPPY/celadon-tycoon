@@ -2,6 +2,10 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "framework": null,
+  "rewrites": [
+    {"source": "/lesson", "destination": "/lesson/index.html"},
+    {"source": "/teacher", "destination": "/teacher/index.html"}
+  ],
   "headers": [
     {
       "source": "/(.*)",
@@ -24,6 +28,9 @@
   "functions": {
     "api/assess.js": {
       "maxDuration": 40
+    },
+    "api/classroom.js": {
+      "maxDuration": 30
     }
   }
 }

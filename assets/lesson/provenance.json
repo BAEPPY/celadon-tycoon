@@ -1,0 +1,97 @@
+{
+  "museumCommit": "1af26e11f21928b7935a5432de3d178997558c7e",
+  "gameSourceCommit": "7b5ea0acb9462ca806d21815e1b12192362462af",
+  "method": "Byte-identical copies of existing lightweight models; only lesson filenames are anonymized. No shape, material, texture or metadata edits.",
+  "assets": [
+    {
+      "id": "comparison-1",
+      "file": "comparison-1.glb",
+      "bytes": 365424,
+      "sha256": "48b3f3c13412a4ea901da4b5bf1449e0a9ec6f014fb5e83a189e07a19ad3939f",
+      "source": "BAEPPY/minichungjamuseum/public/models/map/japan-peony-reconstruction.glb",
+      "copiedWithoutModification": true,
+      "meshes": 1,
+      "extensionsUsed": [
+        "KHR_materials_unlit"
+      ]
+    },
+    {
+      "id": "comparison-2",
+      "file": "comparison-2.glb",
+      "bytes": 906684,
+      "sha256": "6faba64f6776d67b71470dbd984074759eac35150544ee5c2c1cd2d8847788d9",
+      "source": "BAEPPY/minichungjamuseum/public/models/map/yuan-celadon-vase.glb",
+      "copiedWithoutModification": true,
+      "meshes": 1,
+      "extensionsUsed": [
+        "KHR_materials_unlit"
+      ]
+    },
+    {
+      "id": "comparison-3",
+      "file": "comparison-3.glb",
+      "bytes": 410684,
+      "sha256": "074fabc021d3f3ffbf395310ea18e3415e563ad768532f03247b8ad9d943b7f4",
+      "source": "BAEPPY/minichungjamuseum/public/models/map/celadon-maebyeong-v2.glb",
+      "copiedWithoutModification": true,
+      "meshes": 1,
+      "extensionsUsed": [
+        "KHR_materials_clearcoat",
+        "KHR_materials_specular",
+        "KHR_materials_ior"
+      ]
+    },
+    {
+      "id": "observation-1",
+      "file": "observation-1.glb",
+      "bytes": 2481304,
+      "sha256": "e1df500c2a3a2b4d8d4a6936b544eb1b8cbfdf112b217c346b03e48fe2b860fe",
+      "source": "BAEPPY/celadon-tycoon/assets/models/celadon-pillow-reconstruction.glb",
+      "copiedWithoutModification": true,
+      "meshes": 1,
+      "extensionsUsed": []
+    },
+    {
+      "id": "observation-2",
+      "file": "observation-2.glb",
+      "bytes": 765144,
+      "sha256": "240d3fefaf3e789e66644d44d477437183aa52f2f892c7e762553940155b69a0",
+      "source": "BAEPPY/celadon-tycoon/assets/models/celadon-stool-wrl.glb",
+      "copiedWithoutModification": true,
+      "meshes": 1,
+      "extensionsUsed": [
+        "KHR_materials_clearcoat"
+      ]
+    },
+    {
+      "id": "observation-3",
+      "file": "observation-3.glb",
+      "bytes": 883144,
+      "sha256": "2bcd48116ccdc8a7c3da9848d9c9b69e08e2c9c2b6c2f667e8c8a9fd8a97a61a",
+      "source": "BAEPPY/celadon-tycoon/assets/models/celadon-duck-waterdropper.glb",
+      "copiedWithoutModification": true,
+      "meshes": 1,
+      "extensionsUsed": []
+    },
+    {
+      "id": "observation-4",
+      "file": "observation-4.glb",
+      "bytes": 715768,
+      "sha256": "713f4453480758c425cf0eea18b1031934ea8a773f5d4d03d613818a1ba092bd",
+      "source": "BAEPPY/celadon-tycoon/assets/models/celadon-ewer.glb",
+      "copiedWithoutModification": true,
+      "meshes": 2,
+      "extensionsUsed": []
+    },
+    {
+      "id": "observation-5",
+      "file": "observation-5.glb",
+      "bytes": 571644,
+      "sha256": "020742f7bc86a5cf6f6e5d5790a63f655a5f89007d8cced224fc21f0c97e1806",
+      "source": "BAEPPY/celadon-tycoon/assets/models/celadon-incense.glb",
+      "copiedWithoutModification": true,
+      "meshes": 2,
+      "extensionsUsed": []
+    }
+  ]
+}

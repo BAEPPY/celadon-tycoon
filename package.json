@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "start": "node server.mjs",
-    "test": "node --test domain.test.js models.test.js arcade.test.js illustration.test.js assessment.test.js inspection.test.js surface-warp.test.js reactions.test.js workflow.test.js",
+    "test": "node --test domain.test.js models.test.js arcade.test.js illustration.test.js assessment.test.js inspection.test.js surface-warp.test.js reactions.test.js workflow.test.js classroom.test.js classroom-game-bridge.test.js",
     "build": "node build.mjs",
     "test:browser": "node tests/browser-workshop.cjs",
     "test:entry": "node tests/browser-entry.cjs",
@@ -15,9 +15,11 @@
     "test:decoration": "node tests/browser-decoration.cjs",
     "test:assessment": "node tests/browser-assessment.cjs",
     "test:ui": "node tests/browser-ui.cjs",
-    "test:dialogue": "node tests/browser-dialogue.cjs"
+    "test:dialogue": "node tests/browser-dialogue.cjs",
+    "test:classroom": "node tests/browser-classroom.cjs"
   },
   "dependencies": {
+    "@vercel/blob": "2.8.2",
     "@vercel/oidc": "4.0.7",
     "three": "0.180.0",
     "three-bvh-csg": "^0.0.17",
