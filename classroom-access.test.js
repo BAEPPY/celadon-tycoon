@@ -73,3 +73,10 @@ test('an observer board can only change its own view, never control the class or
     assert.equal(canUseClassroomAction(action, {teacherMode: false}), false, action);
   }
 });
+
+test('the fixed Korean class code works directly and in a copied lesson link', () => {
+  assert.equal(extractClassroomCode('  탑텐반  '), '탑텐반');
+  assert.equal(extractClassroomCode(`${origin}/lesson?code=${encodeURIComponent('탑텐반')}`, {origin}), '탑텐반');
+  assert.equal(extractClassroomCode('5-10'), '');
+  assert.equal(extractClassroomCode('탑텐반extra'), '');
+});

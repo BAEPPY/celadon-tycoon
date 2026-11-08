@@ -17,10 +17,19 @@ const ROOM_ROOT = code => `${classroomPrefix()}/${code}/`;
 const roomKey = code => `${ROOM_ROOT(code)}room.json`;
 const studentKey = (code, id) => `${ROOM_ROOT(code)}participants/${id}.json`;
 const artworkKey = (code, id, workId) => `${ROOM_ROOT(code)}artworks/${id}/${workId}.json`;
+export const CLASSROOM_JOIN_CODE = '탑텐반';
+const joinAliasKey = () => `${classroomPrefix()}/aliases/tapten.json`;
+const ALIAS_IN_USE = '탑텐반 수업이 이미 열려 있어요. 이 수업을 만든 선생님의 브라우저에서 새 수업을 열어 주세요.';
 const emptyAnswer = () => ({runId: '', clientRevision: 0, submitted: false, answers: {}});
 export const DEFAULT_CLASSROOM_SETTINGS = Object.freeze({durations: {1: 90, 2: 240, 3: 300}, submitButton: false, autoPause: true});
 
-function validateCode(value) { const code = clean(value, 100).toUpperCase(); if (!/^[A-Z2-9]{6}$/.test(code)) fail(400, 'invalid-code', '수업 코드 여섯 글자를 확인해 주세요.'); return code; }
+function validateCode(value) { const code = clean(value, 100).toUpperCase(); if (!/^[A-Z2-9]{6}$/.test(code)) fail(400, 'invalid-code', '탑텐반 또는 선생님이 알려 준 수업 코드를 확인해 주세요.'); return code; }
+const publicJoinCode = value => typeof value === 'string' ? value.normalize('NFKC').trim() : '';
+function validateJoinCode(value) { if (publicJoinCode(value) !== CLASSROOM_JOIN_CODE) fail(400, 'invalid-join-code', '수업 코드는 탑텐반으로 적어 주세요.'); return CLASSROOM_JOIN_CODE; }
+function validateCreateToken(value) {
+  if (typeof value !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(value) || Buffer.from(value, 'base64url').toString('base64url') !== value) fail(400, 'invalid-create-token', '수업을 여는 정보를 다시 준비해 주세요.');
+  return value;
+}
 function validateNumber(value) { const number = Number(value); if (!Number.isInteger(number) || number < 1 || number > 99) fail(400, 'invalid-number', '번호는 1부터 99 사이의 숫자로 적어 주세요.'); return String(number); }
 function validateWorkId(value) { const id = clean(value, 101); if (!/^[a-zA-Z0-9_-]{1,100}$/.test(id)) fail(400, 'invalid-work', '작품 정보를 다시 확인해 주세요.'); return id; }
 function authorized(value, storedHash) {
@@ -42,7 +51,7 @@ function settingsFrom(raw = {}, previous = DEFAULT_CLASSROOM_SETTINGS) {
 export function classroomState(room, now = Date.now()) {
   // endsAt is null for activity 3, which runs until the teacher ends it.
   const timedOut = room.status === 'active' && Number.isFinite(room.endsAt) && now >= room.endsAt && (room.activity === 3 || room.settings.autoPause);
-  return {code: room.code, activity: room.activity, status: timedOut ? 'paused' : room.status,
+  return {code: room.code, ...(room.joinCode === CLASSROOM_JOIN_CODE ? {joinCode: CLASSROOM_JOIN_CODE} : {}), activity: room.activity, status: timedOut ? 'paused' : room.status,
     runId: room.runId, runs: {...room.runs}, startedAt: room.startedAt, endsAt: room.endsAt ?? null, pausedAt: room.pausedAt ?? null,
     serverNow: now, settings: structuredClone(room.settings), revealed: {...room.revealed}, locked: room.locked === true, revision: room.revision};
 }
@@ -147,7 +156,11 @@ export class ClassroomService {
   async room(code, options, message = '수업 코드를 찾지 못했어요. 선생님께 확인해 주세요.') {
     const result = await this.store.read(roomKey(validateCode(code)), options);
     if (!result || result.data.deletedAt !== undefined) fail(404, 'room-not-found', message);
-    return result;
+    // The pointer is authoritative: a teacher's old tab must not keep sharing an alias moved to a newer class.
+    const alias = await this.store.read(joinAliasKey(), options), data = {...result.data};
+    delete data.joinCode;
+    if (alias?.data.code === data.code) data.joinCode = CLASSROOM_JOIN_CODE;
+    return {...result, data};
   }
   async student(code, id, bearer, options) {
     const result = await this.store.read(studentKey(code, validateNumber(id)), options);
@@ -155,18 +168,85 @@ export class ClassroomService {
     return result;
   }
   teacher(room, bearer) { if (!authorized(bearer, room.teacherHash)) fail(403, 'teacher-auth', '이 수업을 만든 선생님 화면에서 열어 주세요.'); }
-  async create(raw = {}) {
-    const teacherToken = this.makeToken(), now = this.now();
+  async writeJoinAlias(code, previous) {
+    const data = {code, updatedAt: this.now()};
+    if (previous) await this.store.update(joinAliasKey(), data, previous.etag);
+    else await this.store.create(joinAliasKey(), data);
+  }
+  async releaseJoinAlias(code) {
+    for (let retry = 0; retry < 6; retry++) {
+      const current = await this.store.read(joinAliasKey());
+      if (current?.data.code !== code) return;
+      // A conditional tombstone prevents an old delete from erasing a newly assigned class.
+      try { await this.store.update(joinAliasKey(), {code: null, updatedAt: this.now()}, current.etag); return; }
+      catch (error) { if (!(error instanceof StoreConflict)) throw error; }
+    }
+    fail(409, 'try-again', '수업 연결을 정리하는 중이에요. 다시 눌러 주세요.');
+  }
+  async claimJoinCode(code, bearer) {
+    const {data: room} = await this.room(code, undefined, TEACHER_ROOM_GONE); this.teacher(room, bearer);
+    const current = await this.store.read(joinAliasKey());
+    if (current?.data.code && current.data.code !== code) fail(409, 'join-code-in-use', ALIAS_IN_USE);
+    if (current?.data.code !== code) {
+      try { await this.writeJoinAlias(code, current); }
+      catch (error) { if (error instanceof StoreConflict) fail(409, 'join-code-in-use', ALIAS_IN_USE); throw error; }
+    }
+    try { return {state: classroomState((await this.room(code)).data, this.now())}; }
+    catch (error) { if (error.code === 'room-not-found') await this.releaseJoinAlias(code); throw error; }
+  }
+  async recoverCreatedAlias(createToken, alias) {
+    if (!createToken || !alias?.data.code) return null;
+    let room;
+    try { room = (await this.room(alias.data.code)).data; }
+    catch (error) { if (error.code === 'room-not-found') return null; throw error; }
+    if (room.joinCode !== CLASSROOM_JOIN_CODE || !authorized(createToken, room.teacherHash)) return null;
+    return {code: room.code, teacherToken: createToken, state: classroomState(room, this.now())};
+  }
+  async create(raw = {}, bearer) {
+    const joinCode = raw.joinCode === undefined ? null : validateJoinCode(raw.joinCode);
+    // The browser persists this random capability before sending, so a lost response cannot strand the fixed alias.
+    const createToken = joinCode && raw.createToken !== undefined ? validateCreateToken(raw.createToken) : null;
+    let alias;
+    if (joinCode) {
+      alias = await this.store.read(joinAliasKey());
+      const recovered = await this.recoverCreatedAlias(createToken, alias);
+      if (recovered) return recovered;
+      const previousCode = raw.previousCode === undefined ? null : validateCode(raw.previousCode);
+      if (alias?.data.code && alias.data.code !== previousCode) fail(409, 'join-code-in-use', ALIAS_IN_USE);
+      if (previousCode) this.teacher((await this.room(previousCode, undefined, TEACHER_ROOM_GONE)).data, bearer);
+    }
+    const teacherToken = createToken || this.makeToken(), now = this.now();
     for (let tries = 0; tries < 8; tries++) {
       const code = this.makeCode(), room = {code, teacherHash: hash(teacherToken), createdAt: now, activity: 0, status: 'waiting',
         runId: '', runs: {}, startedAt: null, endsAt: null, settings: settingsFrom(raw.settings), revealed: {}, revision: 1};
-      try { await this.store.create(roomKey(code), room); return {code, teacherToken, state: classroomState(room, now)}; }
-      catch (error) { if (!(error instanceof StoreConflict)) throw error; }
+      try { await this.store.create(roomKey(code), room); }
+      catch (error) { if (error instanceof StoreConflict) continue; throw error; }
+      if (joinCode) {
+        try { await this.writeJoinAlias(code, alias); }
+        catch (error) {
+          // A provider response can fail after the pointer has committed. Verify ownership before returning the room.
+          let current, recovered;
+          try { current = await this.store.read(joinAliasKey()); recovered = await this.recoverCreatedAlias(teacherToken, current); }
+          catch { throw error; }
+          if (error instanceof StoreConflict && current?.data.code !== code) await this.store.delete(roomKey(code));
+          if (recovered) return recovered;
+          if (error instanceof StoreConflict) fail(409, 'join-code-in-use', ALIAS_IN_USE);
+          // An uncertain write may still complete; do not delete its possible target. Retrying can recover via createToken.
+          throw error;
+        }
+      }
+      return {code, teacherToken, state: classroomState({...room, ...(joinCode ? {joinCode} : {})}, now)};
     }
     fail(503, 'create-retry', '수업 코드를 준비하지 못했어요. 다시 눌러 주세요.');
   }
   async join(raw) {
-    const code = validateCode(raw.code), {data: room} = await this.room(code), id = validateNumber(raw.number), name = clean(raw.name, 30);
+    let code;
+    if (publicJoinCode(raw.code) === CLASSROOM_JOIN_CODE) {
+      const alias = await this.store.read(joinAliasKey());
+      if (!alias?.data.code) fail(404, 'room-not-found', '아직 탑텐반 수업이 열리지 않았어요. 선생님이 수업을 열면 다시 입장해 주세요.');
+      code = validateCode(alias.data.code);
+    } else code = validateCode(raw.code);
+    const {data: room} = await this.room(code), id = validateNumber(raw.number), name = clean(raw.name, 30);
     if (room.status === 'ended') fail(409, 'room-ended', '이 수업은 모두 마무리되었어요.');
     if (!name || name.length > 20) fail(400, 'invalid-name', '이름을 20자 이내로 적어 주세요.');
     const existing = await this.store.read(studentKey(code, id));
@@ -247,6 +327,7 @@ export class ClassroomService {
   async control(raw, bearer) {
     const code = validateCode(raw.code);
     if (raw.command === 'delete') return this.removeRoom(code, bearer);
+    if (raw.command === 'claim-join-code') return this.claimJoinCode(code, bearer);
     if (raw.command === 'release-student' || raw.command === 'remove-student') return this.manageStudent(code, raw, bearer);
     let observerToken;
     for (let retry = 0; retry < 6; retry++) {
@@ -345,6 +426,7 @@ export class ClassroomService {
     if (current.data.deletedAt === undefined) {
       await this.store.update(roomKey(code), {...current.data, deletedAt: this.now(), status: 'ended'}, current.etag);
     }
+    await this.releaseJoinAlias(code);
     const keys = (await this.store.list(ROOM_ROOT(code))).filter(key => key !== roomKey(code));
     if (this.store.deleteMany) await this.store.deleteMany(keys);
     else for (const key of keys) await this.store.delete(key);

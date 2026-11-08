@@ -5,7 +5,7 @@ import path from 'node:path';
 export class StoreConflict extends Error { constructor() { super('store-conflict'); } }
 export class StoreUnavailable extends Error { constructor() { super('classroom-storage-unavailable'); } }
 const digest = data => createHash('sha256').update(data).digest('hex');
-const validKey = key => typeof key === 'string' && /^classroom-v1\/[a-zA-Z0-9_-]{1,64}\/[A-Z2-9]{6}\/(?:[a-zA-Z0-9_-]+\/)*[a-zA-Z0-9_-]+\.json$/.test(key);
+const validKey = key => typeof key === 'string' && /^classroom-v1\/[a-zA-Z0-9_-]{1,64}\/(?:[A-Z2-9]{6}\/(?:[a-zA-Z0-9_-]+\/)*[a-zA-Z0-9_-]+\.json|aliases\/tapten\.json)$/.test(key);
 const validPrefix = prefix => /^classroom-v1\/[a-zA-Z0-9_-]{1,64}\/[A-Z2-9]{6}\/(?:participants\/|artworks\/)?$/.test(prefix);
 export function classroomPrefix() {
   const environment = process.env.VERCEL_ENV || 'local';

@@ -1,6 +1,7 @@
 import {COMPARISON_ARTIFACTS, OBSERVATION_ARTIFACTS, COUNTRY_CHOICES} from './lesson-artifacts.js';
 import {mountLessonViewer} from './lesson-viewer.js';
-import {extractClassroomCode, canUseClassroomAction} from './classroom-access.js';
+import {extractClassroomCode, canUseClassroomAction, CLASSROOM_JOIN_CODE} from './classroom-access.js';
+import {loadStudentEntryState, rememberStudentEntry, findStudentRejoin, clearActiveStudentSession} from './classroom-entry.js';
 import {mountWordCloud} from './lesson-cloud.js';
 
 const TITLE='고려청자의 우수성과 다양한 쓰임 알아보기';
@@ -9,10 +10,10 @@ const observerMode=location.pathname.startsWith('/observe');
 const teacherMode=location.pathname.startsWith('/teacher')||observerMode;
 const app=document.querySelector('#classroom-app'),toastElement=document.querySelector('#classroom-toast');
 const SESSION_KEY=observerMode?'celadon-classroom-observer-v1':teacherMode?'celadon-classroom-teacher-v1':'celadon-classroom-student-v1';
-const IDENTITY_KEY='celadon-classroom-identity-v1';
 // One name per activity on every screen (teacher tabs and panel, student header, observer view).
 const ACTIVITY_NAMES={1:'세 나라 도자기 비교',2:'쓰임과 이름 짐작하기',3:'좋은 청자 위대한 청자'};
 const STAGE_NAMES=ACTIVITY_NAMES;
+const PENDING_CLASSROOM_KEY='celadon-classroom-create-v1';
 const DEFAULT_SETTINGS={durations:{1:90,2:240,3:300},submitButton:false,autoPause:true};
 const countryName=id=>COUNTRY_CHOICES.find(c=>c.id===id)?.label||id;
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -21,7 +22,7 @@ function stored(key){try{return JSON.parse(localStorage.getItem(key)||'null');}c
 function store(key,value){try{if(value===null)localStorage.removeItem(key);else localStorage.setItem(key,JSON.stringify(value));}catch{}}
 // An observer opens /observe?code=XXXXXX#key=… ; the key stays in the fragment so it is never sent to the server in the URL.
 function observerSession(){const code=extractClassroomCode(new URLSearchParams(location.search).get('code')||''),key=new URLSearchParams(location.hash.slice(1)).get('key')||'';if(code&&/^[A-Za-z0-9_-]{30,100}$/.test(key)){const value={code,observerToken:key};store(SESSION_KEY,value);return value;}return stored(SESSION_KEY);}
-let session=observerMode?observerSession():stored(SESSION_KEY),room=null,teacherData=null,student=null,answers={},offset=0,offsetSamples=[];
+let session=observerMode?observerSession():teacherMode?stored(SESSION_KEY):loadStudentEntryState(),room=null,teacherData=null,student=null,answers={},offset=0,offsetSamples=[];
 let currentObject='1',teacherActivity=1,teacherObject='1',selectedCountry=null,cloudKind='name';
 let teacherResultViews={1:'responses',2:'responses'},exhibitObjects={1:'1',2:'1'},completionDialog=null;
 let drafts={1:{},2:{}},revisions={1:0,2:0},dirty={1:false,2:false},draftChanges={1:0,2:0},submitted={1:false,2:false};
@@ -31,6 +32,7 @@ let settingsDirty=false,settingsOpen=false,participantsOpen=false,responsesOpen=
 let disposed=false,frameRunId='',lastGameActive=null;
 const viewers=[],workImages=new Map(),workImagePending=new Set(),uploadedWorks=new Set(),pendingWorks=new Map();
 let teacherViewer=null,cloudView=null;
+const publicJoinCode=()=>room?.joinCode||session?.code||CLASSROOM_JOIN_CODE;
 const actionAllowed=action=>canUseClassroomAction(action,{teacherMode:teacherMode&&!observerMode,observerMode,teacherToken:session?.teacherToken});
 
 const logo=`<svg viewBox="0 0 40 40" aria-hidden="true"><path d="M15 5h10v7c0 5 9 8 8 15-1 8-6 9-13 9S8 35 7 27c-1-7 8-10 8-15Z" fill="#88ae8d" stroke="currentColor" stroke-width="1.8"/><path d="M11 25c5-6 13-6 18 0M13 30c5-4 9-4 14 0" fill="none" stroke="#e7edcf" stroke-width="1.7"/></svg>`;
@@ -83,10 +85,10 @@ function stages(activity=room?.activity||0){
   return `<div class="current-activity" aria-label="현재 수업 활동"><span>${activity?`활동 ${activity} / 3`:'수업 준비'}</span><strong>${activity?STAGE_NAMES[activity]:'선생님의 시작을 기다려요'}</strong><small>선생님이 진행해요</small></div>`;
 }
 // Kept in the header so it stays reachable on 1024×600, where the side panel has to scroll.
-function manageMenu(){const status=room?effectiveStatus():'waiting';return `<details class="manage-menu" data-details="manage" ${manageOpen?'open':''}><summary class="button secondary small">수업 관리 <span aria-hidden="true">▾</span></summary><div class="manage-menu-list"><button class="button secondary small" data-action="copy-observer">참관 주소 복사</button><button class="button secondary small" data-action="end" ${status==='ended'||controlBusy?'disabled':''}>수업 종료</button><button class="button quiet small" data-action="new-room">새 수업</button><button class="button danger small" data-action="delete-room">수업 자료 삭제</button></div></details>`;}
+function manageMenu(){const status=room?effectiveStatus():'waiting';return `<details class="manage-menu" data-details="manage" ${manageOpen?'open':''}><summary class="button secondary small">수업 관리 <span aria-hidden="true">▾</span></summary><div class="manage-menu-list"><button class="button secondary small" data-action="copy-observer">참관 주소 복사</button>${room&&!room.joinCode?'<button class="button secondary small" data-action="claim-join-code">탑텐반 코드 연결</button>':''}<button class="button secondary small" data-action="end" ${status==='ended'||controlBusy?'disabled':''}>수업 종료</button><button class="button quiet small" data-action="new-room">새 수업</button><button class="button danger small" data-action="delete-room">수업 자료 삭제</button></div></details>`;}
 function header(){
   const studentGame=!teacherMode&&active(3);
-  return `<header class="lesson-header ${teacherMode?'teacher-header':''}"><div class="brand"><span class="brand-mark">${logo}</span><div><div class="brand-title">우리 반 청자 교실</div><small>${observerMode?'참관 화면 · 읽기 전용':teacherMode?'선생님 진행 화면':'관찰하고 · 생각하고 · 만들어요'}</small></div></div>${teacherMode?`${observerMode?'<div class="observer-badge">참관 중 · 학생 이름은 보이지 않아요</div>':`<div class="teacher-room-code"><span>수업 코드</span><strong>${esc(session.code)}</strong><div class="code-actions"><button class="button secondary small" data-action="copy-code">수업 코드 복사</button><button class="button quiet small" data-action="copy-invite">참여 주소 복사</button></div></div>`}<div class="teacher-tools"><span class="pill" data-connection>연결됨</span><button class="button quiet small" data-action="fullscreen">전체 화면</button>${observerMode?'':manageMenu()}</div>`:`${studentGame?'':stages()}<div class="student-badge"><strong>${esc(student?.number||'')}번 ${esc(student?.name||'')}</strong><span class="pill" data-connection>연결됨</span></div>${studentGame?timerMarkup():''}`}</header><div class="connection-banner" data-connection-banner hidden><span></span><button class="button secondary small" data-action="retry-connection">다시 연결</button></div>`;
+  return `<header class="lesson-header ${teacherMode?'teacher-header':''}"><div class="brand"><span class="brand-mark">${logo}</span><div><div class="brand-title">우리 반 청자 교실</div><small>${observerMode?'참관 화면 · 읽기 전용':teacherMode?'선생님 진행 화면':'관찰하고 · 생각하고 · 만들어요'}</small></div></div>${teacherMode?`${observerMode?'<div class="observer-badge">참관 중 · 학생 이름은 보이지 않아요</div>':`<div class="teacher-room-code"><span>수업 코드</span><strong>${esc(publicJoinCode())}</strong><div class="code-actions"><button class="button secondary small" data-action="copy-code">수업 코드 복사</button><button class="button quiet small" data-action="copy-invite">참여 주소 복사</button></div></div>`}<div class="teacher-tools"><span class="pill" data-connection>연결됨</span><button class="button quiet small" data-action="fullscreen">전체 화면</button>${observerMode?'':manageMenu()}</div>`:`${studentGame?'':stages()}<div class="student-badge"><strong>${esc(student?.number||'')}번 ${esc(student?.name||'')}</strong><span class="pill" data-connection>연결됨</span></div>${studentGame?timerMarkup():''}`}</header><div class="connection-banner" data-connection-banner hidden><span></span><button class="button secondary small" data-action="retry-connection">다시 연결</button></div>`;
 }
 function updateConnection(){
   document.querySelectorAll('[data-connection]').forEach(el=>{el.textContent=connectionError?'다시 연결 중':'연결됨';el.classList.toggle('offline',Boolean(connectionError));});
@@ -147,8 +149,8 @@ async function poll(){
 }
 function welcomeArtwork(){return `<div class="welcome-art" aria-hidden="true"><img src="/assets/lesson/welcome-celadon.png" alt="" width="1774" height="887" fetchpriority="high"></div>`;}
 function renderWelcome(message=''){
-  closeCompletionDialog();disposeViewers();viewKey='welcome';const identity=stored(IDENTITY_KEY)||{},queryCode=extractClassroomCode(new URLSearchParams(location.search).get('code')||'');
-  app.innerHTML=`<section class="welcome"><div class="welcome-copy"><span class="eyebrow">우리 반 청자 교실 · 고려의 문화</span><h1><em>고려청자의 우수성</em>과<br> 다양한 쓰임 알아보기</h1><p>빛깔과 모양을 살펴보고,<br>청자에 담긴 사람들의 생활을 찾아봐요.</p>${welcomeArtwork()}</div><div><section class="panel welcome-form"><h2>${observerMode?'수업 참관':teacherMode?'함께 시작하는 청자 수업':'수업에 들어가요'}</h2><p class="muted">${observerMode?'선생님이 보낸 참관 주소로 열면 수업 진행과 학생들의 생각을 함께 볼 수 있어요. 학생 이름은 보이지 않아요.':teacherMode?'수업을 열면 학생들이 사용할 참여 코드가 생깁니다.':'번호와 이름은 세 활동 동안 계속 사용해요.'}</p>${observerMode?'':teacherMode?`<form data-form="create"><button class="button" type="submit">새 수업 열기 <span aria-hidden="true">→</span></button></form><p class="welcome-note">활동 1 · 1분 30초<br>활동 2 · 4분<br>활동 3 · 선생님이 마칠 때까지<br><br>선생님이 활동을 시작하고 마칠 때마다<br>학생 화면도 함께 바뀝니다.</p><a class="teacher-link" href="/lesson">학생 참여 화면 보기 →</a>`:`<form data-form="join"><label>수업 코드<input class="code-input" name="code" autocomplete="off" spellcheck="false" minlength="6" maxlength="6" pattern="[A-Za-z0-9]{6}" required value="${esc(queryCode)}" placeholder="선생님의 수업 코드"></label><div class="identity-fields"><label>번호<input name="number" type="number" min="1" max="99" inputmode="numeric" required value="${esc(identity.number||'')}" placeholder="번호"></label><label>이름<input name="name" autocomplete="given-name" maxlength="20" required value="${esc(identity.name||'')}" placeholder="이름을 적어 주세요"></label></div><button class="button" type="submit">수업 들어가기 <span aria-hidden="true">→</span></button></form><p class="welcome-note">입력한 번호와 이름, 수업 답변은 선생님께 전달돼요.</p>`}<p class="error-message" data-form-error>${esc(message)}</p></section></div></section>`;
+  closeCompletionDialog();disposeViewers();viewKey='welcome';const identity={},queryCode=extractClassroomCode(new URLSearchParams(location.search).get('code')||'');
+  app.innerHTML=`<section class="welcome"><div class="welcome-copy"><span class="eyebrow">우리 반 청자 교실 · 고려의 문화</span><h1><em>고려청자의 우수성</em>과<br> 다양한 쓰임 알아보기</h1><p>빛깔과 모양을 살펴보고,<br>청자에 담긴 사람들의 생활을 찾아봐요.</p>${welcomeArtwork()}</div><div><section class="panel welcome-form"><h2>${observerMode?'수업 참관':teacherMode?'함께 시작하는 청자 수업':'수업에 들어가요'}</h2><p class="muted">${observerMode?'선생님이 보낸 참관 주소로 열면 수업 진행과 학생들의 생각을 함께 볼 수 있어요. 학생 이름은 보이지 않아요.':teacherMode?'우리 반 수업 코드는 ‘탑텐반’입니다.':'번호와 이름은 세 활동 동안 계속 사용해요.'}</p>${observerMode?'':teacherMode?`<form data-form="create"><button class="button" type="submit">새 수업 열기 <span aria-hidden="true">→</span></button></form><p class="welcome-note">활동 1 · 1분 30초<br>활동 2 · 4분<br>활동 3 · 선생님이 마칠 때까지<br><br>선생님이 활동을 시작하고 마칠 때마다<br>학생 화면도 함께 바뀝니다.</p><a class="teacher-link" href="/lesson">학생 참여 화면 보기 →</a>`:`<form data-form="join"><label>수업 코드<input class="code-input" name="code" autocomplete="off" spellcheck="false" minlength="3" maxlength="6" pattern="(탑텐반|[A-Za-z2-9]{6})" required value="${esc(queryCode)}" placeholder="탑텐반"></label><div class="identity-fields"><label>번호<input name="number" type="number" autocomplete="off" min="1" max="99" inputmode="numeric" required value="${esc(identity.number||'')}" placeholder="번호"></label><label>이름<input name="name" autocomplete="off" maxlength="20" required value="${esc(identity.name||'')}" placeholder="이름을 적어 주세요"></label></div><button class="button" type="submit">수업 들어가기 <span aria-hidden="true">→</span></button></form><p class="welcome-note">입력한 번호와 이름, 수업 답변은 선생님께 전달돼요.</p>`}<p class="error-message" data-form-error>${esc(message)}</p></section></div></section>`;
 }
 function waitingMarkup(){
   const status=effectiveStatus(),initial=!room.activity||status==='waiting';
@@ -252,12 +254,12 @@ function renderTeacher(){
   updateTimer();updateConnection();mountTeacherBoard();refreshStudentManager();if(teacherActivity===3)loadWorkImages();
 }
 async function loadWorkImages(){const requestSession=session;for(const work of teacherData?.works||[]){const key=workKey(work);if(workImages.has(key)||workImagePending.has(key))continue;workImagePending.add(key);try{const value=await api('artwork',{body:{participantId:work.participantId,workId:work.id}});if(session!==requestSession)return;if(typeof value.preview==='string'&&/^data:image\/(png|webp);base64,/.test(value.preview)){workImages.set(key,value.preview);const container=[...document.querySelectorAll('[data-work-preview]')].find(el=>el.dataset.workPreview===key);if(container){const image=document.createElement('img');image.src=value.preview;image.alt=work.name?`${work.number}번 ${work.name} 학생의 완성한 청자`:'학생의 완성한 청자';container.querySelector('.image-wait')?.replaceWith(image);}}}catch{const container=[...document.querySelectorAll('[data-work-preview]')].find(el=>el.dataset.workPreview===key);if(container?.querySelector('.image-wait'))container.querySelector('.image-wait').textContent='작품 사진을 다시 불러올게요.';}finally{workImagePending.delete(key);}}}
-function resetRoom(){
+function resetRoom({keepTeacherKey=false}={}){
   closeCompletionDialog();teacherResultViews={1:'responses',2:'responses'};exhibitObjects={1:'1',2:'1'};
   heartbeatGame();disposeViewers();disposeTeacherBoard();clearTimeout(pollTimer);clearTimeout(saveTimer);session=null;room=null;teacherData=null;student=null;answers={};
   drafts={1:{},2:{}};revisions={1:0,2:0};dirty={1:false,2:false};draftChanges={1:0,2:0};submitted={1:false,2:false};
   viewKey='';teacherSignature='';currentObject='1';teacherActivity=1;teacherObject='1';selectedCountry=null;cloudKind='name';settingsDirty=false;connectionError='';
-  uploadedWorks.clear();pendingWorks.clear();workImages.clear();workImagePending.clear();store(SESSION_KEY,null);
+  uploadedWorks.clear();pendingWorks.clear();workImages.clear();workImagePending.clear();if(teacherMode){if(!keepTeacherKey)store(SESSION_KEY,null);}else clearActiveStudentSession();
 }
 function render(){if(!session||!room)return renderWelcome();if(teacherMode)renderTeacher();else renderStudent();}
 function updateTimer(){
@@ -318,16 +320,39 @@ window.addEventListener('message',event=>{
   if(event.data.type==='celadon:completed'&&event.data.work?.step===4&&typeof event.data.work.id==='string'&&event.data.runId===room?.runId){const {work,preview,runId}=event.data;if(typeof preview!=='string'||preview.length>420000||!/^data:image\/(png|webp);base64,/.test(preview))return;if(uploadedWorks.has(work.id))return;const existing=pendingWorks.get(work.id);if(!existing)pendingWorks.set(work.id,{work,preview,runId,sending:false});sendWork(pendingWorks.get(work.id));}
 });
 
+function restoreEntryName(form){
+  if(!form||form.dataset.form!=='join')return;
+  const field=form.elements.namedItem('name');if(!field||field.dataset.edited==='true')return;
+  const previous=findStudentRejoin({code:extractClassroomCode(form.elements.namedItem('code')?.value||''),number:form.elements.namedItem('number')?.value});
+  field.value=previous?.student?.name||'';
+}
+async function createTeacherClassroom(){
+  let pending=stored(PENDING_CLASSROOM_KEY);
+  if(!pending||!/^[A-Za-z0-9_-]{43}$/.test(pending.createToken||'')||pending.previousCode!==(session?.code||null)){
+    const bytes=crypto.getRandomValues(new Uint8Array(32));
+    pending={createToken:btoa(String.fromCharCode(...bytes)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''),previousCode:session?.code||null};
+    store(PENDING_CLASSROOM_KEY,pending);
+  }
+  const savedPending=stored(PENDING_CLASSROOM_KEY);
+  if(savedPending?.createToken!==pending.createToken||savedPending?.previousCode!==pending.previousCode)throw new Error('수업 정보를 이 브라우저에 저장하지 못했어요. 저장 공간과 브라우저 설정을 확인한 뒤 다시 눌러 주세요.');
+  const payload=await api('create',{method:'POST',body:{joinCode:CLASSROOM_JOIN_CODE,createToken:pending.createToken,...(pending.previousCode?{previousCode:pending.previousCode}:{})}});
+  const nextSession={code:payload.code,teacherToken:payload.teacherToken};store(SESSION_KEY,nextSession);
+  const savedSession=stored(SESSION_KEY);
+  if(savedSession?.code!==nextSession.code||savedSession?.teacherToken!==nextSession.teacherToken)throw new Error('수업 정보를 이 브라우저에 저장하지 못했어요. 저장 공간과 브라우저 설정을 확인한 뒤 다시 눌러 주세요.');
+  resetRoom({keepTeacherKey:true});session=nextSession;store(PENDING_CLASSROOM_KEY,null);
+  receive(payload,{initial:true});await poll();schedulePoll();
+}
+
 app.addEventListener('submit',async event=>{
   const form=event.target.closest('form[data-form]');if(!form)return;event.preventDefault();if(!actionAllowed(form.dataset.form))return;const values=new FormData(form),button=form.querySelector('button[type=submit]');if(button)button.disabled=true;
   try{
     if(form.dataset.form==='create'){
-      const payload=await api('create',{method:'POST'});session={code:payload.code,teacherToken:payload.teacherToken};store(SESSION_KEY,session);receive(payload,{initial:true});await poll();
+      await createTeacherClassroom();
     }else if(form.dataset.form==='join'){
       const code=extractClassroomCode(String(values.get('code')||'')),number=Number(values.get('number')),name=String(values.get('name')||'').trim();
-      const previous=stored(SESSION_KEY);session=null;
-      const payload=await api('join',{method:'POST',body:{code,number,name,...(previous?.code===code&&previous?.student?.number==number?{participantToken:previous.participantToken}:{})}});
-      student=payload.student||{number,name};session={code:payload.code||code,participantId:payload.participantId,participantToken:payload.participantToken,student};store(SESSION_KEY,session);store(IDENTITY_KEY,{number,name});receive(payload,{initial:true});schedulePoll();
+      const previous=findStudentRejoin({code,number});session=null;clearActiveStudentSession();
+      const payload=await api('join',{method:'POST',body:{code,number,name,...(previous?{participantToken:previous.participantToken}:{})}});
+      student=payload.student||{number,name};session={code:payload.code||code,participantId:payload.participantId,participantToken:payload.participantToken,student,joinCode:payload.state?.joinCode||code};rememberStudentEntry(session);receive(payload,{initial:true});schedulePoll();
     }else if(form.dataset.form==='settings'){
       const settings={durations:Object.fromEntries([1,2].map(n=>[n,Number(values.get(`duration-${n}`))])),submitButton:values.has('submitButton'),autoPause:values.has('autoPause')};
       await control('settings',{settings});settingsDirty=false;toast('시간과 제출 방식을 저장했어요.');teacherSignature='';render();
@@ -360,8 +385,9 @@ async function handleClick(event){
       if(artifacts.some(a=>a.id===id)){exhibitObjects[teacherActivity]=id;teacherResultViews[teacherActivity]='exhibit';renderTeacher();app.querySelector(`[data-action=exhibit-object][data-id="${id}"]`)?.focus({preventScroll:true});}return;
     }
     if(action==='cloud-kind'){cloudKind=button.dataset.kind==='use'?'use':'name';renderTeacher();return;}
-    if(action==='copy-code'){await copyClassroomValue(session.code,'수업 코드');return;}
-    if(action==='copy-invite'){await copyClassroomValue(`${location.origin}/lesson?code=${encodeURIComponent(session.code)}`,'참여 주소');return;}
+    if(action==='claim-join-code'){await control('claim-join-code');return;}
+    if(action==='copy-code'){await copyClassroomValue(publicJoinCode(),'수업 코드');return;}
+    if(action==='copy-invite'){await copyClassroomValue(`${location.origin}/lesson?code=${encodeURIComponent(publicJoinCode())}`,'참여 주소');return;}
     if(action==='fullscreen'){if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen();return;}
     if(action==='start'){settingsDirty=false;await control('start',{activity:Number(button.dataset.activity)});return;}
     if(action==='pause'){await control('pause');return;}
@@ -373,7 +399,7 @@ async function handleClick(event){
     if(action==='release-student'){if(confirm(`${button.dataset.id}번 학생의 입장 정보를 풀까요?\n\n학생이 같은 번호로 다시 입장하면 쓰던 답과 작품을 이어서 할 수 있어요.`))await control('release-student',{participantId:button.dataset.id});return;}
     if(action==='remove-student'){if(confirm(`${button.dataset.id}번 ${button.dataset.name||''} 학생을 내보낼까요?\n\n이 학생의 답과 완성작이 서버에서 삭제되고 되돌릴 수 없어요.`))await control('remove-student',{participantId:button.dataset.id});return;}
     if(action==='copy-observer'){let key=session.observerToken;if(!key){const payload=await api('control',{method:'POST',body:{command:'observer-link'}});key=payload.observerToken;if(!key)throw new Error('참관 주소를 만들지 못했어요. 다시 눌러 주세요.');session={...session,observerToken:key};store(SESSION_KEY,session);}await copyClassroomValue(`${location.origin}/observe?code=${encodeURIComponent(session.code)}#key=${key}`,'참관 주소');return;}
-    if(action==='new-room'){if(!confirm('현재 수업을 떠나 새 수업을 열까요?\n\n현재 수업의 응답은 서버에 남지만, 이 기기에서 현재 수업으로 돌아오거나 수업 자료를 삭제할 수 없게 됩니다. 자료를 지우려면 먼저 \'수업 자료 삭제\'를 눌러 주세요.'))return;resetRoom();renderWelcome();return;}
+    if(action==='new-room'){if(!confirm('탑텐반 코드를 새 수업에 연결할까요?\n\n기존 수업의 응답은 서버에 남고, 새 수업은 처음부터 시작합니다.'))return;button.disabled=true;try{await createTeacherClassroom();}finally{if(button.isConnected)button.disabled=false;}return;}
     if(action==='delete-room'){if(!confirm('이 수업의 학생 정보, 답변, 작품을 모두 삭제할까요? 삭제한 자료는 되돌릴 수 없습니다.'))return;await api('control',{method:'POST',body:{command:'delete'}});resetRoom();renderWelcome();toast('수업 자료를 삭제했어요.');return;}
   }catch(error){toast(error.message);}
 }
@@ -381,11 +407,12 @@ app.addEventListener('click',handleClick);
 app.addEventListener('paste',event=>{
   const input=event.target.closest('input[name=code]');if(!input)return;
   const code=extractClassroomCode(event.clipboardData?.getData('text')||'');
-  if(code){event.preventDefault();input.value=code;input.setCustomValidity('');}
-  else if((event.clipboardData?.getData('text')||'').length>6){event.preventDefault();toast('수업 코드 여섯 글자 또는 이 수업의 참여 주소를 붙여 주세요.');}
+  if(code){event.preventDefault();input.value=code;input.setCustomValidity('');restoreEntryName(input.form);}
+  else if((event.clipboardData?.getData('text')||'').length>6){event.preventDefault();toast('수업 코드 ‘탑텐반’ 또는 이 수업의 참여 주소를 붙여 주세요.');}
 });
 app.addEventListener('change',event=>{const select=event.target.closest('[data-country-for]');if(select)setCountry(select.dataset.countryFor,select.value);if(event.target.closest('[data-form=settings]'))settingsDirty=true;});
 app.addEventListener('input',event=>{
+  const entry=event.target.closest('[data-form=join]');if(entry){if(event.target.name==='name')event.target.dataset.edited='true';else if(['code','number'].includes(event.target.name))restoreEntryName(entry);}
   const field=event.target.closest('[data-observation-field]');if(field&&active(2)&&!submitted[2]){drafts[2][currentObject]={...(drafts[2][currentObject]||{}),[field.dataset.observationField]:field.value};changed(2);}
   if(event.target.closest('[data-form=settings]'))settingsDirty=true;
 });
@@ -396,7 +423,13 @@ app.addEventListener('dragleave',event=>{event.target.closest('[data-country-dro
 app.addEventListener('drop',event=>{const drop=event.target.closest('[data-country-drop]');if(!drop)return;event.preventDefault();drop.classList.remove('drop-over');const value=event.dataTransfer.getData('text/plain');if(COUNTRY_CHOICES.some(c=>c.id===value))setCountry(drop.dataset.countryDrop,value);});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&session)poll();else if(!teacherMode&&room&&dirty[room.activity])queueSave();});
 window.addEventListener('online',()=>{if(session)poll();});
-window.addEventListener('pageshow',event=>{if(event.persisted&&session){render();poll();}});
+window.addEventListener('pageshow',event=>{
+  if(!teacherMode){
+    if(event.persisted){resetRoom();renderWelcome();}
+    // Chrome can restore form values after rendering a reopened tab. Ask for identity again.
+    if(viewKey==='welcome')app.querySelector('[data-form=join]')?.reset();
+  }else if(event.persisted&&session){render();poll();}
+});
 const clock=setInterval(()=>{
   if(!room)return;updateTimer();
   if(!teacherMode&&active(room.activity)&&[1,2].includes(room.activity)&&dirty[room.activity]&&remaining()<=2&&!saving)queueSave();
@@ -408,12 +441,23 @@ window.addEventListener('pagehide',event=>{if(event.persisted)return;disposed=tr
 async function boot(){
   document.title=observerMode?`참관 · ${TITLE}`:teacherMode?`교사용 · ${TITLE}`:TITLE;
   const queryCode=(new URLSearchParams(location.search).get('code')||'').toUpperCase();
-  if(session&&queryCode&&session.code!==queryCode&&!teacherMode)session=null;
+  if(session&&queryCode&&session.code!==queryCode&&session.joinCode!==queryCode&&!teacherMode){session=null;clearActiveStudentSession();}
+  if(teacherMode&&!observerMode){
+    const pending=stored(PENDING_CLASSROOM_KEY);
+    if(pending&&pending.previousCode===(session?.code||null)){try{await createTeacherClassroom();return;}catch(error){toast(error.message);}}
+  }
   if(!session){renderWelcome();return;}
   app.innerHTML='<section class="waiting"><div class="waiting-inner"><div class="waiting-status"><i></i>우리 반 수업에 다시 연결하고 있어요.</div></div></section>';
-  try{receive(await api(observerMode?'observe':teacherMode?'teacher':'state'),{initial:true});schedulePoll();}
+  try{
+    let payload=await api(observerMode?'observe':teacherMode?'teacher':'state');
+    if(teacherMode&&!observerMode&&!payload.state?.joinCode){
+      try{await api('control',{method:'POST',body:{command:'claim-join-code'}});payload=await api('teacher');}
+      catch(error){toast(error.message);}
+    }
+    receive(payload,{initial:true});schedulePoll();
+  }
   catch(error){
-    if(error.status===403||error.status===404){if(observerMode)store(SESSION_KEY,null);session=null;room=null;renderWelcome(error.message);return;}
+    if(error.status===403||error.status===404){if(observerMode)store(SESSION_KEY,null);if(!teacherMode)clearActiveStudentSession();session=null;room=null;renderWelcome(error.message);return;}
     // Keep the saved key: rejoining or opening a new class here would lock the student out or lose the teacher's class.
     viewKey='';app.innerHTML=`<section class="waiting"><div class="waiting-inner"><div class="waiting-status"><i></i>${esc(error.message||'연결을 확인하고 다시 시도해 주세요.')}</div><button class="button" type="button" data-action="retry-boot">다시 연결</button></div></section>`;
   }
