@@ -32,6 +32,8 @@ let settingsDirty=false,settingsOpen=false,participantsOpen=false,responsesOpen=
 let disposed=false,frameRunId='',lastGameActive=null;
 const viewers=[],workImages=new Map(),workImagePending=new Set(),uploadedWorks=new Set(),pendingWorks=new Map();
 let teacherViewer=null,cloudView=null;
+const teacherComparisonViewers=new Map();
+let countryDrag=null;
 const publicJoinCode=()=>room?.joinCode||session?.code||CLASSROOM_JOIN_CODE;
 const actionAllowed=action=>canUseClassroomAction(action,{teacherMode:teacherMode&&!observerMode,observerMode,teacherToken:session?.teacherToken});
 
@@ -149,7 +151,7 @@ async function poll(){
 }
 function welcomeArtwork(){return `<div class="welcome-art" aria-hidden="true"><img src="/assets/lesson/welcome-celadon.png" alt="" width="1774" height="887" fetchpriority="high"></div>`;}
 function renderWelcome(message=''){
-  closeCompletionDialog();disposeViewers();viewKey='welcome';const identity={},queryCode=extractClassroomCode(new URLSearchParams(location.search).get('code')||'');
+  closeCompletionDialog();disposeViewers();disposeTeacherBoard();viewKey='welcome';const identity={},queryCode=extractClassroomCode(new URLSearchParams(location.search).get('code')||'');
   app.innerHTML=`<section class="welcome"><div class="welcome-copy"><span class="eyebrow">우리 반 청자 교실 · 고려의 문화</span><h1><em>고려청자의 우수성</em>과<br> 다양한 쓰임 알아보기</h1><p>빛깔과 모양을 살펴보고,<br>청자에 담긴 사람들의 생활을 찾아봐요.</p>${welcomeArtwork()}</div><div><section class="panel welcome-form"><h2>${observerMode?'수업 참관':teacherMode?'함께 시작하는 청자 수업':'수업에 들어가요'}</h2><p class="muted">${observerMode?'선생님이 보낸 참관 주소로 열면 수업 진행과 학생들의 생각을 함께 볼 수 있어요. 학생 이름은 보이지 않아요.':teacherMode?'우리 반 수업 코드는 ‘탑텐반’입니다.':'번호와 이름은 세 활동 동안 계속 사용해요.'}</p>${observerMode?'':teacherMode?`<form data-form="create"><button class="button" type="submit">새 수업 열기 <span aria-hidden="true">→</span></button></form><p class="welcome-note">활동 1 · 1분 30초<br>활동 2 · 4분<br>활동 3 · 선생님이 마칠 때까지<br><br>선생님이 활동을 시작하고 마칠 때마다<br>학생 화면도 함께 바뀝니다.</p><a class="teacher-link" href="/lesson">학생 참여 화면 보기 →</a>`:`<form data-form="join"><label>수업 코드<input class="code-input" name="code" autocomplete="off" spellcheck="false" minlength="3" maxlength="6" pattern="(탑텐반|[A-Za-z2-9]{6})" required value="${esc(queryCode)}" placeholder="탑텐반"></label><div class="identity-fields"><label>번호<input name="number" type="number" autocomplete="off" min="1" max="99" inputmode="numeric" required value="${esc(identity.number||'')}" placeholder="번호"></label><label>이름<input name="name" autocomplete="off" maxlength="20" required value="${esc(identity.name||'')}" placeholder="이름을 적어 주세요"></label></div><button class="button" type="submit">수업 들어가기 <span aria-hidden="true">→</span></button></form><p class="welcome-note">입력한 번호와 이름, 수업 답변은 선생님께 전달돼요.</p>`}<p class="error-message" data-form-error>${esc(message)}</p></section></div></section>`;
 }
 function waitingMarkup(){
@@ -174,7 +176,7 @@ function syncCompletionDialog(){
   dialog.addEventListener('cancel',event=>event.preventDefault());
   (document.fullscreenElement||document.body).append(dialog);completionDialog=dialog;dialog.showModal();dialog.focus();
 }
-function comparisonMarkup(){return `<div class="lesson-heading"><div><span class="activity-label">활동 1 · ${ACTIVITY_NAMES[1]}</span><h1>어느 나라에서 만든 도자기일까요?</h1><p>세 도자기의 빛깔과 모양을 비교하고, 나라 이름표를 붙여 보세요.</p></div>${timerMarkup()}</div>${expiryMarkup()}${submitted[1]?'<div class="submitted-banner">다했어요! 친구들을 기다리고 있어요.</div>':''}<div class="compare-grid">${COMPARISON_ARTIFACTS.map(a=>`<article class="panel object-card"><div class="object-title"><h2>${esc(a.label)}</h2><span class="object-number">${esc(a.id)}</span></div><div class="viewer-host" data-viewer="${esc(a.id)}" data-collection="comparison"></div><div class="country-drop" data-country-drop="${esc(a.id)}"><label class="visually-hidden" for="country-${esc(a.id)}">${esc(a.label)}의 나라</label><select id="country-${esc(a.id)}" class="country-select ${drafts[1][a.id]?'selected':''}" data-country-for="${esc(a.id)}" ${answerLocked(1)?'disabled':''}><option value="">나라 이름표 놓기</option>${COUNTRY_CHOICES.map(c=>`<option value="${c.id}" ${drafts[1][a.id]===c.id?'selected':''}>${esc(c.label)}</option>`).join('')}</select></div></article>`).join('')}</div><div class="country-tray"><span>이름표를 끌어 놓거나 골라 주세요</span>${COUNTRY_CHOICES.map(c=>`<button class="country-chip" draggable="${!answerLocked(1)}" data-country-chip="${c.id}" aria-pressed="${selectedCountry===c.id}" ${answerLocked(1)?'disabled':''}>${esc(c.label)}</button>`).join('')}</div><div class="answer-footer">${saveMarkup()}${submitMarkup(1)}</div>`;}
+function comparisonMarkup(){return `<div class="lesson-heading"><div><span class="activity-label">활동 1 · ${ACTIVITY_NAMES[1]}</span><h1>어느 나라에서 만든 도자기일까요?</h1><p>세 도자기의 빛깔과 모양을 비교하고, 나라 이름표를 붙여 보세요.</p></div>${timerMarkup()}</div>${expiryMarkup()}${submitted[1]?'<div class="submitted-banner">다했어요! 친구들을 기다리고 있어요.</div>':''}<div class="compare-grid">${COMPARISON_ARTIFACTS.map(a=>`<article class="panel object-card" data-country-drop="${esc(a.id)}"><div class="object-title"><h2>${esc(a.label)}</h2><span class="object-number">${esc(a.id)}</span></div><div class="viewer-host" data-viewer="${esc(a.id)}" data-collection="comparison"></div><div class="country-drop"><label class="visually-hidden" for="country-${esc(a.id)}">${esc(a.label)}의 나라</label><select id="country-${esc(a.id)}" class="country-select ${drafts[1][a.id]?'selected':''}" data-country-for="${esc(a.id)}" ${answerLocked(1)?'disabled':''}><option value="">나라 이름표 놓기</option>${COUNTRY_CHOICES.map(c=>`<option value="${c.id}" ${drafts[1][a.id]===c.id?'selected':''}>${esc(c.label)}</option>`).join('')}</select></div></article>`).join('')}</div><div class="country-tray"><span>이름표를 끌어 놓거나 골라 주세요</span>${COUNTRY_CHOICES.map(c=>`<button class="country-chip" draggable="${!answerLocked(1)}" data-country-chip="${c.id}" aria-pressed="${selectedCountry===c.id}" ${answerLocked(1)?'disabled':''}>${esc(c.label)}</button>`).join('')}</div><div class="answer-footer">${saveMarkup()}${submitMarkup(1)}</div>`;}
 function observationMarkup(){
   const artifact=OBSERVATION_ARTIFACTS.find(a=>a.id===currentObject)||OBSERVATION_ARTIFACTS[0],answer=drafts[2][artifact.id]||{};
   return `<div class="lesson-heading"><div><span class="activity-label">활동 2 · ${ACTIVITY_NAMES[2]}</span><h1>모양 속에 어떤 쓰임이 숨어 있을까요?</h1><p>다섯 점을 돌려 보고, 쓰임과 이름을 자유롭게 짐작해 보세요.</p></div>${timerMarkup()}</div>${expiryMarkup()}${submitted[2]?'<div class="submitted-banner">다섯 점에 대한 생각을 선생님께 전달했어요.</div>':''}<div class="observe-layout"><section class="panel observe-stage"><div class="object-title"><h2>${esc(artifact.label)}</h2><span class="object-number">${esc(artifact.id)}</span></div><div class="viewer-host" data-viewer="${esc(artifact.id)}" data-collection="observation"></div><div class="observe-navigation"><button class="nav-arrow" data-action="previous-object" aria-label="이전 청자">←</button><nav class="object-dots" aria-label="활동 2에서 관찰할 다섯 청자">${OBSERVATION_ARTIFACTS.map(a=>`<button class="object-dot ${a.id===artifact.id?'active':''} ${drafts[2][a.id]?.name?.trim()&&drafts[2][a.id]?.use?.trim()?'answered':''}" data-action="select-object" data-id="${a.id}" aria-label="청자 ${a.id} 관찰하기" title="같은 활동 안에서 청자 ${a.id} 관찰" ${a.id===artifact.id?'aria-current="true"':''}>${a.id}</button>`).join('')}</nav><button class="nav-arrow" data-action="next-object" aria-label="다음 청자">→</button></div></section><section class="panel observation-writing"><div><div class="writing-heading"><span>✧</span><h2>내 생각을 적어 주세요</h2></div><p>청자를 돌려 보고, 떠오르는 쓰임과 이름을 적어요.</p></div><label for="guess-use">어디에 쓰던 물건일까요?<textarea id="guess-use" data-observation-field="use" maxlength="180" placeholder="이런 곳에 썼을 것 같아요." ${answerLocked(2)?'disabled':''}>${esc(answer.use||'')}</textarea></label><label for="guess-name">어떤 이름을 붙이면 좋을까요?<input id="guess-name" class="write-name" data-observation-field="name" maxlength="60" placeholder="내가 짐작한 이름" value="${esc(answer.name||'')}" ${answerLocked(2)?'disabled':''}></label><p class="field-help">쓴 생각은 이름 없이 선생님 화면에 함께 모여요.</p><div class="answer-footer">${saveMarkup()}${submitMarkup(2)}</div></section></div>`;
@@ -188,7 +190,7 @@ function renderStudent(){
   const status=effectiveStatus(),key=`student:${room.activity}:${status}:${room.runId}:${room.settings?.submitButton}:${submitted[room.activity]}:${room.activity===2?currentObject:''}:${Boolean(timeExpired())}`;
   if(key!==viewKey){
     const oldFrame=app.querySelector('iframe');if(oldFrame)oldFrame.contentWindow?.postMessage({type:'celadon:classroom-state',active:false,runId:frameRunId,serverNow:now(),endsAt:room.endsAt},location.origin);
-    disposeViewers();viewKey=key;const game=active(3);
+    endCountryDrag();selectCountry(null);disposeViewers();viewKey=key;const game=active(3);
     app.innerHTML=`<div class="lesson-shell ${game?'game-shell':''} ${status==='active'&&room.activity===1?'compare-shell':''}">${header()}${status!=='active'||!room.activity?waitingMarkup():room.activity===1?comparisonMarkup():room.activity===2?observationMarkup():gameMarkup()}</div>`;
     frameRunId=game?room.runId:'';mountViewers();watchGameFrame();
     if(game){const frame=app.querySelector('iframe');frame.addEventListener('load',()=>{heartbeatGame();frame.contentWindow?.postMessage({type:'celadon:request-completed'},location.origin);});}
@@ -217,14 +219,32 @@ function teacherContent(){
   if(teacherActivity===3)return teacherWorks();
   return teacherResultTabs()+(teacherResultViews[teacherActivity]==='exhibit'&&room.revealed?.[teacherActivity]?exhibitMarkup():teacherActivity===1?teacherComparison():teacherObservations());
 }
-function teacherComparison(){return `<div class="teacher-visuals">${COMPARISON_ARTIFACTS.map(a=>{const item=teacherData?.comparison?.find(c=>c.id===a.id)||{respondents:0,total:0,unanswered:0,choices:[]};return `<section class="panel result-panel"><h2>${esc(a.label)} <small>${Number(item.respondents)||0}명 응답</small></h2>${COUNTRY_CHOICES.map(c=>{const choice=item.choices.find(v=>v.country===c.id)||{percent:0,count:0};return `<div class="bar-row"><div class="row"><span>${esc(c.label)}<small>${Number(choice.count)||0}명</small></span><strong>${Number(choice.percent)||0}%</strong></div><div class="bar-track"><div class="bar-fill ${c.id}" style="width:${Math.min(100,Math.max(0,Number(choice.percent)||0))}%"></div></div></div>`;}).join('')}<p class="unanswered">아직 고르지 않은 학생 ${Number(item.unanswered)||0}명 · 응답한 학생 기준</p></section>`;}).join('')}</div>`;}
+function teacherComparison(){return `<div class="teacher-visuals teacher-comparison-grid">${COMPARISON_ARTIFACTS.map(a=>{const item=teacherData?.comparison?.find(c=>c.id===a.id)||{respondents:0,total:0,unanswered:0,choices:[]};return `<section class="panel result-panel comparison-result-card" data-comparison-result="${esc(a.id)}"><h2>${esc(a.label)} <small>${Number(item.respondents)||0}명 응답</small></h2><div class="teacher-comparison-viewer viewer-host" data-teacher-comparison-viewer="${esc(a.id)}"></div><div class="comparison-percentages" aria-label="${esc(a.label)}의 나라별 응답">${COUNTRY_CHOICES.map(c=>{const choice=item.choices.find(v=>v.country===c.id)||{percent:0,count:0};return `<div class="bar-row"><div class="row"><span>${esc(c.label)}<small>${Number(choice.count)||0}명</small></span><strong>${Number(choice.percent)||0}%</strong></div><div class="bar-track"><div class="bar-fill ${c.id}" style="width:${Math.min(100,Math.max(0,Number(choice.percent)||0))}%"></div></div></div>`;}).join('')}<p class="unanswered">아직 고르지 않은 학생 ${Number(item.unanswered)||0}명 · 응답한 학생 기준</p></div></section>`;}).join('')}</div>`;}
 function teacherObservations(){
   const item=teacherData?.observations?.find(o=>o.id===teacherObject)||{responses:[],nameWords:[],useWords:[]};
   return `<div class="observation-board"><section class="board-context panel"><span class="activity-label">관찰할 청자</span><div class="object-title"><h2>청자 ${esc(teacherObject)}</h2><span class="object-number">${esc(teacherObject)} / 5</span></div><div class="teacher-observation-viewer viewer-host" data-teacher-viewer="${esc(teacherObject)}"></div><nav class="teacher-object-tabs" aria-label="답변을 볼 청자">${OBSERVATION_ARTIFACTS.map(a=>`<button class="${a.id===teacherObject?'active':''}" data-action="teacher-object" data-id="${a.id}" aria-label="청자 ${a.id} 응답 보기">${a.id}</button>`).join('')}</nav><h3>모양을 보고 짐작해요</h3><p>어디에 쓰던 물건일까요?<br>어떤 이름을 붙이면 좋을까요?</p><span class="anonymous-label">이름 없이 생각을 모아요</span></section><section class="board-canvas panel cloud-layout"><div class="board-toolbar"><div class="board-view-switch" aria-label="모아 볼 답변"><button data-action="cloud-kind" data-kind="name" aria-pressed="${cloudKind==='name'}" class="${cloudKind==='name'?'active':''}">예상한 이름</button><button data-action="cloud-kind" data-kind="use" aria-pressed="${cloudKind==='use'}" class="${cloudKind==='use'?'active':''}">예상한 쓰임</button></div><span class="board-response-count">${item.responses.length}개 생각</span></div><h2 class="board-question">${cloudKind==='name'?'어떤 이름을 붙였나요?':'어디에 썼을까요?'}</h2>${cloudMarkup(cloudKind==='name'?item.nameWords:item.useWords,cloudKind)}<div class="board-caption">많이 나온 생각은 크게, 적게 나온 생각은 작게 보여요.</div></section></div><details class="panel settings-panel response-phrases" data-details="responses" ${responsesOpen?'open':''}><summary>학생들의 생각 그대로 보기 · 익명 ${item.responses.length}개</summary><div class="response-list">${item.responses.length?item.responses.map(r=>`<p>${r.name?`<b>${esc(r.name)}</b>`:''}${esc(r.use||'')}</p>`).join(''):'<p>아직 모인 생각이 없어요.</p>'}</div></details>`;
 }
-function disposeTeacherBoard(){cloudView?.dispose();cloudView=null;teacherViewer?.viewer.dispose();teacherViewer=null;}
+function disposeComparisonViewers(){for(const entry of teacherComparisonViewers.values())entry.viewer.dispose();teacherComparisonViewers.clear();}
+function disposeTeacherBoard(){cloudView?.dispose();cloudView=null;teacherViewer?.viewer.dispose();teacherViewer=null;disposeComparisonViewers();}
 function mountTeacherBoard(){
   cloudView?.dispose();cloudView=null;
+  const comparisonTargets=[...app.querySelectorAll('[data-teacher-comparison-viewer]')];
+  const visibleIds=new Set(comparisonTargets.map(target=>target.dataset.teacherComparisonViewer));
+  for(const [id,entry] of teacherComparisonViewers)if(!visibleIds.has(id)){entry.viewer.dispose();teacherComparisonViewers.delete(id);}
+  // Response updates replace the surrounding cards, while the live canvases, controls,
+  // camera positions and any expanded viewer remain the same objects.
+  for(const target of comparisonTargets){
+    const id=target.dataset.teacherComparisonViewer,artifact=COMPARISON_ARTIFACTS.find(a=>a.id===id),existing=teacherComparisonViewers.get(id);
+    if(!artifact)continue;
+    if(existing?.src===artifact.src)target.replaceWith(existing.element);
+    else{
+      existing?.viewer.dispose();const viewer=mountLessonViewer(target,artifact);
+      // Small statistics cards need the full silhouette visible, including the mouth.
+      const controls=target.querySelector('.lesson-viewer__controls'),expand=target.querySelector('.lesson-viewer__expand');
+      if(controls&&expand)controls.append(expand);
+      teacherComparisonViewers.set(id,{src:artifact.src,element:target,viewer});
+    }
+  }
   const target=app.querySelector('[data-exhibit-viewer], [data-teacher-viewer]');
   if(!target){teacherViewer?.viewer.dispose();teacherViewer=null;return;}
   const exhibit=target.hasAttribute('data-exhibit-viewer'),id=exhibit?target.dataset.exhibitViewer:target.dataset.teacherViewer;
@@ -301,7 +321,20 @@ async function queueSave(final=false){
   }catch(error){if(session!==requestSession)return;saveState='error';saveMessage=error.status===409?error.message:'저장하지 못했어요. 다시 연결하면 이어서 보낼게요.';connectionError=error.status===409?'':error.message;updateSaveStatus();updateConnection();}
   finally{saving=false;if(saveAgain){const nextFinal=finalAgain;saveAgain=false;finalAgain=false;queueSave(nextFinal);}updateSaveStatus();}
 }
-function setCountry(id,value){if(!active(1)||submitted[1])return;drafts[1][id]=value;const select=document.querySelector(`[data-country-for="${id}"]`);if(select){select.value=value;select.classList.toggle('selected',Boolean(value));}changed(1);}
+function setCountry(id,value){
+  if(answerLocked(1)||!COMPARISON_ARTIFACTS.some(a=>a.id===id)||(value!==''&&!COUNTRY_CHOICES.some(c=>c.id===value)))return false;
+  const select=app.querySelector(`[data-country-for="${id}"]`);if(select){select.value=value;select.classList.toggle('selected',Boolean(value));}
+  if(drafts[1][id]!==value){drafts[1][id]=value;changed(1);}return true;
+}
+function selectCountry(value){selectedCountry=value;app.querySelectorAll('[data-country-chip]').forEach(el=>el.setAttribute('aria-pressed',String(el.dataset.countryChip===value)));}
+function clearCountryDrop(){app.querySelectorAll('[data-country-drop].drop-over').forEach(el=>el.classList.remove('drop-over'));}
+function endCountryDrag(){countryDrag=null;clearCountryDrop();}
+function countryDragAllowed(){return countryDrag&&countryDrag.runId===room?.runId&&!answerLocked(1);}
+function hoverCountryDrop(event){
+  const drop=event.target.closest('[data-country-drop]');
+  if(!drop||!countryDragAllowed())return;
+  event.preventDefault();event.dataTransfer.dropEffect='copy';clearCountryDrop();drop.classList.add('drop-over');
+}
 function selectObject(id){if(!OBSERVATION_ARTIFACTS.some(a=>a.id===id))return;clearTimeout(saveTimer);if(dirty[2])queueSave();currentObject=id;renderStudent();}
 function heartbeatGame(){const frame=app.querySelector('.game-frame');if(!frame)return;const enabled=active(3)&&Date.now()-lastSuccessfulPoll<14000;frame.contentWindow?.postMessage({type:'celadon:classroom-state',active:enabled,runId:room.runId,endsAt:room.endsAt,serverNow:now()},location.origin);lastGameActive=enabled;}
 async function sendWork(entry){
@@ -366,8 +399,8 @@ async function control(command,extra={}){
   finally{controlBusy=false;teacherSignature='';render();}
 }
 async function handleClick(event){
-  const chip=event.target.closest('[data-country-chip]');if(chip){selectedCountry=selectedCountry===chip.dataset.countryChip?null:chip.dataset.countryChip;document.querySelectorAll('[data-country-chip]').forEach(el=>el.setAttribute('aria-pressed',String(el.dataset.countryChip===selectedCountry)));if(selectedCountry)toast(`${countryName(selectedCountry)} 이름표를 놓을 도자기의 칸을 눌러 주세요.`);return;}
-  const drop=event.target.closest('[data-country-drop]');if(drop&&selectedCountry&&!submitted[1]){event.preventDefault();setCountry(drop.dataset.countryDrop,selectedCountry);selectedCountry=null;document.querySelectorAll('[data-country-chip]').forEach(el=>el.setAttribute('aria-pressed','false'));return;}
+  const chip=event.target.closest('[data-country-chip]');if(chip){if(answerLocked(1))return;selectCountry(selectedCountry===chip.dataset.countryChip?null:chip.dataset.countryChip);if(selectedCountry)toast(`${countryName(selectedCountry)} 이름표를 놓을 도자기의 칸을 눌러 주세요.`);return;}
+  const drop=event.target.closest('[data-country-drop]');if(drop&&selectedCountry&&!answerLocked(1)&&!event.target.closest('[data-viewer] button,[data-viewer] a')){event.preventDefault();if(setCountry(drop.dataset.countryDrop,selectedCountry))selectCountry(null);return;}
   const button=event.target.closest('[data-action]');if(!button||button.disabled)return;const action=button.dataset.action;if(!actionAllowed(action))return;
   if(['copy-observer','end','new-room','delete-room'].includes(action)){manageOpen=false;button.closest('details')?.removeAttribute('open');}
   try{
@@ -417,10 +450,28 @@ app.addEventListener('input',event=>{
   if(event.target.closest('[data-form=settings]'))settingsDirty=true;
 });
 app.addEventListener('toggle',event=>{if(event.target.dataset.details==='settings')settingsOpen=event.target.open;if(event.target.dataset.details==='participants')participantsOpen=event.target.open;if(event.target.dataset.details==='responses')responsesOpen=event.target.open;if(event.target.dataset.details==='manage')manageOpen=event.target.open;},true);
-app.addEventListener('dragstart',event=>{const chip=event.target.closest('[data-country-chip]');if(chip&&!submitted[1]){event.dataTransfer.setData('text/plain',chip.dataset.countryChip);event.dataTransfer.effectAllowed='copy';}});
-app.addEventListener('dragover',event=>{const drop=event.target.closest('[data-country-drop]');if(drop&&active(1)&&!submitted[1]){event.preventDefault();event.dataTransfer.dropEffect='copy';drop.classList.add('drop-over');}});
-app.addEventListener('dragleave',event=>{event.target.closest('[data-country-drop]')?.classList.remove('drop-over');});
-app.addEventListener('drop',event=>{const drop=event.target.closest('[data-country-drop]');if(!drop)return;event.preventDefault();drop.classList.remove('drop-over');const value=event.dataTransfer.getData('text/plain');if(COUNTRY_CHOICES.some(c=>c.id===value))setCountry(drop.dataset.countryDrop,value);});
+// The whole pottery card accepts a nameplate, including the 3D canvas and native select.
+app.addEventListener('dragstart',event=>{
+  const chip=event.target.closest('[data-country-chip]');if(!chip)return;
+  if(answerLocked(1)){event.preventDefault();return;}
+  countryDrag={value:chip.dataset.countryChip,runId:room.runId};
+  event.dataTransfer.setData('text/plain',countryDrag.value);event.dataTransfer.effectAllowed='copy';
+});
+app.addEventListener('dragenter',hoverCountryDrop);
+app.addEventListener('dragover',hoverCountryDrop);
+app.addEventListener('dragleave',event=>{const drop=event.target.closest('[data-country-drop]');if(drop&&!drop.contains(event.relatedTarget))drop.classList.remove('drop-over');});
+app.addEventListener('drop',event=>{
+  const drop=event.target.closest('[data-country-drop]');if(!drop)return;
+  event.preventDefault();
+  if(countryDragAllowed()&&event.dataTransfer.getData('text/plain')===countryDrag.value&&setCountry(drop.dataset.countryDrop,countryDrag.value))selectCountry(null);
+  endCountryDrag();
+});
+app.addEventListener('dragend',endCountryDrag);
+// A selected chip is placed before a native select opens its popup on pointer down.
+app.addEventListener('pointerdown',event=>{
+  const select=event.target.closest('[data-country-for]');
+  if(select&&selectedCountry&&event.isPrimary&&event.button===0&&!answerLocked(1)){event.preventDefault();if(setCountry(select.dataset.countryFor,selectedCountry))selectCountry(null);}
+});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&session)poll();else if(!teacherMode&&room&&dirty[room.activity])queueSave();});
 window.addEventListener('online',()=>{if(session)poll();});
 window.addEventListener('pageshow',event=>{

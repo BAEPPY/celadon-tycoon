@@ -2,15 +2,15 @@
 
 학생 관찰 화면에서는 작품 이름·나라·시대를 보여 주지 않고 `청자 1`처럼 번호만 표시합니다. 이름을 추론하는 활동의 정답 정보는 브라우저 모듈에 넣지 않았습니다. 교사가 공개할 정보는 저장소 루트의 서버 전용 `lesson-answer-key.js`에 있습니다.
 
-모든 GLB는 기존 파일을 **바이트 단위로 변경 없이 복사**했습니다. 여기서 바꾼 것은 파일 이름뿐이며 형태·무늬·색·재질·원본 메타데이터는 수정하지 않았습니다. SHA-256과 크기는 `provenance.json`에 기록했습니다. 내부 이름(예: 노드·재질 이름, 박물관 번호)이 정답을 알려 주지 않도록 `build.mjs`가 배포용 `dist/` 사본에서만 `name`·`extras`를 지웁니다. 형태·질감·색과 `asset` 정보는 바꾸지 않습니다. 이 수업은 전체 형태와 색, 쓰임을 관찰하는 교육 활동이며 경량 모델로 실측 정확도나 섬세한 새김 깊이를 판단하지 않습니다.
+고려 비교품 `comparison-3.glb`는 사용자가 제공한 OBJ와 사진 질감을 웹용 GLB로 변환했습니다. 나머지 GLB는 기존 파일을 **바이트 단위로 변경 없이 복사**하고 파일 이름만 바꿨습니다. 파일별 원본·변환 방법·SHA-256·크기는 `provenance.json`에 기록했습니다. 내부 이름(예: 노드·재질 이름, 박물관 번호)이 정답을 알려 주지 않도록 `build.mjs`가 배포용 `dist/` 사본에서만 `name`·`extras`를 지웁니다. 형태·질감·색과 `asset` 정보는 바꾸지 않습니다. 이 수업은 전체 형태와 색, 쓰임을 관찰하는 교육 활동이며 경량 모델로 실측 정확도나 섬세한 새김 깊이를 판단하지 않습니다.
 
 ## 활동 1 · 세 나라의 도자기
 
-사용자 박물관 [BAEPPY/minichungjamuseum](https://github.com/BAEPPY/minichungjamuseum)의 커밋 `1af26e11f21928b7935a5432de3d178997558c7e`, `src/comparison-artifacts.js`의 세 작품과 같은 순서입니다. 기존 `public/models/map/`의 경량 GLB를 사용합니다. 경량화는 원본 저장소에서 Blender로 면 수를 줄이고 사진 질감을 최대 512픽셀로 축소한 것이며, 원본의 재질·UV·색상을 유지했습니다.
+일본·원나라 비교품은 사용자 박물관 [BAEPPY/minichungjamuseum](https://github.com/BAEPPY/minichungjamuseum)의 커밋 `1af26e11f21928b7935a5432de3d178997558c7e`, `public/models/map/`의 경량 GLB입니다. 고려 비교품은 2026-11-08 사용자가 제공한 참외모양 병으로 교체했습니다. 나라 순서는 일본·원·고려를 유지합니다.
 
 1. **일본 세토 · 청자 음인각 모란무늬 매병** — 국립중앙박물관 신안11590, 가마쿠라 시대에 일본 세토에서 만든 청자 음인각 모란무늬 매병. [공식 소장품](https://www.museum.go.kr/MUSEUM/contents/M0502000000.do?relicId=1646&schM=view&searchId=search), [원본 다각도 사진 뷰어](https://www.museum.go.kr/relic3D/3D_V2/PS01001001007/011590/viewer.html). 54장의 원본 사진을 참고한 별도 3D 재현입니다. 안쪽과 밑면 등을 추정했으며 실측 스캔이 아닙니다. 박물관 원본 자료의 이용 조건을 따릅니다.
 2. **중국 원나라 · 청자 병** — 작가 미상, 용천요, 1271–1368년, Art Gallery of Hamilton 소장 1976.19.M, Gift of Herman H. Levy, 1976. 스캔: Serena Zena Mak Walk, 2023, Sari-Sari Xchange: Building Asian Diasporic Community Through Emergent Media. [원본 모델](https://sketchfab.com/3d-models/vase-yuan-dynasty-1271-1368-a50b38792b264f18af523dc935dae606), [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/). 원본 사진 질감과 비조명 재질을 유지하며 임의의 청자색을 덧칠하지 않습니다. 원본 박물관 웹 파생본은 8K 사진을 4K JPEG로 축소했으며, 이 경량 파생본은 형태·사진 질감을 추가 경량화했습니다. 이 파일에도 동일한 CC BY-NC-SA 4.0 조건이 적용됩니다.
-3. **고려 · 청자 상감 운학문 매병** — 사용자가 제공한 사진 참고 재현 GLB. 원본 내부 출처는 [firefoxcat](https://firefoxcat.booth.pm/items/6118090)입니다. 특정 소장품 번호·실측 스캔으로 확인된 자료가 아니므로 정확한 제작 연도를 단정하지 않습니다. 원본 자료의 이용 조건을 따릅니다.
+3. **고려 · 청자 상감 모란 국화무늬 참외모양 병** — [국립중앙박물관 덕수20](https://www.museum.go.kr/MUSEUM/contents/M0505000000.do?relicId=958&schM=view&searchId=search), 고려, 공공누리 제1유형(출처표시). 사용자가 제공한 `디지털콘텐츠_OBJ.zip` 안의 `duk000020_000_30000.zip`에서 OBJ·MTL·색상 JPEG를 사용했습니다. 원본의 18,766개 삼각형과 UV를 유지하고, 8192×8192 사진 질감을 4096×4096 JPEG로 줄였습니다. 임의 색을 덧입히지 않으며 비조명 재질로 원본 사진의 색을 보여 줍니다. 원본 Y-up 방향을 유지하고 mm를 m로 바꾸어 바닥을 맞췄습니다. MTL의 오래된 파일명 대신 함께 제공된 실제 JPEG를 연결했습니다. 노멀 맵은 비교 검토 후 추가 조명으로 사진색이 달라지지 않도록 최종 파일에서 제외했습니다. 함께 제공된 `프린트_STL.zip`은 형상 대조에만 사용했습니다. 변환은 `scripts/convert-comparison-3.py`로 재현할 수 있습니다.
 
 ## 활동 2 · 쓰임과 이름 짐작하기
 

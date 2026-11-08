@@ -9,7 +9,7 @@ await copyFile('index.html','dist/game/index.html');
 await cp('assets','dist/assets',{recursive:true});
 // Provenance remains in the repository; the blind observation activity serves only neutral assets.
 await Promise.all(['README.md','provenance.json'].map(file=>rm(`dist/assets/lesson/${file}`,{force:true})));
-// The repository keeps the lesson GLBs byte-identical to their sources (provenance.json). Their node, material and image
+// Lesson GLBs retain their documented source/converted geometry and textures (provenance.json). Their node, material and image
 // names and extras still say what each object is ("Japanese peony vase", "Pillow", museum IDs), which would give away
 // the activity answers, so only the served copies drop them. Geometry, textures and the asset block are unchanged.
 async function stripGlbNames(file){

@@ -1,7 +1,7 @@
 {
   "museumCommit": "1af26e11f21928b7935a5432de3d178997558c7e",
   "gameSourceCommit": "7b5ea0acb9462ca806d21815e1b12192362462af",
-  "method": "Byte-identical copies of existing lightweight models; only lesson filenames are anonymized. No shape, material, texture or metadata edits.",
+  "method": "Per-file provenance: seven byte-identical copies of existing lightweight GLBs and one converted user-supplied OBJ with original UVs and photo texture. See each asset record.",
   "assets": [
     {
       "id": "comparison-1",
@@ -30,16 +30,35 @@
     {
       "id": "comparison-3",
       "file": "comparison-3.glb",
-      "bytes": 410684,
-      "sha256": "074fabc021d3f3ffbf395310ea18e3415e563ad768532f03247b8ad9d943b7f4",
-      "source": "BAEPPY/minichungjamuseum/public/models/map/celadon-maebyeong-v2.glb",
-      "copiedWithoutModification": true,
+      "bytes": 2277956,
+      "sha256": "55d3df595dc4907fe22526158e19e55ff5bcdd063eec62c63722413177437f1e",
+      "source": "User-uploaded 디지털콘텐츠_OBJ.zip / 디지털콘텐츠_OBJ/duk000020_000_30000.zip",
+      "copiedWithoutModification": false,
       "meshes": 1,
       "extensionsUsed": [
-        "KHR_materials_clearcoat",
-        "KHR_materials_specular",
-        "KHR_materials_ior"
-      ]
+        "KHR_materials_unlit"
+      ],
+      "sourceUrl": "https://www.museum.go.kr/MUSEUM/contents/M0505000000.do?relicId=958&schM=view&searchId=search",
+      "sourceInstitution": "국립중앙박물관",
+      "collectionNumber": "덕수20",
+      "license": "공공누리 제1유형(출처표시)",
+      "conversion": {
+        "script": "scripts/convert-comparison-3.py",
+        "triangles": 18766,
+        "verticesWithUVSeams": 10104,
+        "geometry": "All source triangles, vertex normals and UVs retained; Y-up, millimeters to meters, footprint centered, base at Y=0.",
+        "texture": "Original 8192x8192 color JPEG resized to 4096x4096 JPEG quality92; no recoloring. Embedded unlit material preserves photo colors.",
+        "materialRepair": "MTL references unavailable filenames; explicitly bound supplied matching color JPEG. Supplied normal JPEG inspected but unused for unlit export.",
+        "stl": "Provided print STL inspected as a shape reference only; not used for the rendered model."
+      },
+      "sourceHashes": {
+        "디지털콘텐츠_OBJ.zip": "94bb6ec655b11639f11283b8b4e41f682f69de33d3f12bf16af541cf4d75d459",
+        "duk000020_000_30000.zip": "d51d9731c7647e21fb96eb9ffefa09fa02ed1a5270267d812f104646258fae69",
+        "duk000020_000_30000.obj": "a8456b76bd3739520a58b016147cade840a2a151e1a7343eab1f7110c52f8682",
+        "duk000020_000_30000.mtl": "64daaa154c0a2e90613a6dc8ce19a8fa1057b259378e3d6e1f2fc6121d6168fa",
+        "duk000020_000_30000.jpg": "2d575df610d72714820c1571dac9090fc33a383dd20b0e8a6512fafb623e6c9d",
+        "duk000020_000_30000_nor.jpg": "b2bf019498579d8c1611a9e96e9b96c72aefb6c67ae97b64f8e55d87e01a346e"
+      }
     },
     {
       "id": "observation-1",
