@@ -1,3 +1,4 @@
+const {enterGame}=require('./game-entry.cjs');
 /* Run after npm run build + npm start. Uses an isolated browser profile. */
 const assert = require("node:assert/strict");
 const { chromium } = require("playwright");
@@ -32,7 +33,7 @@ async function seed(page, work) {
     { key: KEY, work },
   );
   await page.reload();
-  await page.click("[data-action=start]");
+  await enterGame(page,'start');
   await page.waitForSelector(".illustration-viewport[data-status=ready]");
 }
 async function saved(page) {
@@ -152,7 +153,7 @@ async function fire(page, kind, length) {
       if (r.url().includes(".glb")) glb.push(r.url());
     });
     await page.goto(new URL('/game', base).href);
-    await page.click("[data-action=new-order]");
+    await enterGame(page,'new-order');
     await page.waitForSelector(".counter-scene");
     await page.click("[data-action=accept]");
     assert.equal((await saved(page)).clay.body, true, "body clay is prepared automatically");

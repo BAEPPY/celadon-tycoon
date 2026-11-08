@@ -1,6 +1,7 @@
 /* Run after npm run build + npm start. Uses an isolated browser profile. */
 const assert = require('node:assert/strict');
 const { chromium } = require('playwright');
+const {enterGame}=require('./game-entry.cjs');
 const KEY = 'celadon-tycoon-v2';
 const TITLE = '좋은 청자 위대한 청자';
 const base = process.env.BASE_URL || 'http://127.0.0.1:4173';
@@ -86,7 +87,7 @@ async function checkCover(page, resumable) {
     await page.goto(new URL('/game', base).href);
     await seed(page, null);
     await checkCover(page, false);
-    await page.click('[data-action=new-order]');
+    await enterGame(page,'new-order');
     await page.waitForSelector('.counter-scene');
     const first = await saved(page);
     assert.equal(first.history.length, 1);
@@ -99,14 +100,14 @@ async function checkCover(page, resumable) {
 
     await seed(page, fixture);
     await checkCover(page, true);
-    await page.click('[data-action=start]');
+    await enterGame(page,'start');
     await page.waitForSelector('.illustration-viewport[data-status=ready]');
     assert.equal(await page.locator('.game-window.is-game').count(), 1);
     assert.equal(await page.locator('.illustration-viewport').getAttribute('data-view-frame'), String(draft.viewFrame));
     assert.deepEqual(await saved(page), fixture, 'Resume must retain the complete saved work, history, and gallery');
     await noCharacterGallery(page);
     await page.click('[data-action=home]');
-    await page.click('[data-action=new-order]');
+    await enterGame(page,'new-order');
     await page.waitForSelector('.confirm-popup [data-action=confirm-new-order]');
     assert.deepEqual(await saved(page), fixture, 'Asking to replace the work must not change it yet');
     await page.click('.confirm-popup [data-action=start]');
@@ -114,7 +115,7 @@ async function checkCover(page, resumable) {
     assert.equal(await page.locator('#popup[open]').count(), 0);
     assert.deepEqual(await saved(page), fixture, 'Choosing to continue keeps the saved work');
     await page.click('[data-action=home]');
-    await page.click('[data-action=new-order]');
+    await enterGame(page,'new-order');
     await page.click('.confirm-popup [data-action=confirm-new-order]');
     await page.waitForSelector('.counter-scene');
     const fresh = await saved(page);

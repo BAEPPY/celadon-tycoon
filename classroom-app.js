@@ -35,7 +35,8 @@ let viewKey='',teacherSignature='',pollTimer=null,pollRunning=false,pollFailures
 let saveTimer=null,saving=false,saveAgain=false,finalAgain=false,saveState='ready',saveMessage='',controlBusy=false;
 let settingsDirty=false,settingsOpen=false,participantsOpen=false,responsesOpen=false,manageOpen=false,toastTimer=null;
 let disposed=false,frameRunId='',lastGameActive=null;
-const viewers=[],workImages=new Map(),workImagePending=new Set(),uploadedWorks=new Set(),pendingWorks=new Map(),terminalWorks=new Map();
+const viewers=[],workImages=new Map(),workDesigns=new Map(),workImagePending=new Set(),uploadedWorks=new Set(),pendingWorks=new Map(),terminalWorks=new Map();
+let studentWorkViewerModule;
 let teacherViewer=null,cloudView=null;
 const teacherComparisonViewers=new Map();
 const publicJoinCode=()=>room?.joinCode||session?.code||CLASSROOM_JOIN_CODE;
@@ -142,7 +143,9 @@ function receive(payload,{initial=false}={}){
     student=payload.student||student;
     if(payload.answers){const merged={...answers};for(const n of [1,2]){const incoming=payload.answers[n],current=answers[n],run=room?.runs?.[n];if(incoming&&(incoming.runId!==current?.runId?incoming.runId===run:incoming.clientRevision>=current.clientRevision))merged[n]=incoming;}answers=merged;}
     if(payload.beautyAnswer){const incoming=payload.beautyAnswer,current=answers.beauty,run=answerRun('beauty');if(incoming.runId!==current?.runId?incoming.runId===run||!run:incoming.clientRevision>=current.clientRevision)answers={...answers,beauty:incoming};}
-    for(const work of payload.completedWorks||[])uploadedWorks.add(work.id);
+    // An original local game may upgrade an unexpired photo-only submission once.
+    // Successful uploads still stay in this set; polling never requeues them.
+    for(const work of payload.completedWorks||[])if(work.designVersion===1)uploadedWorks.add(work.id);
     if(initial)initialDrafts();
     else for(const n of ANSWER_KEYS){
       const oldRun=answerRun(n,previous),run=answerRun(n),record=answers[n];
@@ -292,10 +295,51 @@ function teacherWorks(){
 }
 function workDialogMarkup(work){
   const breakdown=Number.isFinite(work.objectiveScore)&&Number.isFinite(work.explanationScore)?`<small>주문·제작 ${work.objectiveScore}점 · 설명 ${work.explanationScore}점</small>`:'';
-  return `<header class="work-dialog-header"><span>작품과 이야기</span><button type="button" class="button secondary small" data-close-work aria-label="작품 크게 보기 닫기">닫기 <span aria-hidden="true">×</span></button></header><div class="work-dialog-body"><div class="work-preview work-dialog-preview" data-work-preview="${esc(workKey(work))}">${workImageMarkup(work)}</div><article class="work-dialog-details">${work.name?`<p class="student-line">${esc(work.number)}번 ${esc(work.name)}</p>`:''}<h2 id="work-dialog-title">${esc(work.title||'나의 청자')}</h2><div class="work-dialog-result"><span>작품 점수</span><strong>${workScore(work)}<small>점</small></strong>${breakdown}</div>${workExplanationMarkup(work)}</article></div>`;
+  return `<header class="work-dialog-header"><span>작품과 이야기</span><button type="button" class="button secondary small" data-close-work aria-label="작품 크게 보기 닫기">닫기 <span aria-hidden="true">×</span></button></header><div class="work-dialog-body"><section class="work-dialog-media" aria-label="완성한 청자 살펴보기"><div class="work-dialog-stage" data-work-viewer><div class="work-preview work-dialog-preview" data-work-preview="${esc(workKey(work))}">${workImageMarkup(work)}</div></div></section><article class="work-dialog-details">${work.name?`<p class="student-line">${esc(work.number)}번 ${esc(work.name)}</p>`:''}<h2 id="work-dialog-title">${esc(work.title||'나의 청자')}</h2><div class="work-dialog-result"><span>작품 점수</span><strong>${workScore(work)}<small>점</small></strong>${breakdown}</div>${workExplanationMarkup(work)}</article></div>`;
+}
+function disposeWorkDialogViewer(current){
+  if(!current)return;current.viewerGeneration=(current.viewerGeneration||0)+1;current.mounting=false;
+  current.viewer?.dispose();current.viewer=null;current.viewerDesign=undefined;
+}
+function currentWorkDialog(current,generation=current?.viewerGeneration){return current&&workDialog===current&&current.dialog.isConnected&&current.viewerGeneration===generation&&teacherData?.works?.some(work=>workKey(work)===current.key&&now()<workExpiresAt(work));}
+function mountWorkPhoto(container,work){
+  container.innerHTML=`<div class="work-photo-viewer"><div class="work-photo-viewport" data-work-preview="${esc(workKey(work))}">${workImageMarkup(work)}</div><div class="work-photo-controls" role="group" aria-label="작품 사진 확대"><button type="button" data-photo-zoom="out" aria-label="작품 사진 축소">−</button><span data-photo-scale aria-live="polite">100%</span><button type="button" data-photo-zoom="in" aria-label="작품 사진 확대">+</button><button type="button" data-photo-zoom="reset">처음 크기</button></div><p class="work-photo-note">회전 정보가 없는 작품은 사진으로 보여 드려요.</p></div>`;
+  const viewport=container.querySelector('.work-photo-viewport'),abort=new AbortController(),options={signal:abort.signal};let zoom=1,x=0,y=0,pointer=null;
+  function paint(){const image=viewport.querySelector('img');if(image)image.style.transform=`translate(${x}px,${y}px) scale(${zoom})`;container.querySelector('[data-photo-scale]').textContent=`${Math.round(zoom*100)}%`;container.querySelector('[data-photo-zoom=out]').disabled=zoom<=1;container.querySelector('[data-photo-zoom=in]').disabled=zoom>=3.5;viewport.classList.toggle('can-pan',zoom>1);}
+  function changeZoom(value){zoom=Math.max(1,Math.min(3.5,value));x=Math.max(-viewport.clientWidth*(zoom-1)/2,Math.min(viewport.clientWidth*(zoom-1)/2,x));y=Math.max(-viewport.clientHeight*(zoom-1)/2,Math.min(viewport.clientHeight*(zoom-1)/2,y));paint();}
+  container.addEventListener('click',event=>{const action=event.target.closest('[data-photo-zoom]')?.dataset.photoZoom;if(action)changeZoom(action==='reset'?1:zoom+(action==='in'?.25:-.25));},options);
+  viewport.addEventListener('wheel',event=>{event.preventDefault();changeZoom(zoom+(event.deltaY<0?.15:-.15));},{...options,passive:false});
+  viewport.addEventListener('pointerdown',event=>{if(event.button!==0||zoom<=1)return;pointer={id:event.pointerId,x:event.clientX,y:event.clientY};viewport.setPointerCapture(event.pointerId);},options);
+  viewport.addEventListener('pointermove',event=>{if(!pointer||pointer.id!==event.pointerId)return;x+=event.clientX-pointer.x;y+=event.clientY-pointer.y;pointer.x=event.clientX;pointer.y=event.clientY;changeZoom(zoom);},options);
+  const end=event=>{if(pointer?.id===event.pointerId){pointer=null;if(viewport.hasPointerCapture(event.pointerId))viewport.releasePointerCapture(event.pointerId);}};
+  viewport.addEventListener('pointerup',end,options);viewport.addEventListener('pointercancel',end,options);paint();
+  return {dispose(){if(pointer&&viewport.hasPointerCapture(pointer.id))viewport.releasePointerCapture(pointer.id);pointer=null;abort.abort();container.replaceChildren();}};
+}
+function fallbackWorkDialogViewer(current,work,design=workDesigns.get(current.key)){
+  if(!currentWorkDialog(current))return;disposeWorkDialogViewer(current);
+  current.viewerDesign=design;
+  current.viewer=mountWorkPhoto(current.dialog.querySelector('[data-work-viewer]'),work);
+}
+async function refreshWorkDialogViewer(){
+  const current=workDialog;if(!currentWorkDialog(current)||current.mounting||!workDesigns.has(current.key))return;
+  const work=teacherData.works.find(item=>workKey(item)===current.key),design=workDesigns.get(current.key);
+  if(current.viewer&&current.viewerDesign===design)return;
+  if(current.viewer)disposeWorkDialogViewer(current);
+  current.viewerDesign=design;
+  if(design?.version!==1){fallbackWorkDialogViewer(current,work);return;}
+  current.mounting=true;const generation=current.viewerGeneration=(current.viewerGeneration||0)+1;
+  try{
+    studentWorkViewerModule||=import('./student-work-viewer.js').catch(error=>{studentWorkViewerModule=null;throw error;});
+    const module=await studentWorkViewerModule;if(!currentWorkDialog(current,generation))return;
+    const host=current.dialog.querySelector('[data-work-viewer]');host.replaceChildren();
+    current.viewer=module.mountStudentWorkViewer(host,design,{onError:()=>queueMicrotask(()=>{if(currentWorkDialog(current,generation))fallbackWorkDialogViewer(current,work,design);})});
+    Promise.resolve(current.viewer.ready).catch(()=>{if(currentWorkDialog(current,generation))fallbackWorkDialogViewer(current,work,design);});
+  }catch{if(currentWorkDialog(current,generation))fallbackWorkDialogViewer(current,work,design);}
+  finally{if(currentWorkDialog(current,generation))current.mounting=false;}
 }
 function closeWorkDialog({restoreFocus=true}={}){
   const current=workDialog;if(!current)return;workDialog=null;
+  disposeWorkDialogViewer(current);
   if(current.dialog.open)current.dialog.close();current.dialog.remove();
   if(restoreFocus){const opener=[...app.querySelectorAll('[data-action="view-work"]')].find(button=>button.dataset.workKey===current.key);opener?.focus({preventScroll:true});}
 }
@@ -304,7 +348,8 @@ function syncWorkDialog(){
   const work=teacherActivity===3&&(teacherData?.works||[]).find(item=>workKey(item)===workDialog.key);
   if(!work){closeWorkDialog({restoreFocus:false});return;}
   const signature=JSON.stringify(work);
-  if(signature!==workDialog.signature){workDialog.signature=signature;workDialog.dialog.innerHTML=workDialogMarkup(work);workDialog.dialog.querySelector('[data-close-work]')?.focus({preventScroll:true});}
+  if(signature!==workDialog.signature){disposeWorkDialogViewer(workDialog);workDialog.signature=signature;workDialog.dialog.innerHTML=workDialogMarkup(work);workDialog.dialog.querySelector('[data-close-work]')?.focus({preventScroll:true});}
+  refreshWorkDialogViewer();
 }
 function openWorkDialog(key){
   if(teacherActivity!==3)return;
@@ -314,7 +359,7 @@ function openWorkDialog(key){
   dialog.innerHTML=workDialogMarkup(work);workDialog={key,dialog,signature:JSON.stringify(work)};
   dialog.addEventListener('close',()=>{if(workDialog?.dialog===dialog)closeWorkDialog();});
   dialog.addEventListener('click',event=>{if(event.target.closest('[data-close-work]'))closeWorkDialog();else if(event.target===dialog){const bounds=dialog.getBoundingClientRect();if(event.clientX<bounds.left||event.clientX>bounds.right||event.clientY<bounds.top||event.clientY>bounds.bottom)closeWorkDialog();}});
-  document.body.append(dialog);dialog.showModal();dialog.querySelector('[data-close-work]').focus();loadWorkImages();
+  document.body.append(dialog);dialog.showModal();dialog.querySelector('[data-close-work]').focus();refreshWorkDialogViewer();loadWorkImages();
 }
 function teacherSettings(){const set=room.settings||DEFAULT_SETTINGS;return `<details class="panel settings-panel" data-details="settings" ${settingsOpen?'open':''}><summary>활동 시간 설정</summary><form data-form="settings"><div class="settings-grid">${[1,2].map(n=>`<label class="duration-field">활동 ${n} 시간 (초)<input type="number" name="duration-${n}" min="5" max="1800" step="1" value="${set.durations?.[n]||DEFAULT_SETTINGS.durations[n]}" required ${effectiveStatus()==='active'?'disabled':''}></label>`).join('')}<label class="duration-field">아름다움 찾기 (초)<input type="number" name="beauty-duration" min="5" max="1800" step="1" value="${set.beautyDuration||90}" required ${effectiveStatus()==='active'?'disabled':''}></label><label class="setting-toggle"><input type="checkbox" name="autoPause" ${set.autoPause!==false?'checked':''} ${effectiveStatus()==='active'?'disabled':''}><span>시간이 끝나면 활동 마무리<small>활동 3은 시간 제한 없이 선생님이 마칠 때까지 이어져요.</small></span></label></div><div class="settings-footer"><span class="settings-open-hint">활동을 시작하기 전에 설정할 수 있어요.</span><button type="submit" class="button secondary small" ${effectiveStatus()==='active'?'disabled':''}>설정 저장</button></div></form></details>`;}
 function participantsMarkup(){const list=teacherData?.participants||[];return `<details class="panel participant-panel" data-details="participants" ${participantsOpen?'open':''}><summary>참여 학생 · ${list.length}명${room.locked?' · 입장 잠김':''}</summary>${entryTools()}<table class="participants-table"><thead><tr><th>번호</th><th>이름</th><th>활동 1</th><th>활동 2</th><th>완성작</th></tr></thead><tbody>${list.length?list.map(p=>`<tr><td>${esc(p.number)}</td><td>${esc(p.name)}${p.released?'<small class="released-tag">다시 입장 대기</small>':''}</td><td class="${p.activity1Complete?'status-ok':'empty-cell'}">${p.activity1Submitted?'제출 완료':p.activity1Complete?'작성 완료':'관찰 중'}</td><td class="${p.activity2Complete?'status-ok':'empty-cell'}">${p.activity2Submitted?'제출 완료':p.activity2Complete?'작성 완료':'관찰 중'}</td><td>${p.completedWorkCount||0}점</td></tr>`).join(''):'<tr><td colspan="5" class="empty-cell">학생들에게 수업 코드를 알려 주세요.</td></tr>'}</tbody></table></details>`;}
@@ -349,6 +394,7 @@ function pruneTeacherWorks(){
   const works=teacherData.works||[],kept=works.filter(work=>Number.isFinite(work.submittedAt)&&now()<workExpiresAt(work));
   const currentKeys=new Set(kept.map(workKey));
   for(const key of workImages.keys())if(!currentKeys.has(key))workImages.delete(key);
+  for(const key of workDesigns.keys())if(!currentKeys.has(key))workDesigns.delete(key);
   if(kept.length===works.length)return false;
   // The settings form can defer a board rerender; expired images and text must still leave the DOM now.
   for(const preview of app.querySelectorAll('.work-card [data-work-preview]'))if(!currentKeys.has(preview.dataset.workPreview))preview.closest('.work-card')?.remove();
@@ -358,7 +404,7 @@ function pruneLocalGameData(){try{pruneGameSaves(localStorage);}catch{}}
 async function loadWorkImages(){
   const requestSession=session;
   for(const work of teacherData?.works||[]){
-    const key=workKey(work);if(workImages.has(key)||workImagePending.has(key))continue;
+    const key=workKey(work),designReady=workDesigns.has(key)&&(!work.designVersion||workDesigns.get(key)?.version===work.designVersion);if(workImages.has(key)&&designReady||workImagePending.has(key))continue;
     workImagePending.add(key);
     try{
       const value=await api('artwork',{body:{participantId:work.participantId,workId:work.id}});
@@ -366,9 +412,11 @@ async function loadWorkImages(){
       if(!teacherData?.works?.some(current=>workKey(current)===key)||now()>=workExpiresAt(work))continue;
       if(typeof value.preview==='string'&&/^data:image\/(png|webp);base64,/.test(value.preview)){
         workImages.set(key,value.preview);
+        workDesigns.set(key,value.design?.version===1?value.design:null);
         for(const container of document.querySelectorAll('[data-work-preview]'))if(container.dataset.workPreview===key){
           const image=document.createElement('img');image.src=value.preview;image.alt=work.name?`${work.number}번 ${work.name} 학생의 완성한 청자`:'학생의 완성한 청자';container.querySelector('.image-wait')?.replaceWith(image);
         }
+        refreshWorkDialogViewer();
       }
     }catch{
       for(const container of document.querySelectorAll('[data-work-preview]'))if(container.dataset.workPreview===key&&container.querySelector('.image-wait'))container.querySelector('.image-wait').textContent='작품 사진을 다시 불러올게요.';
@@ -380,7 +428,7 @@ function resetRoom({keepTeacherKey=false}={}){
   heartbeatGame();disposeViewers();disposeTeacherBoard();clearTimeout(pollTimer);clearTimeout(saveTimer);session=null;room=null;teacherData=null;student=null;answers={};
   drafts={1:{},2:{},beauty:{}};revisions={1:0,2:0,beauty:0};dirty={1:false,2:false,beauty:false};draftChanges={1:0,2:0,beauty:0};submitted={1:false,2:false,beauty:false};teacherA1View='comparison';
   viewKey='';teacherSignature='';currentObject='1';teacherActivity=1;teacherObject='1';selectedCountry=null;cloudKind='name';settingsDirty=false;connectionError='';
-  uploadedWorks.clear();clearPendingWorks();terminalWorks.clear();workImages.clear();workImagePending.clear();if(teacherMode){if(!keepTeacherKey)store(SESSION_KEY,null);}else clearActiveStudentSession();
+  uploadedWorks.clear();clearPendingWorks();terminalWorks.clear();workImages.clear();workDesigns.clear();workImagePending.clear();if(teacherMode){if(!keepTeacherKey)store(SESSION_KEY,null);}else clearActiveStudentSession();
 }
 function render(){if(!session||!room)return renderWelcome();if(teacherMode)renderTeacher();else renderStudent();}
 function updateTimer(){

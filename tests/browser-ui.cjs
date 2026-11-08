@@ -1,3 +1,4 @@
+const {enterGame}=require('./game-entry.cjs');
 /* UI regressions: first entry, prepared clay, inline models, typography and help. */
 const assert=require('node:assert/strict');
 const {chromium}=require('playwright');
@@ -36,7 +37,7 @@ async function layout(page,stage,problems){
   for(const [width,height] of sizes){
    const page=await browser.newPage({viewport:{width,height}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
    await page.goto(new URL('/game',base).href);await page.evaluate(()=>document.fonts.ready);await layout(page,`${width} cover`,problems);
-   assert.equal(await page.locator('[data-action=start]').count(),0);await page.click('[data-action=new-order]');await page.click('[data-action=accept]');
+   assert.equal(await page.locator('[data-action=start]').count(),0);await enterGame(page,'new-order');await page.click('[data-action=accept]');
    await page.waitForSelector('.clay-scene');const initial=(await saved(page)).draft;
    assert.equal(initial.clay.body,true,'body clay is automatically ready');assert.equal(await page.locator('[data-clay]').count(),0,'no redundant clay selection');assert.equal(await page.locator('.knead-pad svg image[href="./assets/clay/kneading-states.png"]').count()>0,true);
    await layout(page,`${width} clay`,problems);if(width===1024||width===1366)await page.screenshot({path:`/tmp/ui-clay-${width}.png`});
@@ -46,18 +47,18 @@ async function layout(page,stage,problems){
    await page.waitForFunction(()=>[...document.querySelectorAll('.variant-card img')].every(img=>img.complete&&img.naturalWidth>0));await layout(page,`${width} variants`,problems);if(width===1024||width===1366)await page.screenshot({path:`/tmp/ui-variants-${width}.png`});
    await page.click('[data-model=duckIncense]');await page.waitForSelector('.illustration-viewport[data-status=ready]');assert.equal((await saved(page)).draft.modelId,'duckIncense');assert.equal(await page.locator('.variant-shelf').count(),0);await layout(page,`${width} selected duck`,problems);
    const existing=await saved(page);existing.draft={...existing.draft,step:1,knead:3,stationView:'game',sculpt:{fraction:1,complete:true},decorPhase:0,decorDone:false};
-   await page.evaluate(({key,state})=>localStorage.setItem(key,JSON.stringify(state)),{key:KEY,state:existing});await page.reload();await page.click('[data-action=start]');await page.waitForSelector('.decoration-scene');await page.waitForSelector('.illustration-viewport[data-status=ready]');await layout(page,`${width} decoration`,problems);
+   await page.evaluate(({key,state})=>localStorage.setItem(key,JSON.stringify(state)),{key:KEY,state:existing});await page.reload();await enterGame(page,'start');await page.waitForSelector('.decoration-scene');await page.waitForSelector('.illustration-viewport[data-status=ready]');await layout(page,`${width} decoration`,problems);
    for(const id of ['inlay','openwork','plain']){
     const button=page.locator(`.help-dot[aria-describedby="tip-${id}"]`),tip=page.locator(`#tip-${id}`);await button.hover();await tip.waitFor({state:'visible'});assert.ok((await tip.innerText()).length>10);let b=await tip.boundingBox();assert.ok(b.x>=0&&b.y>=0&&b.x+b.width<=width&&b.y+b.height<=height,'tooltip fits viewport');
     await page.mouse.move(5,5);await button.focus();await tip.waitFor({state:'visible'});assert.equal(await button.evaluate(el=>document.activeElement===el),true,'tooltip available on keyboard focus');
    }
    await page.locator('[data-action=home]').focus();await page.mouse.move(5,5);if(width===1024||width===1366)await page.screenshot({path:`/tmp/ui-decoration-${width}.png`});
-   if(width===1024){const longOrder=await saved(page);longOrder.draft={...longOrder.draft,orderId:'example-plumBambooMaebyeong',shape:'maebyeong',modelId:'plumBambooMaebyeong'};await page.evaluate(({key,state})=>localStorage.setItem(key,JSON.stringify(state)),{key:KEY,state:longOrder});await page.reload();await page.click('[data-action=start]');await page.waitForSelector('.illustration-viewport[data-status=ready]');}
+   if(width===1024){const longOrder=await saved(page);longOrder.draft={...longOrder.draft,orderId:'example-plumBambooMaebyeong',shape:'maebyeong',modelId:'plumBambooMaebyeong'};await page.evaluate(({key,state})=>localStorage.setItem(key,JSON.stringify(state)),{key:KEY,state:longOrder});await page.reload();await enterGame(page,'start');await page.waitForSelector('.illustration-viewport[data-status=ready]');}
    await page.click('[data-tool=draw]');await page.waitForSelector('#drawing-label');await layout(page,`${width} drawing controls`,problems);
    if(width===1024)await page.screenshot({path:'/tmp/ui-drawing-1024.png'});
    // Firing displays the pot without exposing decoration/rotation input.
    const kilnState=await saved(page);kilnState.draft={...kilnState.draft,step:2,stationView:'game',decorPhase:2,decorDone:true,firing:[]};
-   await page.evaluate(({key,state})=>localStorage.setItem(key,JSON.stringify(state)),{key:KEY,state:kilnState});await page.reload();await page.click('[data-action=start]');await page.waitForSelector('.kiln-scene .illustration-viewport[data-status=ready]');
+   await page.evaluate(({key,state})=>localStorage.setItem(key,JSON.stringify(state)),{key:KEY,state:kilnState});await page.reload();await enterGame(page,'start');await page.waitForSelector('.kiln-scene .illustration-viewport[data-status=ready]');
    const vessel=page.locator('.illustration-viewport>canvas');await page.waitForTimeout(120);
    const beforePixels=await vessel.evaluate(c=>c.toDataURL()),beforeState=(await saved(page)).draft;
    assert.equal(await vessel.getAttribute('tabindex'),'-1');assert.equal(await page.locator('.illustration-viewport').evaluate(el=>el.inert),true);assert.equal(await page.locator('.vessel-turns').isVisible(),false);
@@ -66,7 +67,7 @@ async function layout(page,stage,problems){
    assert.deepEqual((await saved(page)).draft,beforeState,'kiln display input cannot change work or view frame');assert.equal(await vessel.evaluate(c=>c.toDataURL()),beforePixels,'kiln clicks must not pulse, tilt or rotate');assert.equal(await vessel.evaluate(c=>document.activeElement===c),false,'kiln pot must not receive focus outline');await layout(page,`${width} kiln display`,problems);
    if(width===1024){
     await page.click('[data-fire=dry]');const mini=page.locator('.kiln-gesture-canvas'),mb=await mini.boundingBox();await page.mouse.move(mb.x+mb.width*.12,mb.y+mb.height*.27);await page.mouse.down();await page.mouse.move(mb.x+mb.width*.88,mb.y+mb.height*.27,{steps:12});await page.mouse.up();assert.ok(Number(await page.locator('.minigame-overlay').getAttribute('data-progress'))>0,'fan mini-game remains interactive beside inert vessel');await page.click('[data-mini=cancel]');
-    const glazeState=await saved(page);glazeState.draft.firing=['dry','biscuit'];await page.evaluate(({key,state})=>localStorage.setItem(key,JSON.stringify(state)),{key:KEY,state:glazeState});await page.reload();await page.click('[data-action=start]');await page.waitForSelector('.illustration-viewport[data-status=ready]');await page.click('[data-fire=glaze]');const gb=await page.locator('.kiln-gesture-canvas').boundingBox();await page.mouse.move(gb.x+gb.width*.28,gb.y+gb.height*.5);await page.mouse.down();await page.mouse.move(gb.x+gb.width*.72,gb.y+gb.height*.5,{steps:12});await page.mouse.up();assert.ok(Number(await page.locator('.minigame-overlay').getAttribute('data-progress'))>0,'glaze mini-game remains interactive');await page.click('[data-mini=cancel]');
+    const glazeState=await saved(page);glazeState.draft.firing=['dry','biscuit'];await page.evaluate(({key,state})=>localStorage.setItem(key,JSON.stringify(state)),{key:KEY,state:glazeState});await page.reload();await enterGame(page,'start');await page.waitForSelector('.illustration-viewport[data-status=ready]');await page.click('[data-fire=glaze]');const gb=await page.locator('.kiln-gesture-canvas').boundingBox();await page.mouse.move(gb.x+gb.width*.28,gb.y+gb.height*.5);await page.mouse.down();await page.mouse.move(gb.x+gb.width*.72,gb.y+gb.height*.5,{steps:12});await page.mouse.up();assert.ok(Number(await page.locator('.minigame-overlay').getAttribute('data-progress'))>0,'glaze mini-game remains interactive');await page.click('[data-mini=cancel]');
    }
    problems.push(...errors.map(e=>`${width} runtime: ${e}`));console.log(`${width}×${height}: fresh order, auto clay, six kneads, real empty clay, incense variants, duck model, technique help, inert kiln display checked`);await page.close();
   }

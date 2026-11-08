@@ -1,0 +1,35 @@
+/* Larger controls share one stable header row on classroom laptops. */
+.game-window.shop-game,.game-window.shop-game.is-cover{grid-template-rows:74px minmax(0,1fr)}
+.shop-game .hud{height:74px;padding:8px 14px;gap:16px}
+.shop-game .mini-logo{font-size:27px;line-height:1.12;flex:none}
+.shop-game .mini-logo span{font-size:18px;line-height:1.2}
+.shop-game .hud-tools{gap:8px}
+.shop-game .hud-tools button{height:46px;min-width:46px;padding:7px 12px;font-size:19px}
+.shop-game .hud-stats{font-size:17px;gap:12px;white-space:nowrap}
+.shop-game .shift-status{font-size:18px;padding:8px 12px;min-width:120px}
+.tutorial-popup[open]{display:flex;flex-direction:column;gap:0;width:min(1160px,calc(100vw - 28px));height:calc(100dvh - 28px);padding:18px 24px;max-height:calc(100dvh - 24px);overflow:hidden}
+.tutorial-popup h2{font-size:27px;margin:0 0 7px}
+.tutorial-popup .tutorial-intro{font-size:17px;margin:0 0 9px;line-height:1.4}
+.tutorial-content{flex:1;min-height:0;overflow:auto;border:1px solid #d4b99a;border-radius:10px;background:#f4e5cc;scrollbar-gutter:stable}
+.tutorial-content:focus-visible{outline:3px solid #5b7f5b;outline-offset:2px}
+.tutorial-process{display:block;width:100%;height:auto;filter:none}
+.tutorial-steps{display:grid;grid-template-columns:1fr 1fr;gap:9px 28px;margin:0;padding:18px 22px 18px 42px;background:#fff8e8;font-size:16px;line-height:1.4}
+.tutorial-popup .tutorial-inlay-tip{font-size:16px;line-height:1.45;margin:9px 0}
+.tutorial-footer{display:flex;align-items:center;justify-content:flex-end;gap:22px}
+.tutorial-download{margin-right:auto;font-size:16px;color:#527459;text-underline-offset:3px;white-space:nowrap}
+.tutorial-check{display:flex;align-items:center;gap:9px;font-size:21px;cursor:pointer}
+.tutorial-check input{width:24px;height:24px;accent-color:#5b7f5b}
+.tutorial-footer .primary{font-size:21px;min-height:46px;min-width:170px}
+.tutorial-footer .primary:disabled{opacity:.45;cursor:not-allowed}
+.counter-walker{position:absolute;left:3%;bottom:-35%;height:125%;aspect-ratio:.5;z-index:2;background-image:var(--walk-sheet);background-size:400% 100%;background-repeat:no-repeat;background-position:0 50%;pointer-events:none;transform:translateX(-140%)}
+.counter-walker[data-walk-character=king]{scale:1.24}
+.counter-walker[data-walk-character=artisan]{scale:1.34}
+.counter-scene:not([data-customer-arrival=walking]) .counter-walker{display:none}
+.counter-scene:is([data-customer-arrival=waiting],[data-customer-arrival=walking]) .counter-person,
+.counter-scene:is([data-customer-arrival=waiting],[data-customer-arrival=walking]) .counter-dialogue{visibility:hidden;pointer-events:none}
+.customer-arrival-status{position:absolute;left:36%;right:8%;top:31%;z-index:5;padding:18px 24px;background:#fff7e7e8;border:2px solid #a77c6b;border-radius:18px;font-size:24px;line-height:1.45;text-align:center;color:#795650}
+.customer-arrival-status[hidden]{display:none}
+@media(max-width:1100px){.shop-game .hud{gap:10px;padding:8px 12px}.shop-game .mini-logo{font-size:25px}.shop-game .mini-logo span{font-size:17px}.shop-game .hud-tools button{font-size:17px;padding:6px 10px}.shop-game .hud-stats{font-size:16px;gap:9px}.shop-game .shift-status{font-size:16px;min-width:108px;padding:8px 10px}}
+@media(max-height:650px){.game-window.shop-game,.game-window.shop-game.is-cover{grid-template-rows:68px minmax(0,1fr)}.shop-game .hud{height:68px}.tutorial-popup[open]{padding:14px 20px}.tutorial-popup h2{font-size:24px}.tutorial-popup .tutorial-intro{font-size:16px}.tutorial-popup .tutorial-inlay-tip{font-size:15px;margin:7px 0}.tutorial-footer .primary{min-height:42px;font-size:19px}.tutorial-check{font-size:19px}}
+@media(max-width:760px){.shop-game .hud-stats{display:none}.shop-game .shift-status{display:none}.shop-game .hud-tools{margin-left:auto;gap:5px}.shop-game .hud-tools button{font-size:15px;padding:5px 7px;min-width:36px;height:42px}.shop-game .mini-logo{font-size:21px}.shop-game .mini-logo span{font-size:14px}.tutorial-popup{padding:15px}.tutorial-footer{gap:12px;justify-content:space-between}.tutorial-check{font-size:18px}.tutorial-footer .primary{min-width:130px;font-size:18px}.customer-arrival-status{left:24%;right:6%;font-size:20px}}
+@media(max-width:500px){.tutorial-popup[open]{padding:12px}.tutorial-popup h2{font-size:22px}.tutorial-footer{flex-wrap:wrap;gap:8px 12px}.tutorial-download{flex-basis:100%;font-size:15px}.tutorial-check{font-size:17px}.tutorial-footer .primary{font-size:17px}.tutorial-steps{grid-template-columns:1fr}}

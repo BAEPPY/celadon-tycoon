@@ -1,3 +1,4 @@
+const {enterGame}=require('./game-entry.cjs');
 /* Run against the real local /api/assess route; no mocked scoring response. */
 const assert = require('node:assert/strict');
 const {chromium} = require('playwright');
@@ -20,7 +21,7 @@ async function saved(page) {return page.evaluate(key => JSON.parse(localStorage.
 async function seed(page, draft) {
   await page.goto(new URL('/game', base).href);
   await page.evaluate(({key,draft}) => localStorage.setItem(key, JSON.stringify({history:[draft.orderId],gallery:[],draft})), {key:KEY,draft});
-  await page.reload();await page.click('[data-action=start]');await page.waitForSelector('.counter-scene');
+  await page.reload();await enterGame(page,'start');await page.waitForSelector('.counter-scene');
 }
 (async () => {
   const browser = await chromium.launch({headless:true,...(process.env.CHROMIUM_PATH ? {executablePath:process.env.CHROMIUM_PATH} : {}),args:['--no-sandbox']});

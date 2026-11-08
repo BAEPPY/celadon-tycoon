@@ -18,7 +18,7 @@ export function classroomStorageKey(href) {
   return context ? `${BASE_KEY}:classroom:${context.room}:${context.student}${context.run ? `:run:${context.run}` : ''}` : BASE_KEY;
 }
 
-// Transfer only the fields needed for the completed work and its rubric. Names,
+// Transfer only the fields needed for the completed work, its rendering and rubric. Names,
 // lesson credentials, drafts and unrelated browser data never enter this packet.
 export function classroomWorkPayload(work) {
   if (!work || work.step !== 4 || typeof work.id !== 'string' || !work.id) return null;
@@ -53,6 +53,8 @@ export function classroomWorkPayload(work) {
   }
   result.selfUse = work.selfUse === true;
   result.selfBeauty = work.selfBeauty === true;
+  const design = sanitizeWorkDesign(work);
+  if (design) result.design = design;
   return result;
 }
 
@@ -153,3 +155,4 @@ export function createClassroomGameBridge({onPause = () => {}, onResume = () => 
     dispose() {disposed = true;clearInterval(clock);abort.abort();overlay.remove();pending.clear();}};
 }
 import {assessmentInput} from './assessment-rules.js';
+import {sanitizeWorkDesign} from './work-design.js';

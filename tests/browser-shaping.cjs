@@ -1,3 +1,4 @@
+const {enterGame}=require('./game-entry.cjs');
 /* npm run build; run with BASE_URL and CHROMIUM_PATH as in browser-workshop.cjs. */
 const assert = require('node:assert/strict');
 const { chromium } = require('playwright');
@@ -18,7 +19,7 @@ async function enter(page, work) {
   await page.evaluate(({key, work}) => localStorage.setItem(key,
     JSON.stringify({history: ['royal-rest'], gallery: [], draft: work})), {key: KEY, work});
   await page.reload();
-  await page.click('[data-action=start]');
+  await enterGame(page,'start');
   await page.waitForFunction(() => JSON.parse(document.querySelector('.sculpt-canvas')?.dataset.current || '[]').length === 40);
 }
 async function points(canvas, kind) {
@@ -71,7 +72,7 @@ async function pull(page, canvas, index) {
         const afterFreeDrag = await saved(page);
         assert.equal(await page.locator('[data-action=next-shape]').isDisabled(), true);
         await page.reload();
-        await page.click('[data-action=start]');
+        await enterGame(page,'start');
         await page.waitForFunction(() => Boolean(document.querySelector('.sculpt-canvas')?.dataset.current));
         assert.ok((await saved(page)).sculpt.points.every((p,i) => p.every((v,j) => Math.abs(v-afterFreeDrag.sculpt.points[i][j]) < 1e-10)), 'reload preserves local deformations');
         // Test rescaling on a contour inside the workspace; a deliberately far-out grip is safely clamped at a smaller boundary.

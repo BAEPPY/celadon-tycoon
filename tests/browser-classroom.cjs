@@ -1,3 +1,4 @@
+const {enterGame}=require('./game-entry.cjs');
 /* Real HTTP/file-store integration. Run after npm run build against server.mjs. */
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
@@ -171,7 +172,7 @@ async function capture(page, label) {
     const gameB=studentB.frameLocator('iframe');
     const fullyVisible=async locator=>assert.equal(await locator.evaluate(element=>{const rect=element.getBoundingClientRect();return rect.left>=0&&rect.top>=0&&rect.right<=innerWidth+1&&rect.bottom<=innerHeight+1;}),true,'game action remains fully visible in the Chromebook iframe');
     await fullyVisible(gameB.locator('[data-action=new-order]'));
-    await gameB.locator('[data-action=new-order]').click();
+    await enterGame(gameB,'new-order');
     await fullyVisible(gameB.locator('[data-action=accept]'));await gameB.locator('[data-action=accept]').click();
     await gameB.locator('.knead-pad').focus();for(let i=0;i<6;i++)await gameB.locator('.knead-pad').press('Space');
     assert.equal(await gameB.locator('[data-action=clay-ready]').isEnabled(),true);

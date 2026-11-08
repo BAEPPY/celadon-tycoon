@@ -122,7 +122,9 @@ async function loadIllustration(id, frame = null) {
 
 // Illustration-only deformation. No WebGL, 3D geometry, lighting, or Cubism SDK.
 export class Craft2D {
-  constructor(onMark, onStroke, onError, onView) {
+  constructor(onMark, onStroke, onError, onView, {readOnly = false} = {}) {
+    this.readOnly = readOnly;
+    this.zoom = 1;
     this.onView = onView;
     this.interactive = true;
     this.onMark = onMark;
@@ -225,8 +227,9 @@ export class Craft2D {
   }
   mount(container, work, stage) {
     container.replaceChildren(this.el);
-    this.update(work, stage);
+    const ready = this.update(work, stage);
     this.size();
+    return ready;
   }
   async update(work, stage) {
     this.glaze = 0;
@@ -238,7 +241,9 @@ export class Craft2D {
     this.el.inert = !this.interactive;
     this.el.dataset.interactive = String(this.interactive);
     this.canvas.tabIndex = this.interactive ? 0 : -1;
-    this.canvas.setAttribute("aria-label", this.interactive
+    this.canvas.setAttribute("aria-label", this.readOnly
+      ? "완성한 학생 작품. 좌우로 드래그하거나 방향키로 돌려보세요. 더하기와 빼기로 확대하거나 축소할 수 있어요."
+      : this.interactive
       ? "손그림 도자기 작업대. 표면을 눌러 무늬를 찍거나 드래그해 그리세요."
       : "가마 작업 중인 도자기");
     if (!this.interactive) {
@@ -311,14 +316,14 @@ export class Craft2D {
       : null;
     if (layout) {
       const scale = Math.min(
-        (this.canvas.height * 0.74) / layout.maxHeight,
+        (this.canvas.height * (this.readOnly ? .84 : .74)) / layout.maxHeight,
         (this.canvas.width * 0.83) / (layout.maxWidth * (this.work.width || 1)),
       );
       const h = 640 * scale,
         w = h * (this.work.width || 1);
       this.box = {
         x: (this.canvas.width - w) / 2,
-        y: this.canvas.height * 0.86 - layout.baseline * scale,
+        y: this.canvas.height * (this.readOnly ? .92 : .86) - layout.baseline * scale,
         width: w,
         height: h,
       };
@@ -327,17 +332,25 @@ export class Craft2D {
           (this.source.pixels.width / this.source.pixels.height) *
           (this.work.width || 1),
         h = Math.min(
-          this.canvas.height * 0.77,
+          this.canvas.height * (this.readOnly ? .84 : .77),
           (this.canvas.width * 0.79) / aspect,
         ),
         w = h * aspect;
       this.box = {
         x: (this.canvas.width - w) / 2,
-        y: this.canvas.height * 0.86 - h,
+        y: this.canvas.height * (this.readOnly ? .92 : .86) - h,
         width: w,
         height: h,
       };
     }
+    if (this.zoom !== 1) {
+      const centerX=this.canvas.width/2, centerY=this.canvas.height/2;
+      this.box.x=centerX+(this.box.x-centerX)*this.zoom;
+      this.box.y=centerY+(this.box.y-centerY)*this.zoom;
+      this.box.width*=this.zoom;
+      this.box.height*=this.zoom;
+    }
+    this.el.dataset.zoom = String(this.zoom);
     this.el.dataset.objectBox = JSON.stringify([
       this.box.x / this.canvas.width,
       this.box.y / this.canvas.height,
@@ -345,6 +358,12 @@ export class Craft2D {
       this.box.height / this.canvas.height,
     ]);
     this.dirty = true;
+  }
+  setZoom(value) {
+    const zoom=Number(value);
+    this.zoom=Number.isFinite(zoom)?clamp(zoom,.65,2.5):1;
+    this.fitCamera();
+    return this.zoom;
   }
 
   deform() {
@@ -485,7 +504,7 @@ export class Craft2D {
       return;
     this.work.viewFrame = wrapFrame(frame);
     this.stampPreview = null;
-    this.sway = this.motion ? 0 : 0.012;
+    this.sway = this.readOnly || this.motion ? 0 : 0.012;
     this.onView?.();
     await this.update(this.work, this.stage);
   }
@@ -708,6 +727,7 @@ export class Craft2D {
   }
   editable() {
     return (
+      !this.readOnly &&
       this.el.dataset.status === "ready" &&
       this.work?.step === 1 &&
       !this.work.inlayMode && !this.work.inlay &&
@@ -745,7 +765,7 @@ export class Craft2D {
     if (!this.interactive || !this.source || this.el.dataset.status !== "ready") return;
     this.canvas.focus({ preventScroll: true });
     const hit = this.hit(e);
-    if (!hit) return;
+    if (!hit && !this.readOnly) return;
     e.preventDefault();
     this.canvas.setPointerCapture(e.pointerId);
     this.drag = {
@@ -791,8 +811,8 @@ export class Craft2D {
     this.drag = null;
     this.stroke = null;
     this.stampPreview = null;
-    this.pulse = 0.65;
-    this.sway = this.motion ? 0 : 0.015;
+    this.pulse = this.readOnly ? 0 : 0.65;
+    this.sway = this.readOnly || this.motion ? 0 : 0.015;
     if (points) {
       if (this.work.tool === "draw") {
         if (points.length > 1)

@@ -1,3 +1,4 @@
+const {enterGame}=require('./game-entry.cjs');
 /* Run against a built app. The browser clock covers 24 hours without waiting. */
 const assert = require('node:assert/strict');
 const {chromium} = require('playwright');
@@ -62,14 +63,14 @@ async function focus(page) {await page.evaluate(() => dispatchEvent(new Event('f
     await page.goto(new URL('/game', base).href);
     await cover(page, false);
 
-    await page.click('[data-action=new-order]');
+    await enterGame(page,'new-order');
     await page.locator('.counter-scene').waitFor();
     assert.equal((await stored(page)).draft.accepted, false);
     await page.click('[data-action=home]');
     await cover(page, false);
     await page.reload();
     await cover(page, false);
-    await page.click('[data-action=new-order]');
+    await enterGame(page,'new-order');
     await page.click('[data-action=accept]');
     await page.locator('.clay-scene').waitFor();
     await page.click('[data-action=home]');
@@ -86,7 +87,7 @@ async function focus(page) {await page.evaluate(() => dispatchEvent(new Event('f
     await focus(page);
     await cover(page, true);
     assert.deepEqual(await stored(page), {...fixture, retentionStartedAt: started});
-    await page.click('[data-action=start]');
+    await enterGame(page,'start');
     await page.locator('.clay-scene').waitFor();
     await page.click('[data-action=home]');
     assert.equal((await stored(page)).retentionStartedAt, started);
@@ -151,7 +152,7 @@ async function focus(page) {await page.evaluate(() => dispatchEvent(new Event('f
     await write(page, {[KEY]: {...fixture, retentionStartedAt: periodicTime}});
     await page.reload();
     await cover(page, true);
-    await page.click('[data-action=start]');
+    await enterGame(page,'start');
     await page.locator('.clay-scene').waitFor();
     await setTime(page, periodicTime + DAY);
     await page.clock.fastForward(61000);
@@ -181,7 +182,7 @@ async function focus(page) {await page.evaluate(() => dispatchEvent(new Event('f
     };
     await teacherState(true);
     await cover(frame, true);
-    await frame.click('[data-action=start]');
+    await enterGame(frame,'start');
     await frame.locator('.clay-scene').waitFor();
     await teacherState(false);
     assert.equal((await stored(frame, CLASSROOM_KEY)).draft.id, draft.id);
@@ -189,7 +190,7 @@ async function focus(page) {await page.evaluate(() => dispatchEvent(new Event('f
     await teacherState(true);
     await cover(frame, false);
     assert.equal(await stored(frame, CLASSROOM_KEY), null);
-    await frame.click('[data-action=new-order]');
+    await enterGame(frame,'new-order');
     await frame.locator('.counter-scene').waitFor();
     assert.notEqual((await stored(frame, CLASSROOM_KEY)).draft.id, draft.id);
     assert.equal((await stored(frame, CLASSROOM_KEY)).retentionStartedAt, NOW + DAY);
