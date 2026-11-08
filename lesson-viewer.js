@@ -1,6 +1,7 @@
 // Observation-only 3D viewer. The public artifact contains neutral labels,
 // never the country, object name, date, use, or the teacher's answer key.
 import {createArtifactOpening} from './artifact-opening.js';
+import {applyArtifactTextureQuality, resizeArtifactRenderer, createArtifactShadow} from './artifact-render-quality.js';
 const mounted = new WeakMap();
 let libraries;
 let viewerNumber = 0;
@@ -62,7 +63,7 @@ function releaseObject(object) {
  * getExpandedInfo may return information already revealed by the server. Without
  * it the enlarged view only offers neutral observation prompts.
  */
-export function mountLessonViewer(container, artifact, {expand = true, getExpandedInfo, openingState = {open: false}} = {}) {
+export function mountLessonViewer(container, artifact, {expand = true, getExpandedInfo, openingState = {open: false}, detail = false} = {}) {
   if (!(container instanceof HTMLElement)) throw new TypeError('A viewer container is required.');
   if (!artifact || typeof artifact.src !== 'string') throw new TypeError('An artifact source is required.');
   mounted.get(container)?.dispose();
@@ -214,7 +215,7 @@ export function mountLessonViewer(container, artifact, {expand = true, getExpand
     closeExpandedViewer = closeExpanded;
     expandButton.setAttribute('aria-expanded', 'true');
     dialog.showModal();
-    expanded.viewer = mountLessonViewer(host, artifact, {expand: false, openingState});
+    expanded.viewer = mountLessonViewer(host, artifact, {expand: false, openingState, detail: true});
     Object.assign(host.querySelector('.lesson-viewer__viewport').style, {flex: '1 1 0', height: 'auto', minHeight: '120px'});
     expanded.viewer.resize();
   }
@@ -232,7 +233,10 @@ export function mountLessonViewer(container, artifact, {expand = true, getExpand
     if (disposed || frame || !renderer || !scene || !camera) return;
     frame = requestAnimationFrame(() => {
       frame = 0;
-      if (!disposed && renderer && container.isConnected && !document.hidden) renderer.render(scene, camera);
+      if (!disposed && renderer && container.isConnected && !document.hidden) {
+        controls?.update();
+        renderer.render(scene, camera);
+      }
     });
   };
   const cleanResources = () => {
@@ -326,7 +330,7 @@ export function mountLessonViewer(container, artifact, {expand = true, getExpand
       const width = Math.max(1, viewport.clientWidth), height = Math.max(1, viewport.clientHeight);
       if (width === lastWidth && height === lastHeight) return;
       lastWidth = width; lastHeight = height;
-      renderer.setSize(width, height, false);
+      resizeArtifactRenderer(renderer, width, height, {expanded: detail});
       camera.aspect = width / height; camera.updateProjectionMatrix();
       updateHome(camera.aspect); invalidate();
     },
@@ -383,7 +387,6 @@ export function mountLessonViewer(container, artifact, {expand = true, getExpand
       if (disposed || thisAttempt !== attempt) return controller;
       THREE = three;
       renderer = new THREE.WebGLRenderer({antialias: true, alpha: true, powerPreference: 'low-power'});
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
       renderer.outputColorSpace = THREE.SRGBColorSpace;
       renderer.toneMapping = artifact.preservePhotoColors ? THREE.NoToneMapping : THREE.ACESFilmicToneMapping;
       renderer.toneMappingExposure = 1;
@@ -398,7 +401,8 @@ export function mountLessonViewer(container, artifact, {expand = true, getExpand
       scene = new THREE.Scene();
       camera = new THREE.PerspectiveCamera(36, 1, 0.01, 150);
       controls = new OrbitControls(camera, canvas);
-      controls.enableDamping = false; controls.enablePan = true;
+      controls.enableDamping = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+      controls.dampingFactor = .12; controls.enablePan = true;
       controls.screenSpacePanning = true; controls.panSpeed = 0.55; controls.rotateSpeed = 0.7;
       controls.minPolarAngle = 0.04; controls.maxPolarAngle = Math.PI * 0.94;
       controls.addEventListener('change', invalidate);
@@ -408,17 +412,30 @@ export function mountLessonViewer(container, artifact, {expand = true, getExpand
       scene.add(new THREE.HemisphereLight(0xf8fff6, 0xa49b88, 1));
       const key = new THREE.DirectionalLight(0xfffbef, 2.1); key.position.set(4, 6, 5); scene.add(key);
       const fill = new THREE.DirectionalLight(0xdceee8, 0.6); fill.position.set(-4, 2, -1); scene.add(fill);
-      floor = new THREE.Mesh(new THREE.CircleGeometry(1.7, 48), new THREE.MeshBasicMaterial({color: 0xb4c6b4, transparent: true, opacity: 0.19, side: THREE.DoubleSide}));
-      floor.rotation.x = -Math.PI / 2; floor.position.y = -0.015; scene.add(floor);
+      floor = createArtifactShadow(THREE); scene.add(floor);
       controller.resize();
 
-      const response = await fetch(artifact.src, {signal});
-      if (!response.ok) throw new Error('model-load-failed');
-      const data = await response.arrayBuffer();
-      if (disposed || thisAttempt !== attempt) return controller;
-      const gltf = await new GLTFLoader().parseAsync(data, new URL('.', new URL(artifact.src, location.href)).href);
+      // Fetch the detailed mesh only when one artifact is enlarged. If the larger
+      // resource fails, retain a usable observation with the ordinary model.
+      const sources = [...new Set([detail && artifact.detailedSrc, artifact.src].filter(Boolean))];
+      let gltf, loadedSource;
+      for (const source of sources) {
+        try {
+          const response = await fetch(source, {signal});
+          if (!response.ok) throw new Error('model-load-failed');
+          const data = await response.arrayBuffer();
+          if (disposed || thisAttempt !== attempt) return controller;
+          gltf = await new GLTFLoader().parseAsync(data, new URL('.', new URL(source, location.href)).href);
+          loadedSource = source;
+          break;
+        } catch (error) {
+          if (signal.aborted || source === sources.at(-1)) throw error;
+        }
+      }
       if (disposed || thisAttempt !== attempt) {releaseObject(gltf.scene); return controller;}
       object = gltf.scene;
+      applyArtifactTextureQuality(object, renderer);
+      container.dataset.modelQuality = loadedSource === artifact.detailedSrc ? 'detail' : 'standard';
       let count = 0;
       object.traverse(node => {
         if (!node.isMesh) return;
