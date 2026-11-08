@@ -14,10 +14,12 @@ const work = {
 };
 const useReason = '구름과 학 무늬가 있는 베개를 만들었어요. 누워서 잘 때 쓰면 좋겠어요.';
 const beautyReason = '구름을 파고 흰 흙을 채운 다음 여러 번 닦아 무늬가 선명하게 보이게 했어요.';
+const shortIncenseUse = '연꽃무늬를 넣고, 향로예요';
+const shortIncenseBeauty = '따뜻한 손길로 곳곳에 연꽃무늬를 넣는데 신경 썼다. 투각기법을 사용했다.';
 async function saved(page) {return page.evaluate(key => JSON.parse(localStorage.getItem(key)), KEY);}
 async function seed(page, draft) {
   await page.goto(base);
-  await page.evaluate(({key,draft}) => localStorage.setItem(key, JSON.stringify({history:['royal-rest'],gallery:[],draft})), {key:KEY,draft});
+  await page.evaluate(({key,draft}) => localStorage.setItem(key, JSON.stringify({history:[draft.orderId],gallery:[],draft})), {key:KEY,draft});
   await page.reload();await page.click('[data-action=start]');await page.waitForSelector('.counter-scene');
 }
 (async () => {
@@ -54,7 +56,7 @@ async function seed(page, draft) {
     let state=await saved(page);
     assert.equal(state.draft.step,3);assert.equal(state.gallery.length,0);assert.equal(state.draft.assessment.accepted,false);
     assert.ok((await page.locator('#use-feedback').innerText()).length>10);
-    assert.match(await page.locator('.assessment-notice').innerText(),/기본 기준 평가/);
+    assert.match(await page.locator('.assessment-notice').innerText(),/기본 기준/);
     await page.fill('#explain-use',useReason);
     assert.equal((await saved(page)).draft.assessment,null,'editing invalidates rejected assessment');
     await page.fill('#explain-beauty',beautyReason);
@@ -76,7 +78,32 @@ async function seed(page, draft) {
     assert.equal(await page.locator('.gallery-grid h3 img').count(),0);
     await page.click('[data-action=close-popup]');
     assert.ok(api.length>=2);assert.equal(api[0].accepted,false);assert.equal(api.at(-1).accepted,true);
+
+    // A brief, concrete revision like the learner's actual answer must also pass.
+    const incense = {...work,id:'short-incense-assessment',orderId:'lady-lotus-fragrance',shape:'incense',modelId:'incense',technique:'openwork',pattern:'lotus',
+      placements:[{x:180,y:180,uv:[.45,.5],pattern:'lotus'}]};
+    await seed(page,incense);await page.click('[data-action=explain]');
+    await page.fill('#explain-use',shortIncenseUse);
+    await page.fill('#explain-beauty','오늘 점심은 피자였어요.');
+    await page.click('[data-action=submit]');
+    await page.waitForSelector('.explanation-popup.needs-revision');
+    state=await saved(page);
+    assert.equal(state.draft.step,3);assert.equal(state.gallery.length,0);
+    assert.ok(state.draft.assessment.use.score>=5,'the short shape and motif introduction already passes');
+    assert.equal(state.draft.assessment.accepted,false,'unrelated second answer still needs revision');
+    assert.match(await page.locator('.assessment-notice').innerText(),/기본 기준/);
+    await page.fill('#explain-beauty',shortIncenseBeauty);
+    assert.equal((await saved(page)).draft.assessment,null,'revising only the second answer clears the previous rejection');
+    assert.equal(await page.inputValue('#explain-use'),shortIncenseUse,'the first answer does not need rewriting');
+    await page.click('[data-action=submit]');
+    await page.waitForSelector('.customer-review-scene');
+    state=await saved(page);
+    assert.equal(state.draft.step,4);assert.equal(state.draft.assessment.source,'rubric');
+    assert.equal(state.draft.assessment.accepted,true);assert.ok(state.draft.assessment.use.score>=5&&state.draft.assessment.beauty.score>=5);
+    assert.equal(state.gallery.length,1);assert.equal(state.gallery[0].explanationBeauty,shortIncenseBeauty);
+    assert.equal(await page.locator('#popup').evaluate(el=>el.open),false);
+    assert.equal(api.at(-1).accepted,true);
     assert.deepEqual(errors,[]);
-    console.log('Naming scaffold, 40% hints, no checks, real API rejection/acceptance, stale-score invalidation, saved title, safe text, and character review passed.');
+    console.log('Naming scaffold, 40% hints, real API rejection/revision, short incense explanation, saved title, safe text, and character review passed.');
   } finally {await browser.close();}
 })().catch(error=>{console.error(error);process.exit(1);});

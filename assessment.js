@@ -3,7 +3,7 @@ export {assessmentMatches, assessmentFingerprint, explanationHints} from './asse
 
 export async function requestAssessment(work, {signal} = {}) {
   const previous = normalizeAssessment(work.assessment, work);
-  if (previous?.source === 'ai') return previous;
+  if (previous?.source === 'ai' && previous.accepted) return previous;
   const payload = assessmentInput(work);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 32000);
@@ -19,7 +19,7 @@ export async function requestAssessment(work, {signal} = {}) {
     return result;
   } catch (error) {
     if (signal?.aborted) throw error;
-    return rubricAssessment(work, '기본 기준 평가 · AI 연결이 잠시 어려워 쓰임과 특징, 이유의 연결을 확인했어요.');
+    return rubricAssessment(work);
   } finally {
     clearTimeout(timer);signal?.removeEventListener('abort', abort);
   }
