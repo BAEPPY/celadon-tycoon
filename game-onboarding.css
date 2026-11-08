@@ -1,23 +1,26 @@
-/* Larger controls share one stable header row on classroom laptops. */
+/* Keep the brand on one line; smaller screens give the tools their own row. */
 .game-window.shop-game,.game-window.shop-game.is-cover{grid-template-rows:74px minmax(0,1fr)}
 .shop-game .hud{height:74px;padding:8px 14px;gap:16px}
-.shop-game .mini-logo{font-size:27px;line-height:1.12;flex:none}
-.shop-game .mini-logo span{font-size:18px;line-height:1.2}
+.shop-game .mini-logo{font-size:27px;line-height:1.2;flex:none;white-space:nowrap;word-break:normal;overflow-wrap:normal}
 .shop-game .hud-tools{gap:8px}
 .shop-game .hud-tools button{height:46px;min-width:46px;padding:7px 12px;font-size:19px}
 .shop-game .hud-stats{font-size:17px;gap:12px;white-space:nowrap}
 .shop-game .shift-status{font-size:18px;padding:8px 12px;min-width:120px}
-.tutorial-popup[open]{display:flex;flex-direction:column;gap:0;width:min(1160px,calc(100vw - 28px));height:calc(100dvh - 28px);padding:18px 24px;max-height:calc(100dvh - 24px);overflow:hidden}
-.tutorial-popup h2{font-size:27px;margin:0 0 7px}
-.tutorial-popup .tutorial-intro{font-size:17px;margin:0 0 9px;line-height:1.4}
-.tutorial-content{flex:1;min-height:0;overflow:auto;border:1px solid #d4b99a;border-radius:10px;background:#f4e5cc;scrollbar-gutter:stable}
-.tutorial-content:focus-visible{outline:3px solid #5b7f5b;outline-offset:2px}
-.tutorial-process{display:block;width:100%;height:auto;filter:none}
-.tutorial-steps{display:grid;grid-template-columns:1fr 1fr;gap:9px 28px;margin:0;padding:18px 22px 18px 42px;background:#fff8e8;font-size:16px;line-height:1.4}
-.tutorial-popup .tutorial-inlay-tip{font-size:16px;line-height:1.45;margin:9px 0}
-.tutorial-footer{display:flex;align-items:center;justify-content:flex-end;gap:22px}
-.tutorial-download{margin-right:auto;font-size:16px;color:#527459;text-underline-offset:3px;white-space:nowrap}
-.tutorial-check{display:flex;align-items:center;gap:9px;font-size:21px;cursor:pointer}
+.tutorial-popup[open]{display:flex;flex-direction:column;gap:12px;width:min(1160px,calc(100vw - 28px));height:calc(100dvh - 28px);padding:18px 24px;max-height:calc(100dvh - 24px);overflow:hidden}
+.tutorial-heading{display:flex;align-items:center;gap:14px;padding-right:32px;flex:none}
+.tutorial-popup h2{font-size:27px;margin:0;padding:0}
+.tutorial-counter{margin-left:auto;white-space:nowrap;font-size:19px;font-variant-numeric:tabular-nums;color:#597867}
+.tutorial-content{flex:1;min-height:0;overflow:hidden;border:1px solid #d4dcca;border-radius:12px;background:#fafbf5}
+.tutorial-process{display:block;width:100%;height:100%;object-fit:contain;filter:none}
+.tutorial-navigation{display:flex;align-items:center;gap:18px;flex:none}
+.tutorial-popup .tutorial-caption{flex:1;font-size:18px;line-height:1.4;margin:0;text-align:center;color:#665348}
+.tutorial-arrow{width:48px;min-height:44px;flex:none;font-size:25px;padding:3px}
+.tutorial-arrow:disabled{opacity:.35;cursor:default}
+.tutorial-footer{display:flex;align-items:center;justify-content:space-between;gap:20px;min-height:48px;flex:none}
+.tutorial-download{font-size:16px;color:#527459;text-underline-offset:3px;white-space:nowrap}
+.tutorial-completion{display:flex;align-items:center;gap:18px}
+.tutorial-completion[hidden]{display:none}
+.tutorial-check{display:flex;align-items:center;gap:9px;font-size:21px;cursor:pointer;white-space:nowrap}
 .tutorial-check input{width:24px;height:24px;accent-color:#5b7f5b}
 .tutorial-footer .primary{font-size:21px;min-height:46px;min-width:170px}
 .tutorial-footer .primary:disabled{opacity:.45;cursor:not-allowed}
@@ -27,9 +30,7 @@
 .counter-scene:not([data-customer-arrival=walking]) .counter-walker{display:none}
 .counter-scene:is([data-customer-arrival=waiting],[data-customer-arrival=walking]) .counter-person,
 .counter-scene:is([data-customer-arrival=waiting],[data-customer-arrival=walking]) .counter-dialogue{visibility:hidden;pointer-events:none}
-.customer-arrival-status{position:absolute;left:36%;right:8%;top:31%;z-index:5;padding:18px 24px;background:#fff7e7e8;border:2px solid #a77c6b;border-radius:18px;font-size:24px;line-height:1.45;text-align:center;color:#795650}
-.customer-arrival-status[hidden]{display:none}
-@media(max-width:1100px){.shop-game .hud{gap:10px;padding:8px 12px}.shop-game .mini-logo{font-size:25px}.shop-game .mini-logo span{font-size:17px}.shop-game .hud-tools button{font-size:17px;padding:6px 10px}.shop-game .hud-stats{font-size:16px;gap:9px}.shop-game .shift-status{font-size:16px;min-width:108px;padding:8px 10px}}
-@media(max-height:650px){.game-window.shop-game,.game-window.shop-game.is-cover{grid-template-rows:68px minmax(0,1fr)}.shop-game .hud{height:68px}.tutorial-popup[open]{padding:14px 20px}.tutorial-popup h2{font-size:24px}.tutorial-popup .tutorial-intro{font-size:16px}.tutorial-popup .tutorial-inlay-tip{font-size:15px;margin:7px 0}.tutorial-footer .primary{min-height:42px;font-size:19px}.tutorial-check{font-size:19px}}
-@media(max-width:760px){.shop-game .hud-stats{display:none}.shop-game .shift-status{display:none}.shop-game .hud-tools{margin-left:auto;gap:5px}.shop-game .hud-tools button{font-size:15px;padding:5px 7px;min-width:36px;height:42px}.shop-game .mini-logo{font-size:21px}.shop-game .mini-logo span{font-size:14px}.tutorial-popup{padding:15px}.tutorial-footer{gap:12px;justify-content:space-between}.tutorial-check{font-size:18px}.tutorial-footer .primary{min-width:130px;font-size:18px}.customer-arrival-status{left:24%;right:6%;font-size:20px}}
-@media(max-width:500px){.tutorial-popup[open]{padding:12px}.tutorial-popup h2{font-size:22px}.tutorial-footer{flex-wrap:wrap;gap:8px 12px}.tutorial-download{flex-basis:100%;font-size:15px}.tutorial-check{font-size:17px}.tutorial-footer .primary{font-size:17px}.tutorial-steps{grid-template-columns:1fr}}
+@media(max-width:1100px){.shop-game .hud{gap:10px;padding:8px 12px}.shop-game .mini-logo{font-size:25px}.shop-game .hud-tools button{font-size:17px;padding:6px 10px}.shop-game .hud-stats{font-size:16px;gap:9px}.shop-game .shift-status{font-size:16px;min-width:108px;padding:8px 10px}}
+@media(max-height:650px){.game-window.shop-game,.game-window.shop-game.is-cover{grid-template-rows:68px minmax(0,1fr)}.shop-game .hud{height:68px}.tutorial-popup[open]{padding:14px 20px;gap:9px}.tutorial-popup h2{font-size:24px}.tutorial-popup .tutorial-caption{font-size:17px}.tutorial-footer .primary{min-height:42px;font-size:19px}.tutorial-check{font-size:19px}}
+@media(max-width:760px){.game-window.shop-game,.game-window.shop-game.is-cover{grid-template-rows:auto minmax(0,1fr)}.shop-game .hud{height:auto;min-height:98px;flex-wrap:wrap;gap:8px;padding:8px 12px}.shop-game .hud-stats,.shop-game .shift-status{display:none}.shop-game .mini-logo{font-size:22px;flex-basis:100%;text-align:left}.shop-game .hud-tools{margin-left:0;gap:6px;width:100%;justify-content:space-between}.shop-game .hud-tools button{font-size:16px;padding:5px 9px;min-width:40px;height:42px}.tutorial-popup[open]{padding:15px}.tutorial-popup h2{font-size:23px}.tutorial-counter{font-size:17px}.tutorial-navigation{gap:10px}.tutorial-popup .tutorial-caption{font-size:16px}.tutorial-arrow{width:42px;min-height:42px}.tutorial-footer{gap:12px}.tutorial-check{font-size:18px}.tutorial-completion{gap:12px}.tutorial-footer .primary{min-width:130px;font-size:18px}}
+@media(max-width:500px){.tutorial-popup[open]{padding:12px;gap:10px}.tutorial-popup h2{font-size:22px}.tutorial-footer{flex-wrap:wrap;gap:8px;min-height:80px}.tutorial-download{flex-basis:100%;font-size:15px}.tutorial-completion{width:100%;justify-content:space-between}.tutorial-check{font-size:17px}.tutorial-footer .primary{font-size:17px}}

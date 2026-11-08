@@ -19,12 +19,12 @@ import {recognizeDrawing} from './drawing.js';
 import {vesselSVG} from './art.js';
 import {classroomStorageKey,createClassroomGameBridge} from './classroom-game-bridge.js';
 import {GAME_DATA_TTL_MS,gameSaveExpired,hasResumableGameProgress,pruneGameSaves,readGameSave,writeGameSave} from './game-retention.js';
-import {tutorialMarkup,walkingCustomerMarkup,CustomerArrival} from './game-onboarding.js';
+import {tutorialMarkup,TUTORIAL_STEPS,walkingCustomerMarkup,CustomerArrival} from './game-onboarding.js';
 
 const app=document.querySelector('#app'),popup=document.querySelector('#popup'),museum=document.querySelector('#museum');
 const KEY=classroomStorageKey(),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let clayGame,inlayGame,inspectionGame,galleryCraft,galleryOriginal,assessmentRequest,classroomBridge,choosingVariant=false;
-let tutorialSeen=false,pendingEntry=null,customerArrival=null;
+let tutorialSeen=false,pendingEntry=null,tutorialSession=null,customerArrival=null;
 const emptyState=()=>({history:[],gallery:[],draft:null,sound:false});
 let state=emptyState(),work=null,screen='cover',craft,sculpt,mini,busy=false,toastTimer,modelModule,modelToken=0,selectedCatalog='pillow',galleryPage=0,retentionTimer;
 let gameStorage;try{gameStorage=localStorage;}catch{}
@@ -39,7 +39,7 @@ function scheduleExpiration(){clearTimeout(retentionTimer);if(Number.isFinite(st
 function expireGameData(sweep=false){
  if(sweep)pruneGameSaves(gameStorage);
  if(!gameSaveExpired(state))return false;
- customerArrival?.dispose();customerArrival=null;pendingEntry=null;
+ customerArrival?.dispose();customerArrival=null;pendingEntry=null;tutorialSession=null;
  readGameSave(gameStorage,KEY);clearTimeout(retentionTimer);assessmentRequest?.abort();assessmentRequest=null;
  mini?.dispose();mini=null;busy=false;sculpt?.dispose();sculpt=null;clayGame?.dispose();clayGame=null;inlayGame?.dispose();inlayGame=null;inspectionGame?.dispose();inspectionGame=null;craft?.dispose();craft=null;
  closePopup();closeMuseum();clearToast();state=emptyState();work=null;screen='cover';choosingVariant=false;galleryPage=0;render();return true;
@@ -47,7 +47,7 @@ function expireGameData(sweep=false){
 function persist(){try{if(!writeGameSave(gameStorage,KEY,state)){expireGameData();return false;}}catch{toast('저장 공간이 부족해요. 완성품을 사진으로 보관해 주세요.');}scheduleExpiration();return true;}
 function save(){if(expireGameData())return false;if(work){state.draft=structuredClone(work);return persist();}return true;}
 function stage(){if(work.step===0)return 'clay';if(work.step===1)return work.decorPhase>=2?'scraped':work.decorPhase===1?'filled':work.placements.length||work.strokes?.length?'carved':'clay';if(work.step===2)return ['scraped','scraped','biscuit','glazed','finished'][work.firing.length];return 'finished';}
-function hud(){const phase=screen==='counter'?'주문 받기':screen==='clay'?'흙 준비':screen==='inspection'?'불량품 선별':screen==='counter-delivery'?'작품 전달':screen==='reaction'?'손님의 답장':screen==='game'?['모양 빚기','무늬 넣기','말리고 굽기','완성품 살피기'][work?.step]:'처음 화면',visitors=state.history.length;return `<header class="hud"><button class="mini-logo" data-action="home">좋은 청자 <span>위대한 청자</span></button><div class="shift-status">${esc(phase)}</div><div class="hud-stats"><span>✦ 명성 ${state.gallery.reduce((n,w)=>n+evaluateWork(w).total,0)}</span><span>${visitors?`${visitors}번째 손님`:'첫 손님 대기'}</span></div><nav class="hud-tools" aria-label="공방 메뉴"><button data-action="gallery">작품함</button><button data-action="museum">청자 도감</button><button data-action="guide">도움말</button><button data-action="fullscreen" aria-label="전체 화면">⛶</button></nav></header>`;}
+function hud(){const phase=screen==='counter'?'주문 받기':screen==='clay'?'흙 준비':screen==='inspection'?'불량품 선별':screen==='counter-delivery'?'작품 전달':screen==='reaction'?'손님의 답장':screen==='game'?['모양 빚기','무늬 넣기','말리고 굽기','완성품 살피기'][work?.step]:'처음 화면',visitors=state.history.length;return `<header class="hud"><button class="mini-logo" data-action="home">좋은 청자, 위대한 청자</button><div class="shift-status">${esc(phase)}</div><div class="hud-stats"><span>✦ 명성 ${state.gallery.reduce((n,w)=>n+evaluateWork(w).total,0)}</span><span>${visitors?`${visitors}번째 손님`:'첫 손님 대기'}</span></div><nav class="hud-tools" aria-label="공방 메뉴"><button data-action="gallery">작품함</button><button data-action="museum">청자 도감</button><button data-action="guide">도움말</button><button data-action="fullscreen" aria-label="전체 화면">⛶</button></nav></header>`;}
 function canResume(){return hasResumableGameProgress(state.draft);}
 function cover(){return `<section class="cover shop-cover"><div class="cover-content"><span class="ribbon">고려의 작은 도공이 되어 보아요</span><h1>좋은 청자<br><em>위대한 청자</em></h1><p>손님을 만나고, 흙을 반죽하고, 손끝으로 빚어요.</p><div class="cover-actions">${canResume()?'<button class="primary green cover-start" data-action="start">공방 일 이어하기 ▶</button>':''}<button class="primary green cover-start" data-action="new-order">새 주문 받기 ▶</button></div><div class="cover-features"><span>흙 준비</span><span>성형과 장식</span><span>가마와 선별</span></div></div></section>`;}
 function readableText(root){for(const el of root.querySelectorAll('button,p,span,small,label,select,input,textarea,a,dt,dd,h1,h2,h3'))if(parseFloat(getComputedStyle(el).fontSize)<14)el.style.fontSize='14px';}
@@ -76,8 +76,10 @@ function setShape(shape,modelId){choosingVariant=false;work.shape=shape;work.mod
 function stampPattern(mark){if(expireGameData()||!work)return;if(work.step!==1||work.decorPhase>0||work.technique==='plain')return;if(work.placements.length>=24){toast('문양은 24개까지 놓을 수 있어요.');return;}work.placements.push(mark);if(!save())return;render();}
 function addStroke(stroke){if(expireGameData()||!work)return;work.strokes??=[];if(work.strokes.length>=40){toast('선은 40개까지 그릴 수 있어요.');return;}work.strokes.push(stroke);work.recognition=recognizeDrawing(work.strokes);if(!save())return;render();if(work.recognition)toast(`${PATTERNS.find(p=>p.id===work.recognition.id)?.name} 무늬${work.recognition.confidence} · 그림의 뜻은 직접 골라주세요.`);}
 function showPopup(html,extra=''){galleryCraft?.dispose();galleryCraft=null;popup.removeAttribute('aria-labelledby');popup.className='popup '+extra;popup.innerHTML=`<button class="close" data-action="close-popup" aria-label="닫기">×</button>${html}`;if(!popup.open)popup.showModal();readableText(popup);}
-function showTutorial(entry=null){pendingEntry=entry;showPopup(tutorialMarkup(Boolean(entry)),'tutorial-popup');popup.setAttribute('aria-labelledby','tutorial-title');}
-popup.addEventListener('cancel',()=>{pendingEntry=null;});
+function showTutorial(entry=null,{restore=false}={}){if(!restore||!tutorialSession)tutorialSession={entry,index:0,understood:false,paused:false};pendingEntry=tutorialSession.entry;showPopup(tutorialMarkup(Boolean(pendingEntry),tutorialSession.index,tutorialSession.understood),'tutorial-popup');popup.setAttribute('aria-labelledby','tutorial-title');}
+function moveTutorial(delta){if(!tutorialSession||!popup.open||!popup.classList.contains('tutorial-popup'))return;tutorialSession.index=Math.max(0,Math.min(TUTORIAL_STEPS.length-1,tutorialSession.index+delta));showTutorial(tutorialSession.entry,{restore:true});const preferred=popup.querySelector(`[data-action="tutorial-${delta<0?'prev':'next'}"]`);(preferred?.disabled?popup.querySelector(`[data-action="tutorial-${delta<0?'next':'prev'}"]`):preferred)?.focus();}
+popup.addEventListener('cancel',()=>{pendingEntry=null;tutorialSession=null;});
+popup.addEventListener('keydown',event=>{if(!popup.classList.contains('tutorial-popup')||!['ArrowLeft','ArrowRight'].includes(event.key)||(classroomBridge&&!classroomBridge.active))return;event.preventDefault();moveTutorial(event.key==='ArrowLeft'?-1:1);});
 popup.addEventListener('close',()=>{assessmentRequest?.abort();assessmentRequest=null;galleryCraft?.dispose();galleryCraft=null;galleryOriginal=null;});
 function closePopup(){galleryCraft?.dispose();galleryCraft=null;galleryOriginal=null;popup.close();popup.replaceChildren();popup.removeAttribute('aria-labelledby');}
 function explain(){if(!save())return;showPopup(explainMarkup(work),'explanation-popup');}
@@ -129,8 +131,9 @@ async function action(id){
  case'start':closePopup();begin();break;
  case'new-order':if(canResume()){const pending=ORDERS.find(o=>o.id===state.draft.orderId);showPopup(`<h2>새 주문을 받을까요?</h2><p>진행 중인 「${esc(pending?.title||'주문')}」 작업은 더 이어서 할 수 없어요.<br>작품함에 저장한 완성품은 그대로 남아요.</p><div class="popup-actions"><button class="small-button" data-action="start">하던 작업 이어하기</button><button class="primary green" data-action="confirm-new-order">새 주문 받기</button></div>`,'confirm-popup');}else begin(true);break;
  case'confirm-new-order':closePopup();begin(true);break;
- case'tutorial-start':{if(!pendingEntry||!popup.querySelector('#tutorial-understood')?.checked)return;const entry=pendingEntry;pendingEntry=null;tutorialSeen=true;closePopup();await action(entry);break;}
- case'close-popup':pendingEntry=null;assessmentRequest?.abort();assessmentRequest=null;closePopup();break;
+ case'tutorial-prev':moveTutorial(-1);break;case'tutorial-next':moveTutorial(1);break;
+ case'tutorial-start':{if(!pendingEntry||tutorialSession?.index!==TUTORIAL_STEPS.length-1||!tutorialSession.understood||!popup.querySelector('#tutorial-understood')?.checked)return;const entry=pendingEntry;pendingEntry=null;tutorialSession=null;tutorialSeen=true;closePopup();await action(entry);break;}
+ case'close-popup':pendingEntry=null;tutorialSession=null;assessmentRequest?.abort();assessmentRequest=null;closePopup();break;
  case'close-museum':closeMuseum();break;case'museum':await showModel();break;
  case'reference':await showModel(order().exampleId||work.modelId||'pillow');break;
  case'variants':choosingVariant=!choosingVariant;render();break;
@@ -158,7 +161,7 @@ async function action(id){
  }
 }
 document.addEventListener('click',async e=>{if(expireGameData())return;const b=e.target.closest('button');if(!b||b.disabled)return;if(b.dataset.action){await action(b.dataset.action);return;}if(busy)return;if(b.dataset.clay){work.clay=chooseClay(work.clay||freshClay(),b.dataset.clay);if(!save())return;render();toast(CLAYS.find(c=>c.id===b.dataset.clay).description);}else if(b.dataset.shape){setShape(b.dataset.shape);if(!work)return;choosingVariant=designsForShape(work.shape).length>1;if(choosingVariant)render();}else if(b.dataset.model){setShape(work.shape,b.dataset.model);}else if(b.dataset.slip){setInlaySlip(work,b.dataset.slip);work.assessment=null;if(!save())return;render();}else if(b.dataset.pattern){work.pattern=b.dataset.pattern;if(!save())return;render();}else if(b.dataset.galleryPage!==undefined){galleryPage=Number(b.dataset.galleryPage);gallery();}else if(b.dataset.galleryView){showFinishedWork(b.dataset.galleryView);}else if(b.dataset.download){await download(state.gallery.find(w=>w.id===b.dataset.download));}else if(b.dataset.technique){if(work.technique!==b.dataset.technique){work.technique=b.dataset.technique;resetDecor();if(!save())return;render();}}else if(b.dataset.tool){work.tool=b.dataset.tool;if(!save())return;render();}else if(b.dataset.fire)fire(b.dataset.fire);else if(b.dataset.step!==undefined){const step=Number(b.dataset.step);if(step<=work.step&&work.step<4){restartFrom(work,step===0?'shape':step===1?'decorate':'kiln');if(!save())return;render();}}});
-document.addEventListener('change',async e=>{if(expireGameData())return;const el=e.target;if(el.id==='tutorial-understood'){const start=popup.querySelector('[data-action=tutorial-start]');if(start)start.disabled=!el.checked;return;}if(el.id==='catalog-select'){await showModel(el.value);return;}if(busy||!work)return;if(el.id==='shape-select'){if(el.value)setShape(el.value);}else if(el.id==='variant-select')setShape(work.shape,el.value);else if(el.id==='pattern-select'){work.pattern=el.value;if(!save())return;render();}else if(el.id==='drawing-label'){work.drawingLabel=el.value;save();}else if(el.dataset.check){work[el.dataset.check]=el.checked;save();}});
+document.addEventListener('change',async e=>{if(expireGameData())return;const el=e.target;if(el.id==='tutorial-understood'){if(tutorialSession)tutorialSession.understood=el.checked;const start=popup.querySelector('[data-action=tutorial-start]');if(start)start.disabled=!el.checked;return;}if(el.id==='catalog-select'){await showModel(el.value);return;}if(busy||!work)return;if(el.id==='shape-select'){if(el.value)setShape(el.value);}else if(el.id==='variant-select')setShape(work.shape,el.value);else if(el.id==='pattern-select'){work.pattern=el.value;if(!save())return;render();}else if(el.id==='drawing-label'){work.drawingLabel=el.value;save();}else if(el.dataset.check){work[el.dataset.check]=el.checked;save();}});
 document.addEventListener('input',e=>{if(expireGameData())return;const el=e.target;if(!work||busy)return;if(el.id==='stamp-size'){
  if(work.step!==1||work.decorPhase!==0||work.technique==='plain'||(work.tool||'stamp')!=='stamp')return;
  work.stampSize=normalizeStampSize(Number(el.value)/100);const percent=Math.round(work.stampSize*100);el.value=String(percent);el.setAttribute('aria-valuetext',percent+'%');const output=document.querySelector('#stamp-size-value');if(output)output.value=percent+'%';if(!save())return;if(craft){craft.work=work;craft.dirty=true;}
@@ -176,13 +179,14 @@ scheduleExpiration();
 render();
 classroomBridge=createClassroomGameBridge({
  onPause:()=>{
+  if(tutorialSession&&popup.open&&popup.classList.contains('tutorial-popup'))tutorialSession.paused=true;
   customerArrival?.pause();
   assessmentRequest?.abort();assessmentRequest=null;clearToast();save();
   mini?.dispose();mini=null;busy=false;
   sculpt?.dispose();sculpt=null;clayGame?.dispose();clayGame=null;inlayGame?.dispose();inlayGame=null;inspectionGame?.dispose();inspectionGame=null;
   craft?.dispose();craft=null;closePopup();closeMuseum();
  },
- onResume:()=>{expireGameData(true);render();if(pendingEntry&&!tutorialSeen)showTutorial(pendingEntry);},
+ onResume:()=>{expireGameData(true);render();if(tutorialSession?.paused){tutorialSession.paused=false;showTutorial(tutorialSession.entry,{restore:true});}},
  getCompleted:()=>{expireGameData();return state.gallery;},
  isCurrent:w=>{expireGameData();return state.gallery.some(saved=>saved.id===w.id);},
  getExpiresAt:()=>state.retentionStartedAt+GAME_DATA_TTL_MS,
