@@ -23,3 +23,7 @@
 5. **청자 투각 칠보문 뚜껑 향로** — [국립중앙박물관](https://www.museum.go.kr/MUSEUM/contents/M0201020000.do?relicId=1227&schM=search). 사용자 제공 PLY 두 부분의 실제 스캔 형상. 거의 흰 원본 정점 색 대신 청자색을 참고 표현하며, 원색 복원이 아님.
 
 더 자세한 원본·변환 정보는 [`../models/README.md`](../models/README.md), [`../models/provenance.json`](../models/provenance.json), [박물관 상세 자료 기록](https://github.com/BAEPPY/minichungjamuseum/blob/main/public/models/README.md), [박물관 경량 자료 기록](https://github.com/BAEPPY/minichungjamuseum/blob/main/public/models/map/README.md)을 따릅니다. 이 저장소는 원본 자료에 대한 새로운 이용허락을 부여하지 않습니다.
+
+## 수업 첫 화면 일러스트
+
+`welcome-celadon.png`는 2026-11-08 사용자의 요청으로 이미지 생성 도구를 사용해 만든 장식용 일러스트입니다. 운학문 매병·조롱박 병·연꽃 모양 잔을 소재로 그렸으며 특정 유물의 사진이나 실측 재현이 아닙니다. 관찰 활동의 원본 3D 모델과 별개로 첫 화면에만 사용합니다.
