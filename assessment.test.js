@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Readable} from 'node:stream';
 import {assessmentInput, assessmentFingerprint, normalizeAssessment, rubricAssessment, explanationScores} from './assessment-rules.js';
-import assess, {assessWithGateway, selectModel, resolveGatewayToken, providerErrorCode, ASSESSMENT_SYSTEM} from './api/assess.js';
+import assess, {assessWithGateway, assessWithOpenAI, DEFAULT_OPENAI_MODEL, selectModel, resolveGatewayToken, providerErrorCode, ASSESSMENT_SYSTEM} from './api/assess.js';
 import {requestAssessment} from './assessment.js';
 
 const work = {
@@ -118,7 +118,7 @@ async function invoke(method, body) {
 }
 test('환경변수가 없어도 요청 문맥 OIDC로 인증하고 다음 요청의 새 토큰을 사용한다', async () => {
   const symbol = Symbol.for('@vercel/request-context'), previousContext = globalThis[symbol], previousFetch = globalThis.fetch;
-  const names = ['AI_GATEWAY_API_KEY', 'VERCEL_OIDC_TOKEN', 'VERCEL_OIDC_TOKEN_FILE'];
+  const names = ['OPENAI_API_KEY', 'AI_GATEWAY_API_KEY', 'VERCEL_OIDC_TOKEN', 'VERCEL_OIDC_TOKEN_FILE'];
   const previousEnv = Object.fromEntries(names.map(name => [name, process.env[name]]));
   const fakeJwt = id => `${Buffer.from('{"alg":"none"}').toString('base64url')}.${Buffer.from(JSON.stringify({sub:`test-${id}`,exp:Math.floor(Date.now()/1000)+3600})).toString('base64url')}.test-only`;
   let token = fakeJwt(1);
@@ -155,8 +155,9 @@ test('API는 잘못된 작품과 너무 긴 글을 거절하고 비밀 없는 �
   const method = await invoke('DELETE', {});assert.equal(method.statusCode, 405);
 });
 test('Gateway 403에서도 짧은 설명은 통과하고 로그는 알려진 오류 코드만 남긴다', async () => {
-  const previousFetch=globalThis.fetch, previousWarn=console.warn, previousKey=process.env.AI_GATEWAY_API_KEY, logs=[];
+  const previousFetch=globalThis.fetch, previousWarn=console.warn, previousKey=process.env.AI_GATEWAY_API_KEY, previousOpenAI=process.env.OPENAI_API_KEY, logs=[];
   try {
+    delete process.env.OPENAI_API_KEY;
     process.env.AI_GATEWAY_API_KEY='test-secret-not-for-logs';
     console.warn=(...args)=>logs.push(args.join(' '));
     globalThis.fetch=async url=>url.endsWith('/models')
@@ -172,6 +173,74 @@ test('Gateway 403에서도 짧은 설명은 통과하고 로그는 알려진 오
   } finally {
     globalThis.fetch=previousFetch;console.warn=previousWarn;
     if(previousKey===undefined)delete process.env.AI_GATEWAY_API_KEY;else process.env.AI_GATEWAY_API_KEY=previousKey;
+    if(previousOpenAI===undefined)delete process.env.OPENAI_API_KEY;else process.env.OPENAI_API_KEY=previousOpenAI;
+  }
+});
+
+test('OpenAI 직접 호출은 같은 평가 기준을 쓰고 키를 서버 요청 헤더에만 둔다', async () => {
+  const requests=[], grade={accepted:true,use:{score:6,feedback:'모양과 문양을 소개했어요.'},beauty:{score:7,feedback:'공들인 무늬와 기법을 소개했어요.'}};
+  const result=await assessWithOpenAI(shortIncense,{apiKey:'direct-test-secret',model:DEFAULT_OPENAI_MODEL,fetcher:async(url,options)=>{
+    requests.push({url,options});return {ok:true,json:async()=>({choices:[{finish_reason:'stop',message:{content:JSON.stringify(grade)}}]})};
+  }});
+  assert.equal(requests.length,1);assert.equal(requests[0].url,'https://api.openai.com/v1/chat/completions');
+  assert.equal(requests[0].options.headers.Authorization,'Bearer direct-test-secret');
+  const body=JSON.parse(requests[0].options.body);
+  assert.equal(body.model,'gpt-5.4-mini');assert.equal(body.store,false);assert.equal(body.max_completion_tokens,2000);
+  assert.equal(body.messages[0].content,ASSESSMENT_SYSTEM);assert.equal(body.response_format.json_schema.strict,true);
+  assert.equal(JSON.parse(body.messages[1].content).studentExplanations.beauty,shortIncense.explanationBeauty);
+  assert.equal(result.source,'ai');assert.equal(result.accepted,true);assert.equal(result.model,DEFAULT_OPENAI_MODEL);
+  assert.ok(!JSON.stringify(result).includes('direct-test-secret'));assert.ok(!requests[0].options.body.includes('direct-test-secret'));
+});
+
+test('OpenAI 키가 있으면 Gateway보다 우선하고 상태 조회는 모델을 호출하지 않는다', async () => {
+  const previousFetch=globalThis.fetch,names=['OPENAI_API_KEY','OPENAI_MODEL','AI_GATEWAY_API_KEY'];
+  const previousEnv=Object.fromEntries(names.map(name=>[name,process.env[name]])),requests=[];
+  try {
+    process.env.OPENAI_API_KEY='direct-priority-test-secret';process.env.AI_GATEWAY_API_KEY='gateway-test-secret';delete process.env.OPENAI_MODEL;
+    globalThis.fetch=async(url,options)=>{
+      requests.push({url,options});return {ok:true,json:async()=>({choices:[{message:{content:JSON.stringify({accepted:true,use:{score:6,feedback:'알맞은 소개예요.'},beauty:{score:6,feedback:'공들인 부분을 소개했어요.'}})}}]})};
+    };
+    const health=await invoke('GET',{});
+    assert.equal(health.body.provider,'openai');assert.equal(health.body.aiConfigured,true);assert.equal(health.body.check,'authentication-only');assert.equal(requests.length,0);
+    assert.ok(!JSON.stringify(health.body).includes('test-secret'));
+    assert.equal((await invoke('POST',assessmentInput(shortIncense))).body.source,'ai');
+    process.env.OPENAI_MODEL='gpt-5.4-mini-2026-03-17';
+    const custom=await invoke('POST',assessmentInput(shortIncense));
+    assert.equal(custom.body.model,'gpt-5.4-mini-2026-03-17');
+    assert.equal(requests.length,2);assert.ok(requests.every(r=>r.url==='https://api.openai.com/v1/chat/completions'));
+    assert.ok(requests.every(r=>r.options.headers.Authorization==='Bearer direct-priority-test-secret'));
+    assert.equal(JSON.parse(requests[1].options.body).model,'gpt-5.4-mini-2026-03-17');
+  } finally {
+    globalThis.fetch=previousFetch;
+    for(const name of names)if(previousEnv[name]===undefined)delete process.env[name];else process.env[name]=previousEnv[name];
+  }
+});
+
+test('OpenAI 인증·잔액·응답 오류는 추가 유료 호출 없이 안전한 기본 평가로 전환한다', async () => {
+  const previousFetch=globalThis.fetch,previousWarn=console.warn,previousKey=process.env.OPENAI_API_KEY,logs=[];
+  try {
+    process.env.OPENAI_API_KEY='direct-failure-test-secret';console.warn=(...args)=>logs.push(args.join(' '));
+    const cases=[
+      [()=>({ok:false,status:401,json:async()=>({error:{code:'invalid_api_key',message:'direct-failure-test-secret'}})}),'openai-401 invalid_api_key'],
+      [()=>({ok:false,status:403,json:async()=>({error:{type:'permission_denied'}})}),'openai-403 permission_denied'],
+      [()=>({ok:false,status:429,json:async()=>({error:{code:'insufficient_quota'}})}),'openai-429 insufficient_quota'],
+      [()=>({ok:true,json:async()=>({choices:[{message:{content:shortIncense.explanationBeauty}}]})}),'response-error unknown'],
+      [()=>({ok:true,json:async()=>({choices:[{finish_reason:'length',message:{content:'{}'}}]})}),'invalid-output unknown'],
+      [()=>({ok:true,json:async()=>({choices:[{message:{refusal:'not grading',content:null}}]})}),'invalid-output unknown'],
+      [()=>{throw new DOMException('private message','TimeoutError');},'timeout unknown'],
+    ];
+    for(const [reply,reason] of cases){
+      let calls=0;
+      globalThis.fetch=async url=>{calls++;assert.equal(url,'https://api.openai.com/v1/chat/completions');return reply();};
+      const response=await invoke('POST',assessmentInput(shortIncense));
+      assert.equal(calls,1);assert.equal(response.statusCode,200);assert.equal(response.body.source,'rubric');assert.equal(response.body.accepted,true);
+      assert.equal(logs.at(-1),`Explanation AI unavailable: ${reason}`);
+      assert.ok(!JSON.stringify(response.body).includes('direct-failure-test-secret'));
+    }
+    assert.ok(!logs.join(' ').includes(shortIncense.explanationBeauty));assert.ok(!logs.join(' ').includes('direct-failure-test-secret'));
+  } finally {
+    globalThis.fetch=previousFetch;console.warn=previousWarn;
+    if(previousKey===undefined)delete process.env.OPENAI_API_KEY;else process.env.OPENAI_API_KEY=previousKey;
   }
 });
 

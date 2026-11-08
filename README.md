@@ -14,7 +14,7 @@
 
 ## 저장과 개인정보
 
-학생 이름·로그인·서버 데이터베이스를 사용하지 않습니다. 제작 중인 작품과 완성품 최대 60건은 각 브라우저의 localStorage에 저장합니다. 다른 기기와 자동 공유되지 않으며 브라우저 기록을 삭제하면 지워질 수 있습니다. PNG 작품 카드를 내려받아 교사가 안내한 패들렛 등으로 직접 공유합니다. 글꼴은 자체 포함합니다. 설명 평가를 요청하면 학생이 쓴 두 문장과 작품의 형태·기법·무늬 정보가 `/api/assess`로 전송됩니다. 서버에 문장을 저장하거나 로그로 남기지 않으며, AI 연결 시 Vercel AI Gateway를 통해 평가 모델로 전달됩니다. 이름 등 개인정보는 입력할 필요가 없습니다.
+학생 이름·로그인·서버 데이터베이스를 사용하지 않습니다. 제작 중인 작품과 완성품 최대 60건은 각 브라우저의 localStorage에 저장합니다. 다른 기기와 자동 공유되지 않으며 브라우저 기록을 삭제하면 지워질 수 있습니다. PNG 작품 카드를 내려받아 교사가 안내한 패들렛 등으로 직접 공유합니다. 글꼴은 자체 포함합니다. 설명 평가를 요청하면 학생이 쓴 두 문장과 작품의 형태·기법·무늬 정보가 `/api/assess`로 전송됩니다. 앱 서버에 문장을 저장하거나 로그로 남기지 않습니다. `OPENAI_API_KEY`가 있으면 서버에서 OpenAI로 직접 전송하고, 없으면 기존 Vercel AI Gateway를 사용합니다. 직접 요청에는 `store: false`를 지정하며 제공자의 별도 데이터 처리 정책은 적용됩니다. API 키는 서버에서만 읽고 브라우저로 보내지 않습니다. 이름 등 개인정보는 입력할 필요가 없습니다.
 
 ## 실행과 검증
 
@@ -28,7 +28,17 @@ npm start
 # http://127.0.0.1:4173
 ```
 
-`dist/`를 정적 호스팅에 게시합니다. Vercel은 `vercel.json`의 buildCommand와 outputDirectory를 사용합니다. 설명 평가에는 `api/assess.js` 서버 함수를 사용합니다. Vercel OIDC 또는 서버의 `AI_GATEWAY_API_KEY`로 인증하며 브라우저에 키를 보내지 않습니다. AI 연결이 없는 로컬 실행과 정적 호스팅은 기본 평가 기준으로 동작합니다.
+`dist/`를 정적 호스팅에 게시합니다. Vercel은 `vercel.json`의 buildCommand와 outputDirectory를 사용합니다. 설명 평가에는 `api/assess.js` 서버 함수를 사용합니다. AI 연결이 없는 로컬 실행과 정적 호스팅은 기본 평가 기준으로 동작합니다.
+
+### OpenAI 키 연결
+
+1. [프로젝트 환경 변수](https://vercel.com/baeppy/celadon-tycoon/settings/environment-variables)에서 이름을 `OPENAI_API_KEY`, 값을 OpenAI에서 발급한 키로 등록합니다. 유형은 **Secret**, 환경은 **Production**을 선택합니다. 미리보기에서도 AI를 시험하려면 Preview에 별도 테스트용 키를 등록합니다.
+2. 저장 후 새 배포를 실행합니다. 기존 배포에는 나중에 추가한 환경 변수가 적용되지 않습니다. 키를 채팅·소스 코드·`VITE_` 또는 `NEXT_PUBLIC_` 변수에 넣지 않습니다.
+3. 설명을 제출해 결과의 `source: "ai"`와 서버 로그를 확인합니다. GET `/api/assess`의 `aiConfigured`와 `provider`는 설정 유무만 나타내며, `check: "authentication-only"`는 실제 모델 호출을 시험하지 않았다는 뜻입니다.
+
+OpenAI 키가 설정되면 `https://api.openai.com/v1/chat/completions`만 호출합니다. Vercel AI Gateway 크레딧은 필요하지 않으며 모델 사용료는 OpenAI 계정에 청구됩니다. 기본 모델은 [공식 문서에서 구조화된 출력 지원을 확인한 `gpt-5.4-mini`](https://developers.openai.com/api/docs/models/gpt-5.4-mini)입니다. 필요하면 서버 환경 변수 `OPENAI_MODEL`에 OpenAI 모델 ID를 지정합니다. Gateway용 `openai/` 접두사는 붙이지 않습니다. 응답을 2,000 토큰으로 제한하고 오류나 시간 초과 시 추가 유료 호출 없이 기본 평가로 전환합니다.
+
+OpenAI 키가 없을 때만 기존 Gateway의 `AI_GATEWAY_API_KEY` 또는 Vercel OIDC 인증을 사용합니다. OpenAI 키와 Gateway 키는 서로 바꿔 넣을 수 없습니다. 로컬 Node 서버는 `.env.local`을 자동으로 읽지 않으므로 필요할 때 `node --env-file=.env.local server.mjs`로 실행합니다. 이 파일은 Git에서 제외됩니다.
 
 검증 범위: 무작위 주문과 손님, 단일 활성 주문, 53건 순환 중복 방지, 도감 관찰, 자유로운 흙 성형, 곡면 문양, 앞뒤 벽 투각, 색흙 채우기와 닦기, 네 가마 작업, 네 도자기 선별, 설명 평가와 손님 표정, 작품함·진행 복원·PNG 저장, 네 크롬북 해상도.
 
