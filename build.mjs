@@ -23,7 +23,14 @@ async function stripGlbNames(file){
   header.writeUInt32LE(0x46546c67,0);header.writeUInt32LE(2,4);header.writeUInt32LE(20+chunk.length+rest.length,8);header.writeUInt32LE(chunk.length,12);header.writeUInt32LE(0x4e4f534a,16);
   await writeFile(file,Buffer.concat([header,chunk,rest]));
 }
-for(const file of await readdir('dist/assets/lesson'))if(file.endsWith('.glb'))await stripGlbNames(`dist/assets/lesson/${file}`);
+async function stripLessonDirectory(directory){
+  for(const entry of await readdir(directory,{withFileTypes:true})){
+    const file=`${directory}/${entry.name}`;
+    if(entry.isDirectory())await stripLessonDirectory(file);
+    else if(entry.name.endsWith('.glb'))await stripGlbNames(file);
+  }
+}
+await stripLessonDirectory('dist/assets/lesson');
 await copyFile('classroom.css','dist/classroom.css');
 for(const route of ['lesson','teacher','observe']){
   await mkdir(`dist/${route}`,{recursive:true});

@@ -4,6 +4,7 @@ import {readFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {MODEL_CATALOG, getModelArtifact} from './models-manifest.js';
 import {SHAPES} from './domain.js';
+import {COMPARISON_ARTIFACTS, OBSERVATION_ARTIFACTS, BEAUTY_ARTIFACT} from './lesson-artifacts.js';
 
 const provenance = JSON.parse(await readFile(new URL('./assets/models/provenance.json', import.meta.url), 'utf8'));
 
@@ -20,6 +21,73 @@ function parseGLB(data) {
   assert.equal(binaryStart + 8 + binaryLength, data.length);
   return {document, binaryLength};
 }
+
+function imageDimensions(data) {
+  if (data.toString('ascii', 1, 4) === 'PNG') return [data.readUInt32BE(16), data.readUInt32BE(20)];
+  assert.equal(data.readUInt16BE(0), 0xffd8, 'classroom photos are embedded JPEG or PNG');
+  let offset = 2;
+  while (offset < data.length) {
+    assert.equal(data[offset++], 0xff);
+    while (data[offset] === 0xff) offset++;
+    const marker = data[offset++], size = data.readUInt16BE(offset);
+    if ([0xc0, 0xc1, 0xc2].includes(marker)) return [data.readUInt16BE(offset + 5), data.readUInt16BE(offset + 3)];
+    offset += size;
+  }
+  throw new Error('Image has no size header');
+}
+
+test('수업 확대 자료는 실제 고해상도 사진을 내장하고 한 번에 불러올 크기를 제한한다', async () => {
+  const report = JSON.parse(await readFile(new URL('./assets/lesson/provenance.json', import.meta.url), 'utf8'));
+  const artifacts = [...COMPARISON_ARTIFACTS, ...OBSERVATION_ARTIFACTS, BEAUTY_ARTIFACT];
+  for (const artifact of artifacts) for (const key of ['src', 'detailedSrc']) {
+    if (!artifact[key]) continue;
+    const path = artifact[key];
+    assert.match(path, /^\/assets\/lesson\/(?:detail\/)?(?:comparison-[123]|observation-[12345]|beauty)\.glb$/, 'blind asset routes do not give away an answer');
+    const data = await readFile(new URL(`.${path}`, import.meta.url));
+    const record = report.assets.find(item => item.file === path.replace('/assets/lesson/', ''));
+    assert.ok(record, `provenance for ${path}`);
+    assert.equal(record.sha256, createHash('sha256').update(data).digest('hex'));
+    assert.equal(record.bytes, data.length);
+    assert.ok(data.length <= (key === 'detailedSrc' ? 10 : 8) * 1024 * 1024, `${path} stays within the single-view download budget`);
+    const {document: doc, binaryLength} = parseGLB(data);
+    const binary = data.subarray(28 + data.readUInt32LE(12));
+    let triangles = 0;
+    for (const view of doc.bufferViews) assert.ok((view.byteOffset || 0) + view.byteLength <= binaryLength);
+    for (const mesh of doc.meshes) for (const primitive of mesh.primitives) {
+      triangles += doc.accessors[primitive.indices].count / 3;
+      const material = doc.materials[primitive.material], textureInfo = material.pbrMetallicRoughness?.baseColorTexture;
+      if (!textureInfo) continue;
+      assert.ok(doc.accessors[primitive.attributes[`TEXCOORD_${textureInfo.texCoord || 0}`]], 'source photograph remains connected to its matching UV set');
+      const image = doc.images[doc.textures[textureInfo.index].source], view = doc.bufferViews[image.bufferView];
+      assert.ok(!image.uri, 'no external image request or decoder is needed');
+      const dimensions = imageDimensions(binary.subarray(view.byteOffset || 0, (view.byteOffset || 0) + view.byteLength));
+      if (artifact.detailedSrc && doc.materials.indexOf(material) === 0) {
+        assert.ok(Math.max(...dimensions) >= (key === 'detailedSrc' ? 4096 : 2048), `${path} uses the real high-resolution atlas`);
+      }
+    }
+    assert.ok(triangles <= 350000, 'the 777k-triangle chair is not automatically loaded on Chromebooks');
+  }
+});
+
+test('고화질 수업 자료는 원본의 형상·UV·법선·색상을 재생성하지 않는다', async () => {
+  for (const [id, name] of [['observation-1', 'celadon-pillow-reconstruction'], ['observation-4', 'celadon-ewer'], ['beauty', 'celadon-maebyeong-v2']]) {
+    for (const detail of ['', 'detail/']) {
+      const original = await readFile(new URL(`./assets/models/${detail}${name}.glb`, import.meta.url));
+      const updated = await readFile(new URL(`./assets/lesson/${detail}${id}.glb`, import.meta.url));
+      const {document: before} = parseGLB(original), {document: after} = parseGLB(updated);
+      assert.deepEqual(after.accessors, before.accessors, 'mesh topology and vertex layout stay intact');
+      assert.deepEqual(after.meshes, before.meshes);
+      assert.deepEqual(after.materials, before.materials, 'photo, normal and roughness bindings stay intact');
+      const images = new Set(before.images.map(image => image.bufferView));
+      for (let index = 0; index < before.bufferViews.length; index++) {
+        if (images.has(index)) continue;
+        const a = before.bufferViews[index], b = after.bufferViews[index];
+        const aStart = 28 + original.readUInt32LE(12) + (a.byteOffset || 0), bStart = 28 + updated.readUInt32LE(12) + (b.byteOffset || 0);
+        assert.deepEqual(updated.subarray(bStart, bStart + b.byteLength), original.subarray(aStart, aStart + a.byteLength), 'geometric data remains byte-identical');
+      }
+    }
+  }
+});
 
 test('도감은 중복 없이 확장되고 기존 제작 형태의 관찰 모델은 유지된다', () => {
   assert.ok(MODEL_CATALOG.length > SHAPES.length);
