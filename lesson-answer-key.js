@@ -6,7 +6,7 @@ export const COMPARISON_ANSWERS = freezeAnswers({
     country: 'japan', countryLabel: '일본', name: '청자 음인각 모란무늬 매병', date: '가마쿠라 시대',
     source: '국립중앙박물관 · 신안11590 · 원본 다각도 사진 참고',
     sourceUrl: 'https://www.museum.go.kr/MUSEUM/contents/M0502000000.do?relicId=1646&schM=view&searchId=search',
-    note: '일본 세토에서 만든 회유도기입니다. 사진 기반 3D 재현으로 형상과 안쪽의 일부를 추정했습니다.',
+    note: '일본 세토에서 만든 청자 음인각 모란무늬 매병입니다. 사진 기반 3D 재현으로 형상과 안쪽의 일부를 추정했습니다.',
     license: '국립중앙박물관 원본 자료 이용 조건을 따릅니다.',
   },
   '2': {

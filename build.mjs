@@ -22,7 +22,7 @@ async function stripGlbNames(file){
 }
 for(const file of await readdir('dist/assets/lesson'))if(file.endsWith('.glb'))await stripGlbNames(`dist/assets/lesson/${file}`);
 await copyFile('classroom.css','dist/classroom.css');
-for(const route of ['lesson','teacher']){
+for(const route of ['lesson','teacher','observe']){
   await mkdir(`dist/${route}`,{recursive:true});
   await copyFile('classroom.html',`dist/${route}/index.html`);
 }

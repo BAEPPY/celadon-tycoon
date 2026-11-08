@@ -189,12 +189,17 @@ async function capture(page, label) {
     assert.equal((await overview()).works.length,0,'a restarted activity cannot replay prior completed works after parent reload');
     assert.equal(await studentA.evaluate(key=>JSON.parse(localStorage.getItem(key)).gallery.length,gameKey),2,'prior run stays stored under its original namespace');
     await control('pause');await Promise.all([studentA.getByTestId('lock-screen').waitFor(),studentB.getByTestId('lock-screen').waitFor()]);
-    await control('settings',{settings:{durations:{3:5},autoPause:false}});await control('start',{activity:3});
+    // Activity 3 has no time limit: the game keeps running until the teacher ends it, then every student sees the lock screen.
+    await control('settings',{settings:{autoPause:false}});await control('start',{activity:3});
     await Promise.all([studentA.getByTestId('classroom-game').waitFor(),studentB.getByTestId('classroom-game').waitFor()]);
-    await Promise.all([studentA.getByTestId('lock-screen').waitFor({timeout:15000}),studentB.getByTestId('lock-screen').waitFor({timeout:15000})]);
-    const timed=await overview();assert.equal(timed.state.status,'paused');assert.equal(timed.state.settings.autoPause,false);
-    assert.equal((await api('work',{method:'POST',auth:a.participantToken,body:{participantId:a.participantId,runId:timed.state.runId,work:completed,preview:art.value.preview}})).status,409);
+    await studentA.waitForTimeout(6000);
+    assert.equal(await studentA.getByTestId('classroom-game').count(),1,'activity 3 is still open after several seconds');
+    assert.match(await studentA.getByTestId('lesson-timer').innerText(),/진행 시간/);
+    const untimed=await overview();assert.equal(untimed.state.status,'active');assert.equal(untimed.state.endsAt,null);
+    await control('pause');await Promise.all([studentA.getByTestId('lock-screen').waitFor({timeout:15000}),studentB.getByTestId('lock-screen').waitFor({timeout:15000})]);
+    assert.equal(await studentA.getByTestId('classroom-game').count(),0,'ending the activity closes every game');
     await control('settings',{settings:{durations:{1:45},submitButton:true,autoPause:true}});await control('start',{activity:1});
+    assert.equal((await api('work',{method:'POST',auth:a.participantToken,body:{participantId:a.participantId,runId:untimed.state.runId,work:completed,preview:art.value.preview}})).status,409,'a work from an earlier run is refused once another activity starts');
     await studentA.locator('#country-1').waitFor();
     await studentA.locator('#country-1').selectOption('yuan');await studentA.locator('#country-2').selectOption('goryeo');await studentA.locator('#country-3').selectOption('japan');
     await studentA.waitForFunction(()=>document.querySelectorAll('[data-viewer-status=ready]').length===3,{},{timeout:45000});
@@ -206,7 +211,7 @@ async function capture(page, label) {
     await control('pause');await Promise.all([studentA.getByTestId('lock-screen').waitFor(),studentB.getByTestId('lock-screen').waitFor()]);
     if(process.env.CLASSROOM_DATA_DIR)await fs.access(path.join(process.env.CLASSROOM_DATA_DIR,'classroom-v1','local',teacherSession.code,'room.json'));
     assert.deepEqual(errors,[]);
-    console.log('Classroom: activity 3 enforces its five-second test deadline even when autoPause is off; real filesystem persistence verified.');
+    console.log('Classroom: activity 3 runs without a time limit until the teacher ends it, then closes every game; real filesystem persistence verified.');
     console.log('Classroom: optional submit button stays visible at 1024×600 and locks answers only after successful submission.');
     console.log(`Screenshots saved to ${screenshotDirectory}/classroom-*.png (1366×768 and 1024×600).`);
   } finally {

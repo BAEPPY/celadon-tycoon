@@ -22,14 +22,18 @@ export function extractClassroomCode(value, {origin = globalThis.location?.origi
 export const TEACHER_ONLY_ACTIONS = Object.freeze([
   'create', 'settings', 'teacher-activity', 'teacher-object', 'copy-code',
   'copy-invite', 'cloud-kind', 'start', 'pause', 'reveal', 'end', 'new-room', 'delete-room',
+  'manage-students', 'lock-room', 'release-student', 'remove-student', 'copy-observer', 'observer-link',
 ]);
 const teacherActions = new Set(TEACHER_ONLY_ACTIONS);
 const studentActions = new Set(['join', 'submit-answers', 'next-object', 'previous-object', 'select-object']);
 const commonActions = new Set(['retry-connection', 'retry-boot', 'fullscreen']);
+// Observers may only change what their own read-only board shows.
+const observerActions = new Set(['teacher-activity', 'teacher-object', 'cloud-kind']);
 
 export function isTeacherAction(action) { return teacherActions.has(action); }
 
-export function canUseClassroomAction(action, {teacherMode = false, teacherToken} = {}) {
+export function canUseClassroomAction(action, {teacherMode = false, teacherToken, observerMode = false} = {}) {
+  if (observerMode) return observerActions.has(action) || commonActions.has(action);
   if (teacherActions.has(action)) {
     // A teacher may create a room before a room-specific capability exists.
     return teacherMode === true && (action === 'create' ||

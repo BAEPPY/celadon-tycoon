@@ -18,7 +18,8 @@
     "test:dialogue": "node tests/browser-dialogue.cjs",
     "test:classroom": "node tests/browser-classroom.cjs",
     "test:classroom-access": "node tests/browser-classroom-access.cjs",
-    "test:lesson-viewer": "node tests/browser-lesson-viewer.cjs"
+    "test:lesson-viewer": "node tests/browser-lesson-viewer.cjs",
+    "test:classroom-manage": "node tests/browser-classroom-manage.cjs"
   },
   "dependencies": {
     "@vercel/blob": "2.8.2",
