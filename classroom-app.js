@@ -30,6 +30,7 @@ let session=observerMode?observerSession():teacherMode?stored(SESSION_KEY):loadS
 let currentObject='1',teacherActivity=1,teacherObject='1',teacherA1View='comparison',selectedCountry=null,cloudKind='name';
 let teacherResultViews={1:'responses',2:'responses'},exhibitObjects={1:'1',2:'1'},completionDialog=null;
 let worksSort=observerMode?'score':'number',workDialog=null;
+let observerInviteDialog=null,observerInviteRequest=null,observerInviteVerified=null,observerInviteModule;
 let drafts={1:{},2:{},beauty:{}},revisions={1:0,2:0,beauty:0},dirty={1:false,2:false,beauty:false},draftChanges={1:0,2:0,beauty:0},submitted={1:false,2:false,beauty:false};
 let viewKey='',teacherSignature='',pollTimer=null,pollRunning=false,pollFailures=0,connectionError='',lastSuccessfulPoll=0;
 let saveTimer=null,saving=false,saveAgain=false,finalAgain=false,saveState='ready',saveMessage='',controlBusy=false;
@@ -56,6 +57,84 @@ async function copyClassroomValue(value,label){
     dialog.innerHTML=`<h2>${esc(label)}</h2><p>아래 내용을 선택해 직접 복사해 주세요.</p><input readonly aria-label="${esc(label)}" value="${esc(value)}"><button class="button" type="button">닫기</button>`;
     dialog.querySelector('button').addEventListener('click',()=>dialog.close());dialog.addEventListener('close',()=>dialog.remove());document.body.append(dialog);dialog.showModal();dialog.querySelector('input').select();
   }
+}
+function observerInviteIdentity(){return actionAllowed('observer-link')&&room&&session?.code?{code:session.code,teacherToken:session.teacherToken}:null;}
+function sameObserverInviteSession(identity){const saved=stored(SESSION_KEY);return identity&&!disposed&&actionAllowed('observer-link')&&room&&session?.code===identity.code&&session?.teacherToken===identity.teacherToken&&saved?.code===identity.code&&saved?.teacherToken===identity.teacherToken;}
+function cancelObserverInviteRequest(){const request=observerInviteRequest;observerInviteRequest=null;request?.controller.abort();}
+async function observerInviteUrl(identity){
+  if(!sameObserverInviteSession(identity))return null;
+  // Verify once per page/session so older cached links migrate to the server's stable invitation.
+  let key=observerInviteVerified?.code===identity.code&&observerInviteVerified?.teacherToken===identity.teacherToken?observerInviteVerified.key:null;
+  if(!/^[A-Za-z0-9_-]{30,100}$/.test(key||'')){
+    let request=observerInviteRequest;
+    if(!request||request.identity.code!==identity.code||request.identity.teacherToken!==identity.teacherToken){
+      cancelObserverInviteRequest();const controller=new AbortController();request={identity,controller};
+      const timeout=setTimeout(()=>controller.abort(),15000);
+      request.promise=api('control',{method:'POST',body:{command:'observer-link'},signal:controller.signal}).finally(()=>{clearTimeout(timeout);if(observerInviteRequest===request)observerInviteRequest=null;});
+      observerInviteRequest=request;
+    }
+    const payload=await request.promise;
+    if(!sameObserverInviteSession(identity)||request.controller.signal.aborted)return null;
+    key=payload.observerToken;
+    if(!/^[A-Za-z0-9_-]{30,100}$/.test(key||''))throw new Error('참관 주소를 만들지 못했어요. 다시 시도해 주세요.');
+    observerInviteVerified={...identity,key};session={...session,observerToken:key};store(SESSION_KEY,session);
+  }
+  const url=new URL('/observe',location.origin);url.searchParams.set('code',identity.code);url.hash=new URLSearchParams({key}).toString();return url.href;
+}
+function currentObserverInvite(current){return current&&observerInviteDialog===current&&current.dialog.isConnected&&sameObserverInviteSession(current.identity);}
+function closeObserverInvite({restoreFocus=true}={}){
+  const current=observerInviteDialog;observerInviteDialog=null;cancelObserverInviteRequest();if(!current)return;
+  if(current.dialog.open)current.dialog.close();current.dialog.remove();
+  const opener=current.opener?.isConnected?current.opener:app.querySelector('[data-action=observer-link]');
+  opener?.setAttribute('aria-expanded','false');if(restoreFocus&&sameObserverInviteSession(current.identity))opener?.focus({preventScroll:true});
+}
+async function copyObserverAddress(current=null){
+  const identity=current?.identity||observerInviteIdentity();if(!sameObserverInviteSession(identity)||current&&!currentObserverInvite(current))return;
+  try{
+    const url=current?.url||await observerInviteUrl(identity);if(!url||!sameObserverInviteSession(identity)||current&&!currentObserverInvite(current))return;
+    try{await navigator.clipboard.writeText(url);if(sameObserverInviteSession(identity)&&(!current||currentObserverInvite(current)))toast('참관 주소를 복사했어요.');}
+    catch{
+      if(!sameObserverInviteSession(identity)||current&&!currentObserverInvite(current))return;
+      if(!current){await openObserverInvite({selectUrl:true});return;}
+      current.dialog.querySelector('[data-observer-status]').textContent='아래 참관 주소를 길게 눌러 복사해 주세요.';
+      const input=current.dialog.querySelector('[data-observer-url]');input.focus();input.select();
+    }
+  }catch(error){if(sameObserverInviteSession(identity)&&error.name!=='AbortError')toast(error.message);}
+}
+async function loadObserverInvite(current){
+  if(!currentObserverInvite(current)||current.loading)return;current.loading=true;
+  const dialog=current.dialog,status=dialog.querySelector('[data-observer-status]'),retry=dialog.querySelector('[data-retry-observer-invite]');
+  status.textContent='참관 QR을 준비하고 있어요…';retry.hidden=true;dialog.setAttribute('aria-busy','true');
+  try{
+    const url=await observerInviteUrl(current.identity);if(!url||!currentObserverInvite(current))return;current.url=url;
+    const input=dialog.querySelector('[data-observer-url]');input.value=url;input.disabled=false;dialog.querySelector('[data-copy-observer-invite]').disabled=false;
+    observerInviteModule||=import('./observer-invite.js').catch(error=>{observerInviteModule=null;throw error;});
+    const module=await observerInviteModule;if(!currentObserverInvite(current))return;
+    const images=await module.createObserverInvite({url,title:TITLE,roomLabel:'우리 반 청자 교실'});if(!currentObserverInvite(current))return;
+    const image=dialog.querySelector('[data-observer-qr]');image.src=images.qrDataUrl;image.hidden=false;dialog.querySelector('.observer-invite-loading').hidden=true;
+    const download=dialog.querySelector('[data-download-observer-qr]');download.href=images.posterDataUrl||images.qrDataUrl;download.hidden=false;
+    dialog.querySelector('[data-print-observer-invite]').disabled=false;status.textContent='휴대폰 카메라로 QR 코드를 찍어 주세요.';
+    if(current.selectUrl){input.focus();input.select();status.textContent='참관 주소를 길게 눌러 복사해 주세요.';current.selectUrl=false;}
+  }catch(error){if(currentObserverInvite(current)){status.textContent=error.name==='AbortError'?'연결이 지연되고 있어요. 다시 시도해 주세요.':'참관 QR을 준비하지 못했어요. 다시 시도하거나 참관 주소를 복사해 주세요.';retry.hidden=false;}}
+  finally{current.loading=false;if(currentObserverInvite(current))dialog.setAttribute('aria-busy','false');}
+}
+async function openObserverInvite({selectUrl=false}={}){
+  const identity=observerInviteIdentity();if(!identity)return;
+  if(currentObserverInvite(observerInviteDialog)){observerInviteDialog.dialog.querySelector('[data-close-observer-invite]').focus();return;}
+  closeObserverInvite({restoreFocus:false});
+  const dialog=document.createElement('dialog');dialog.id='observer-invite-dialog';dialog.className='observer-invite';dialog.setAttribute('aria-labelledby','observer-invite-title');
+  dialog.innerHTML=`<header class="observer-invite-header"><div><span class="activity-label">함께 보는 우리 반 수업</span><h2 id="observer-invite-title">공개수업 참관</h2></div><button class="button secondary small" type="button" data-close-observer-invite aria-label="참관 QR 닫기">닫기 ×</button></header><div class="observer-invite-body"><section class="observer-invite-qr-panel" aria-label="참관 화면 QR 코드"><div class="observer-invite-qr"><p class="observer-invite-loading">QR을 불러오고 있어요…</p><img data-observer-qr hidden width="360" height="360" alt="휴대폰 카메라로 찍으면 익명 수업 참관 화면이 열리는 QR 코드"></div><p class="observer-invite-status" data-observer-status role="status"></p><button class="button secondary" type="button" data-retry-observer-invite hidden>다시 시도</button></section><section class="observer-invite-details"><h3>${TITLE}</h3><p>휴대폰으로 학생들의 생각과 완성한 청자를 함께 살펴보세요.</p><div class="observer-invite-features"><span>익명 답변</span><span>학생 작품</span></div><p class="observer-invite-privacy">학생 이름은 표시되지 않아요.<br>수업 진행은 선생님이 제어해요.</p><label class="observer-invite-address">참관 주소<input data-observer-url type="text" readonly disabled autocomplete="off" spellcheck="false" aria-label="참관 주소"></label><button class="button" type="button" data-copy-observer-invite disabled>참관 주소 복사</button></section></div><footer class="observer-invite-footer"><a class="button secondary" data-download-observer-qr download="공개수업-참관-QR.png" hidden>QR 안내문 저장</a><button class="button secondary" type="button" data-print-observer-invite disabled>안내문 인쇄</button></footer>`;
+  const current={dialog,identity,opener:document.activeElement,selectUrl,url:null,loading:false};observerInviteDialog=current;
+  dialog.addEventListener('cancel',event=>{event.preventDefault();closeObserverInvite();});
+  dialog.addEventListener('close',()=>{if(observerInviteDialog===current)closeObserverInvite();});
+  dialog.addEventListener('click',event=>{
+    if(event.target.closest('[data-close-observer-invite]'))closeObserverInvite();
+    else if(event.target.closest('[data-copy-observer-invite]'))void copyObserverAddress(current);
+    else if(event.target.closest('[data-retry-observer-invite]'))void loadObserverInvite(current);
+    else if(event.target.closest('[data-print-observer-invite]')&&currentObserverInvite(current))window.print();
+    else if(event.target===dialog){const bounds=dialog.getBoundingClientRect();if(event.clientX<bounds.left||event.clientX>bounds.right||event.clientY<bounds.top||event.clientY>bounds.bottom)closeObserverInvite();}
+  });
+  document.body.append(dialog);dialog.showModal();app.querySelector('[data-action=observer-link]')?.setAttribute('aria-expanded','true');dialog.querySelector('[data-close-observer-invite]').focus();await loadObserverInvite(current);
 }
 function token(){return observerMode?session?.observerToken:teacherMode?session?.teacherToken:session?.participantToken;}
 async function api(action,{method='GET',body={},signal,keepalive=false}={}){
@@ -103,7 +182,7 @@ function stages(activity=room?.activity||0){
 function manageMenu(){const status=room?effectiveStatus():'waiting';return `<details class="manage-menu" data-details="manage" ${manageOpen?'open':''}><summary class="button secondary small">수업 관리 <span aria-hidden="true">▾</span></summary><div class="manage-menu-list"><button class="button secondary small" data-action="copy-observer">참관 주소 복사</button>${room&&!room.joinCode?'<button class="button secondary small" data-action="claim-join-code">탑텐반 코드 연결</button>':''}<button class="button secondary small" data-action="end" ${status==='ended'||controlBusy?'disabled':''}>수업 종료</button><button class="button quiet small" data-action="new-room">새 수업</button></div></details>`;}
 function header(){
   const studentGame=!teacherMode&&active(3);
-  return `<header class="lesson-header ${teacherMode?'teacher-header':''}"><div class="brand"><span class="brand-mark">${logo}</span><div><div class="brand-title">우리 반 청자 교실</div><small>${observerMode?'참관 화면 · 읽기 전용':teacherMode?'선생님 진행 화면':'관찰하고 · 생각하고 · 만들어요'}</small></div></div>${teacherMode?`${observerMode?'<div class="observer-badge">참관 중 · 학생 이름은 보이지 않아요</div>':`<div class="teacher-room-code"><span>수업 코드</span><strong>${esc(publicJoinCode())}</strong><div class="code-actions"><button class="button secondary small" data-action="copy-code">수업 코드 복사</button><button class="button quiet small" data-action="copy-invite">참여 주소 복사</button></div></div>`}<div class="teacher-tools"><span class="pill" data-connection>연결됨</span><button class="button quiet small" data-action="fullscreen">전체 화면</button>${observerMode?'':manageMenu()}</div>`:`${studentGame?'':stages()}<div class="student-badge"><strong>${esc(student?.number||'')}번 ${esc(student?.name||'')}</strong><span class="pill" data-connection>연결됨</span></div>${studentGame?timerMarkup():''}`}</header><div class="connection-banner" data-connection-banner hidden><span></span><button class="button secondary small" data-action="retry-connection">다시 연결</button></div>`;
+  return `<header class="lesson-header ${teacherMode?'teacher-header':''}"><div class="brand"><span class="brand-mark">${logo}</span><div><div class="brand-title">우리 반 청자 교실</div><small>${observerMode?'참관 화면 · 읽기 전용':teacherMode?'선생님 진행 화면':'관찰하고 · 생각하고 · 만들어요'}</small></div></div>${teacherMode?`${observerMode?'<div class="observer-badge">참관 중 · 학생 이름은 보이지 않아요</div>':`<div class="teacher-room-code"><span>수업 코드</span><strong>${esc(publicJoinCode())}</strong><div class="code-actions"><button class="button secondary small" data-action="copy-code">수업 코드 복사</button><button class="button quiet small" data-action="copy-invite">참여 주소 복사</button></div></div>`}<div class="teacher-tools"><span class="pill" data-connection>연결됨</span><button class="button quiet small" data-action="fullscreen">전체 화면</button>${observerMode?'':`<button class="button secondary small observer-invite-open" type="button" data-action="observer-link" aria-haspopup="dialog" aria-controls="observer-invite-dialog" aria-expanded="${Boolean(observerInviteDialog)}">참관 QR</button>${manageMenu()}`}</div>`:`${studentGame?'':stages()}<div class="student-badge"><strong>${esc(student?.number||'')}번 ${esc(student?.name||'')}</strong><span class="pill" data-connection>연결됨</span></div>${studentGame?timerMarkup():''}`}</header><div class="connection-banner" data-connection-banner hidden><span></span><button class="button secondary small" data-action="retry-connection">다시 연결</button></div>`;
 }
 function updateConnection(){
   document.querySelectorAll('[data-connection]').forEach(el=>{el.textContent=connectionError?'다시 연결 중':'연결됨';el.classList.toggle('offline',Boolean(connectionError));});
@@ -161,12 +240,15 @@ async function poll(){
   if(pollRunning||!session)return;schedulePoll();pollRunning=true;const requestSession=session;
   try{const payload=await api(observerMode?'observe':teacherMode?'teacher':'state');if(session!==requestSession)return;receive(payload);if(!teacherMode&&active(room.activity)&&dirty[answerActivity()]&&!saving)queueSave();retryWorks();}
   catch(error){if(session!==requestSession)return;
+    if(error.status===403||error.status===404)closeObserverInvite({restoreFocus:false});
     if((!teacherMode||observerMode)&&(error.status===403||error.status===404)){const message=observerMode||error.status===404?error.message:'선생님이 입장 정보를 정리했어요. 번호와 이름으로 다시 입장해 주세요.';resetRoom();renderWelcome(message);return;}
     pollFailures++;connectionError=error.name==='AbortError'?'응답을 기다리고 있어요.':error.message;updateConnection();}
   finally{pollRunning=false;schedulePoll(Math.min(12000,(teacherMode?4000:3000)*Math.max(1,pollFailures)));}
 }
 function welcomeArtwork(){return `<div class="welcome-art" aria-hidden="true"><img src="/assets/lesson/welcome-celadon.png" alt="" width="1774" height="887" fetchpriority="high"></div>`;}
 function renderWelcome(message=''){
+  observerInviteVerified=null;
+  closeObserverInvite({restoreFocus:false});
   closeCompletionDialog();disposeViewers();disposeTeacherBoard();viewKey='welcome';const identity={},queryCode=extractClassroomCode(new URLSearchParams(location.search).get('code')||'');
   app.innerHTML=`<section class="welcome"><div class="welcome-copy"><span class="eyebrow">우리 반 청자 교실 · 고려의 문화</span><h1><em>고려청자의 우수성</em>과<br> 다양한 쓰임 알아보기</h1><p>빛깔과 모양을 살펴보고,<br>청자에 담긴 사람들의 생활을 찾아봐요.</p>${welcomeArtwork()}</div><div><section class="panel welcome-form"><h2>${observerMode?'수업 참관':teacherMode?'함께 시작하는 청자 수업':'수업에 들어가요'}</h2><p class="muted">${observerMode?'선생님이 보낸 참관 주소로 열면 수업 진행과 학생들의 생각을 함께 볼 수 있어요. 학생 이름은 보이지 않아요.':teacherMode?'우리 반 수업 코드는 ‘탑텐반’입니다.':'번호와 이름은 세 활동 동안 계속 사용해요.'}</p>${observerMode?'':teacherMode?`<form data-form="create"><button class="button" type="submit">새 수업 열기 <span aria-hidden="true">→</span></button></form><p class="welcome-note">활동 1 · 세 나라 비교 1분 30초<br>아름다움 찾기 1분 30초<br>활동 2 · 4분<br>활동 3 · 선생님이 마칠 때까지<br><br>선생님이 활동을 시작하고 마칠 때마다<br>학생 화면도 함께 바뀝니다.</p><a class="teacher-link" href="/lesson">학생 참여 화면 보기 →</a>`:`<form data-form="join"><label>수업 코드<input class="code-input" name="code" autocomplete="off" spellcheck="false" minlength="3" maxlength="6" pattern="(탑텐반|[A-Za-z2-9]{6})" required value="${esc(queryCode)}" placeholder="탑텐반"></label><div class="identity-fields"><label>번호<input name="number" type="number" autocomplete="off" min="1" max="99" inputmode="numeric" required value="${esc(identity.number||'')}" placeholder="번호"></label><label>이름<input name="name" autocomplete="off" maxlength="20" required value="${esc(identity.name||'')}" placeholder="이름을 적어 주세요"></label></div><button class="button" type="submit">수업 들어가기 <span aria-hidden="true">→</span></button></form><p class="welcome-note">입력한 번호와 이름, 수업 답변은 선생님께 전달돼요.</p>`}<p class="error-message" data-form-error>${esc(message)}</p></section></div></section>`;
 }
@@ -382,12 +464,13 @@ function teacherActionMarkup(live,status){
 function renderTeacher(){
   if(!teacherMode||!(session?.teacherToken||session?.observerToken))return;
   syncWorkDialog();
-  const status=effectiveStatus(),dataSignature=JSON.stringify({state:{...room,serverNow:0},participants:teacherData?.participants,comparison:teacherData?.comparison,observations:teacherData?.observations,works:teacherData?.works,reveal:teacherData?.reveal,teacherActivity,teacherObject,cloudKind,teacherResultViews,exhibitObjects,worksSort,teacherA1View,beauty:teacherData?.beauty,status,controlBusy});
+  if(observerInviteDialog&&!sameObserverInviteSession(observerInviteDialog.identity))closeObserverInvite({restoreFocus:false});
+  const status=effectiveStatus(),dataSignature=JSON.stringify({state:{...room,serverNow:0},participants:teacherData?.participants,participantCount:teacherData?.participantCount,completionCounts:teacherData?.completionCounts,comparison:teacherData?.comparison,observations:teacherData?.observations,works:teacherData?.works,reveal:teacherData?.reveal,teacherActivity,teacherObject,cloudKind,teacherResultViews,exhibitObjects,worksSort,teacherA1View,beauty:teacherData?.beauty,status,controlBusy});
   if(settingsDirty&&viewKey==='teacher'){updateTimer();updateConnection();return;}
   if(viewKey==='teacher'&&teacherSignature===dataSignature){updateTimer();updateConnection();if(teacherActivity===3)loadWorkImages();return;}
   teacherSignature=dataSignature;viewKey='teacher';disposeViewers();cloudView?.dispose();cloudView=null;
-  const live=teacherViewActive()&&status==='active',participantCount=teacherData?.participants?.length||0;
-  const completed=teacherBeautyView()?Number(teacherData?.beauty?.respondents)||0:teacherActivity===1?(teacherData?.participants||[]).filter(p=>p.activity1Complete).length:teacherActivity===2?(teacherData?.participants||[]).filter(p=>p.activity2Complete).length:(teacherData?.works||[]).length;
+  const live=teacherViewActive()&&status==='active',participantCount=observerMode?Number(teacherData?.participantCount)||0:teacherData?.participants?.length||0;
+  const completed=teacherBeautyView()?Number(teacherData?.beauty?.respondents)||0:teacherActivity===3?(teacherData?.works||[]).length:observerMode?Number(teacherData?.completionCounts?.[teacherActivity])||0:(teacherData?.participants||[]).filter(p=>p[`activity${teacherActivity}Complete`]).length;
   app.innerHTML=`<div class="lesson-shell teacher-shell">${header()}<div class="teacher-workspace"><section class="teacher-main"><div class="teacher-overview"><div><span class="activity-label">고려의 문화 · 함께 생각하는 시간</span><h1>${TITLE}</h1></div></div><nav class="teacher-stage-nav" aria-label="교사용 활동 선택">${[1,2,3].map(n=>`<button class="${teacherActivity===n?'active':''}" data-action="teacher-activity" data-activity="${n}">${room.activity===n&&status==='active'?'<i class="live-dot"></i>':''}<span><b>${n}</b> ${ACTIVITY_NAMES[n]}</span></button>`).join('')}</nav><div class="teacher-content">${teacherContent()}</div></section><aside class="teacher-sidebar" aria-label="교사용 수업 진행"><section class="teacher-control-bar"><span class="activity-label">수업 진행</span><div class="stage-caption">${teacherBeautyView()?BEAUTY_NAME:ACTIVITY_NAMES[teacherActivity]}<small>${observerMode?(live?'학생들이 활동하고 있어요.':status==='active'?`지금은 활동 ${room.activity}${room.activity===2?'가':'이'} 진행 중이에요.`:status==='ended'?'수업을 마쳤어요.':room.activity===teacherActivity&&status==='paused'?'학생들이 선생님을 보고 있어요.':'아직 진행하지 않은 활동이에요.'):live?(timeExpired()?'입력이 마감됐어요. 활동을 마쳐 주세요.':'학생들이 활동하고 있어요.'):status==='active'?`지금은 활동 ${room.activity}${room.activity===2?'가':'이'} 진행 중이에요. 먼저 활동을 마쳐 주세요.`:room.activity===teacherActivity&&status==='paused'?'학생들이 선생님을 보고 있어요.':status==='ended'?'수업을 마쳤어요.':'시작하면 학생 화면이 함께 열립니다.'}</small></div>${timerMarkup()}<div class="teacher-metrics"><span>참여 <strong>${participantCount}</strong>명</span><span>${teacherActivity===3?'완성작':'모두 작성'} <strong>${completed}</strong>${teacherActivity===3?'점':'명'}</span></div>${teacherActionMarkup(live,status)}</section>${status==='paused'?'<div class="teacher-pause-note">학생 화면은 지금<br>“크롬북을 닫고 선생님을 보세요”</div>':''}${observerMode?'':participantsMarkup()+teacherSettings()+'<section class="panel teacher-data-actions"><button class="button danger small" data-action="delete-room">수업 데이터 삭제</button><p>학생 정보 · 답변 · 작품을 삭제합니다.</p></section>'}</aside></div></div>`;
   updateTimer();updateConnection();mountTeacherBoard();refreshStudentManager();if(teacherActivity===3)loadWorkImages();
 }
@@ -427,7 +510,8 @@ async function loadWorkImages(){
   }
 }
 function resetRoom({keepTeacherKey=false}={}){
-  closeWorkDialog({restoreFocus:false});closeCompletionDialog();teacherResultViews={1:'responses',2:'responses'};exhibitObjects={1:'1',2:'1'};
+  observerInviteVerified=null;
+  closeObserverInvite({restoreFocus:false});closeWorkDialog({restoreFocus:false});closeCompletionDialog();teacherResultViews={1:'responses',2:'responses'};exhibitObjects={1:'1',2:'1'};
   heartbeatGame();disposeViewers();disposeTeacherBoard();clearTimeout(pollTimer);clearTimeout(saveTimer);session=null;room=null;teacherData=null;student=null;answers={};
   drafts={1:{},2:{},beauty:{}};revisions={1:0,2:0,beauty:0};dirty={1:false,2:false,beauty:false};draftChanges={1:0,2:0,beauty:0};submitted={1:false,2:false,beauty:false};teacherA1View='comparison';
   viewKey='';teacherSignature='';currentObject='1';teacherActivity=1;teacherObject='1';selectedCountry=null;cloudKind='name';settingsDirty=false;connectionError='';
@@ -594,7 +678,8 @@ async function handleClick(event){
     if(action==='lock-room'){await control('lock-room',{locked:button.dataset.locked==='true'});return;}
     if(action==='release-student'){if(confirm(`${button.dataset.id}번 학생의 입장 정보를 풀까요?\n\n학생이 같은 번호로 다시 입장하면 쓰던 답과 작품을 이어서 할 수 있어요.`))await control('release-student',{participantId:button.dataset.id});return;}
     if(action==='remove-student'){if(confirm(`${button.dataset.id}번 ${button.dataset.name||''} 학생을 내보낼까요?\n\n이 학생의 답과 완성작이 서버에서 삭제되고 되돌릴 수 없어요.`))await control('remove-student',{participantId:button.dataset.id});return;}
-    if(action==='copy-observer'){let key=session.observerToken;if(!key){const payload=await api('control',{method:'POST',body:{command:'observer-link'}});key=payload.observerToken;if(!key)throw new Error('참관 주소를 만들지 못했어요. 다시 눌러 주세요.');session={...session,observerToken:key};store(SESSION_KEY,session);}await copyClassroomValue(`${location.origin}/observe?code=${encodeURIComponent(session.code)}#key=${key}`,'참관 주소');return;}
+    if(action==='observer-link'){await openObserverInvite();return;}
+    if(action==='copy-observer'){await copyObserverAddress();return;}
     if(action==='new-room'){if(!confirm('탑텐반 코드를 새 수업에 연결할까요?\n\n기존 수업의 응답은 서버에 남고, 새 수업은 처음부터 시작합니다.'))return;button.disabled=true;try{await createTeacherClassroom();}finally{if(button.isConnected)button.disabled=false;}return;}
     if(action==='delete-room'){if(!confirm('이 수업의 학생 정보, 답변, 작품을 모두 삭제할까요? 삭제한 자료는 되돌릴 수 없습니다.'))return;await api('control',{method:'POST',body:{command:'delete'}});resetRoom();renderWelcome();toast('수업 자료를 삭제했어요.');return;}
   }catch(error){toast(error.message);}
@@ -626,6 +711,7 @@ app.addEventListener('pointerdown',event=>{
 });
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&session)poll();else if(!teacherMode&&room&&dirty[answerActivity()])queueSave();});
 window.addEventListener('online',()=>{if(session)poll();});
+window.addEventListener('storage',event=>{if(event.key!==SESSION_KEY||!teacherMode||observerMode)return;const saved=stored(SESSION_KEY);if(!saved||saved.code!==session?.code||saved.teacherToken!==session?.teacherToken){observerInviteVerified=null;closeObserverInvite({restoreFocus:false});}});
 window.addEventListener('pageshow',event=>{
   if(!teacherMode){
     if(event.persisted){resetRoom();renderWelcome();}
@@ -644,7 +730,7 @@ const clock=setInterval(()=>{
   if(timeExpired()){render();heartbeatGame();}
   if(!teacherMode&&lastGameActive&&Date.now()-lastSuccessfulPoll>14000)heartbeatGame();
 },250);
-window.addEventListener('pagehide',event=>{if(event.persisted)return;disposed=true;clearTimeout(pollTimer);clearTimeout(saveTimer);clearInterval(clock);clearPendingWorks();terminalWorks.clear();closeWorkDialog({restoreFocus:false});closeCompletionDialog();disposeViewers();disposeTeacherBoard();});
+window.addEventListener('pagehide',event=>{observerInviteVerified=null;closeObserverInvite({restoreFocus:false});if(event.persisted)return;disposed=true;clearTimeout(pollTimer);clearTimeout(saveTimer);clearInterval(clock);clearPendingWorks();terminalWorks.clear();closeWorkDialog({restoreFocus:false});closeCompletionDialog();disposeViewers();disposeTeacherBoard();});
 
 async function boot(){
   pruneLocalGameData();
