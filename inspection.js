@@ -74,10 +74,18 @@ export class InspectionGame{
   this.ready=copies(work,this.abort.signal).then(({images,hitY})=>{if(this.disposed)return;this.hitY=hitY;for(const pot of element.querySelectorAll('[data-inspect-index]')){pot.querySelector('img').src=images[this.state.items[Number(pot.dataset.inspectIndex)]];pot.style.setProperty('--hit-y',`${hitY*100}%`);pot.disabled=this.state.failed||this.state.done||this.state.broken.includes(Number(pot.dataset.inspectIndex));}this.place();element.dataset.inspectionReady='true';element.removeAttribute('aria-busy');note.textContent=noteText;const focus=this.state.failed?element.querySelector('[data-inspection-retry]'):this.state.done?element.querySelector('[data-action=inspection-finish]'):(this.state.lastBroken!==null||this.state.attempts>0)?element.querySelector('[data-inspect-index]:not([disabled])'):null;focus?.focus({preventScroll:true});}).catch(()=>{if(!this.disposed){element.dataset.inspectionReady='error';element.querySelector('.inspection-note').textContent='청자 그림을 불러오지 못했어요. 새로고침해서 다시 살펴봐요.';for(const pot of element.querySelectorAll('[data-inspect-index]'))pot.disabled=true;}});
  }
  place(){
-  const w=this.el.clientWidth,h=this.el.clientHeight,s=Math.max(w/1672,h/941),intro=this.el.querySelector('.inspection-intro'),nav=this.el.querySelector('.inspection-navigation');
-  const top=(intro?.offsetTop||0)+(intro?.offsetHeight||0)+18,navTop=nav?.offsetTop||h-48;
-  const baseline=Math.min(h-941*s+800*s,navTop-70),available=Math.max(60,baseline-top),size=Math.max(60,Math.min(230,available,(w*.92-48)/4*.9));
-  this.el.style.setProperty('--inspection-baseline',`${baseline}px`);this.el.style.setProperty('--inspection-pot-size',`${Math.floor(size)}px`);
+  const mobile=getComputedStyle(this.el).getPropertyValue('--inspection-mobile').trim()==='1';
+  this.el.dataset.inspectionLayout=mobile?'grid':'counter';
+  if(mobile){
+   // The phone layout owns its two-column grid; a desktop counter baseline
+   // would shrink the pots or move them over labels when the page scrolls.
+   this.el.style.removeProperty('--inspection-baseline');this.el.style.removeProperty('--inspection-pot-size');
+  }else{
+   const w=this.el.clientWidth,h=this.el.clientHeight,s=Math.max(w/1672,h/941),intro=this.el.querySelector('.inspection-intro'),nav=this.el.querySelector('.inspection-navigation');
+   const top=(intro?.offsetTop||0)+(intro?.offsetHeight||0)+18,navTop=nav?.offsetTop||h-48;
+   const baseline=Math.min(h-941*s+800*s,navTop-70),available=Math.max(60,baseline-top),size=Math.max(60,Math.min(230,available,(w*.92-48)/4*.9));
+   this.el.style.setProperty('--inspection-baseline',`${baseline}px`);this.el.style.setProperty('--inspection-pot-size',`${Math.floor(size)}px`);
+  }
   for(const pot of this.el.querySelectorAll('[data-inspect-index]'))pot.style.setProperty('--shatter-rise',`${-pot.clientHeight*(.98-(this.hitY||.5))}px`);
  }
  later(fn,delay){const id=setTimeout(()=>{if(!this.disposed)fn();},delay);this.timers.push(id);}

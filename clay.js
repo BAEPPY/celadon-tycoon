@@ -26,7 +26,7 @@ export class ClayKneading {
   this.reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
   const signal=this.abort.signal;
   element.addEventListener('pointerdown',e=>{
-   if(!this.work.clay?.body||e.button!==0||this.pointer||this.keyHeld)return;
+   if(!this.work.clay?.body||e.button!==0||e.isPrimary===false||this.pointer||this.keyHeld)return;
    e.preventDefault();element.focus({preventScroll:true});element.setPointerCapture(e.pointerId);
    this.pointer={id:e.pointerId,startX:e.clientX,startY:e.clientY,lastX:e.clientX,lastY:e.clientY,distance:0};
    this.element.classList.add('is-kneading');this.press();this.deform(0,.95,0);
@@ -54,6 +54,7 @@ export class ClayKneading {
   this.placeOnWheel();this.showClayState();this.paint();
  }
  placeOnWheel(){
+  if(this.pointer)this.release(true);
   // Match the cover-scaled illustration: the wheel centre is (876, 712) in the 1672 × 941 scene.
   const w=this.scene.clientWidth,h=this.scene.clientHeight,scale=Math.max(w/1672,h/941);
   this.area.style.setProperty('--wheel-x',`${(w-1672*scale)/2+876*scale}px`);

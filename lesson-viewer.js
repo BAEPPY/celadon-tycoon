@@ -177,7 +177,7 @@ export function mountLessonViewer(container, artifact, {expand = true, getExpand
     const dialog = element('dialog', 'lesson-viewer__dialog');
     dialog.setAttribute('aria-labelledby', `${id}-expanded-title`);
     Object.assign(dialog.style, {
-      width: '94vw', height: '92vh', maxWidth: 'none', maxHeight: 'none',
+      width: '94vw', height: '92dvh', maxWidth: 'none', maxHeight: 'none',
       margin: 'auto', padding: '16px', boxSizing: 'border-box',
       display: 'flex', flexDirection: 'column', gap: '12px', overflow: 'hidden',
       border: '1px solid #d6e1e1', borderRadius: '18px', background: '#ffffff',
@@ -223,7 +223,7 @@ export function mountLessonViewer(container, artifact, {expand = true, getExpand
   toolbar.setAttribute('role', 'group');
   toolbar.setAttribute('aria-label', `${label} 관찰 도구`);
   Object.assign(toolbar.style, {display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: '5px', padding: '9px 0 6px'});
-  const hint = element('p', 'lesson-viewer__hint', '끌어서 돌려 보기 · 휠로 확대');
+  const hint = element('p', 'lesson-viewer__hint', matchMedia('(pointer: coarse)').matches ? '손가락으로 돌려 보기 · ＋·−로 확대' : '끌어서 돌려 보기 · 휠로 확대');
   hint.id = `${id}-hint`;
   Object.assign(hint.style, {margin: '0', color: '#617465', fontSize: '14px', lineHeight: '1.5', textAlign: 'center'});
   container.append(toolbar, hint);
