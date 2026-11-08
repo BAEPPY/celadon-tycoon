@@ -1,5 +1,5 @@
 import {createHash, randomUUID} from 'node:crypto';
-import {mkdir, readFile, readdir, rename, rm, writeFile, open} from 'node:fs/promises';
+import {mkdir, readFile, readdir, rename, rm, writeFile, open, stat} from 'node:fs/promises';
 import path from 'node:path';
 
 export class StoreConflict extends Error { constructor() { super('store-conflict'); } }
@@ -66,7 +66,27 @@ export class FileClassroomStore {
     }
     await visit(base); return found;
   }
-  async delete(key) { await rm(this.filename(key), {force: true}); }
+  async *cleanupPages() {
+    const prefix = `${classroomPrefix()}/`, base = path.join(this.directory, prefix);
+    let rooms;
+    try { rooms = await readdir(base, {withFileTypes: true}); } catch (error) { if (error.code === 'ENOENT') return; throw error; }
+    for (const room of rooms) {
+      if (!room.isDirectory() || !/^[A-Z2-9]{6}$/.test(room.name)) continue;
+      const keys = await this.list(`${prefix}${room.name}/`), entries = [];
+      for (const key of keys) {
+        try { const current = await this.read(key); if (current) entries.push({key, uploadedAt: (await stat(this.filename(key))).mtimeMs, etag: current.etag}); }
+        catch (error) { if (error.code !== 'ENOENT') throw error; }
+      }
+      yield entries;
+    }
+  }
+  async delete(key, etag) {
+    await this.locked(key, async filename => {
+      const current = etag === undefined ? null : await this.read(key);
+      if (current && current.etag !== etag) throw new StoreConflict();
+      await rm(filename, {force: true});
+    });
+  }
   async deleteMany(keys) { await Promise.all(keys.map(key => this.delete(key))); }
 }
 
@@ -124,9 +144,28 @@ export class BlobClassroomStore {
     } while (cursor);
     return keys;
   }
-  async delete(key) {
+  // Only scheduled cleanup enumerates an environment. Normal polling stays inside one room.
+  async *cleanupPages() {
+    const {list} = await this.sdk(), prefix = `${classroomPrefix()}/`; let cursor;
+    do {
+      const result = await list({...this.options, prefix, limit: 1000, ...(cursor ? {cursor} : {})});
+      yield result.blobs.filter(blob => blob.pathname.startsWith(prefix) && validKey(blob.pathname))
+        .map(blob => ({key: blob.pathname, uploadedAt: new Date(blob.uploadedAt).getTime(), etag: blob.etag}));
+      const next = result.hasMore ? result.cursor : undefined;
+      if (result.hasMore && (!next || next === cursor)) throw new StoreUnavailable();
+      cursor = next;
+    } while (cursor);
+  }
+  async delete(key, etag) {
     if (!validKey(key)) throw new Error('invalid-store-key');
-    const {del} = await this.sdk(); await del(key, this.options);
+    const {del, BlobPreconditionFailedError} = await this.sdk();
+    try { await del(key, {...this.options, ...(etag === undefined ? {} : {ifMatch: etag})}); }
+    catch (error) {
+      if ((BlobPreconditionFailedError && error instanceof BlobPreconditionFailedError) || error.name === 'BlobPreconditionFailedError' || error.status === 412 || error.statusCode === 412) {
+        this.generation++; this.cache.delete(key); throw new StoreConflict();
+      }
+      throw error;
+    }
     this.generation++; this.cache.delete(key);
   }
   // One request per 100 files keeps a whole class's deletion well inside the function time limit.

@@ -76,7 +76,7 @@ export async function classroomPreview(source, documentRef = document) {
   return null;
 }
 
-export function createClassroomGameBridge({onPause = () => {}, onResume = () => {}, getCompleted = () => [], previewSource = work => work.preview} = {}) {
+export function createClassroomGameBridge({onPause = () => {}, onResume = () => {}, getCompleted = () => [], previewSource = work => work.preview, isCurrent = () => true, getExpiresAt = () => null} = {}) {
   const context = classroomContext();
   if (!context) return null;
   let active = false, runId = null, leaseUntil = 0, deadline = 0, disposed = false;
@@ -110,12 +110,12 @@ export function createClassroomGameBridge({onPause = () => {}, onResume = () => 
     }
   }
   async function completed(work) {
-    const payload = classroomWorkPayload(work), currentRun = runId;
-    if (!active || !payload || pending.has(payload.id)) return;
+    const payload = classroomWorkPayload(work), currentRun = runId, expiresAt = getExpiresAt(work);
+    if (!active || !payload || pending.has(payload.id) || !isCurrent(work) || !Number.isFinite(expiresAt) || expiresAt <= Date.now()) return;
     pending.add(payload.id);
     try {
       const preview = await classroomPreview(previewSource(work));
-      if (!disposed && active && currentRun === runId && preview) post({type: 'celadon:completed', work: payload, preview, runId});
+      if (!disposed && active && currentRun === runId && preview && isCurrent(work) && expiresAt > Date.now()) post({type: 'celadon:completed', work: payload, preview, runId, expiresAt});
     } catch {post({type: 'celadon:preview-error', workId: payload.id});}
     finally {pending.delete(payload.id);}
   }

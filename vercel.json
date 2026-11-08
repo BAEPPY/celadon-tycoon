@@ -3,10 +3,22 @@
   "outputDirectory": "dist",
   "framework": null,
   "rewrites": [
-    {"source": "/lesson", "destination": "/lesson/index.html"},
-    {"source": "/teacher", "destination": "/teacher/index.html"},
-    {"source": "/observe", "destination": "/observe/index.html"},
-    {"source": "/game", "destination": "/game/index.html"}
+    {
+      "source": "/lesson",
+      "destination": "/lesson/index.html"
+    },
+    {
+      "source": "/teacher",
+      "destination": "/teacher/index.html"
+    },
+    {
+      "source": "/observe",
+      "destination": "/observe/index.html"
+    },
+    {
+      "source": "/game",
+      "destination": "/game/index.html"
+    }
   ],
   "headers": [
     {
@@ -33,6 +45,9 @@
     },
     "api/classroom.js": {
       "maxDuration": 30
+    },
+    "api/cleanup-classroom.js": {
+      "maxDuration": 300
     }
   },
   "redirects": [
@@ -52,6 +67,12 @@
       "source": "/",
       "destination": "/lesson",
       "permanent": false
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/cleanup-classroom",
+      "schedule": "*/5 * * * *"
     }
   ]
 }

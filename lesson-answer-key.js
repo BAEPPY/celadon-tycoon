@@ -57,9 +57,9 @@ export const OBSERVATION_ANSWERS = freezeAnswers({
     note: '용을 닮은 머리와 물고기를 닮은 몸통을 가진 주전자입니다. 동물의 모습과 물을 따르는 그릇의 기능을 함께 담았습니다.',
   },
   '5': {
-    name: '청자 투각 칠보문 뚜껑 향로', shortName: '향로', date: '고려',
+    name: '청자 투각 칠보무늬 향로', shortName: '향로', date: '고려',
     use: '향을 피울 때 사용합니다.',
-    source: '국립중앙박물관 소장 · 사용자 제공 PLY 스캔 형상',
+    source: '국립중앙박물관 소장 · 사용자 제공 STL 형상 · PLY 대조',
     sourceUrl: 'https://www.museum.go.kr/MUSEUM/contents/M0201020000.do?relicId=1227&schM=search',
     note: '구멍을 뚫어 칠보무늬를 낸 뚜껑으로 향 연기가 빠져나갑니다. 향을 피우는 몸통과 이를 받치는 받침이 함께 어우러져 있습니다.',
   },

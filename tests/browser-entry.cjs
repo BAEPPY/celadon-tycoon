@@ -20,7 +20,7 @@ const completed = {
   decorPhase: 2, decorDone: true, firing: ['dry', 'biscuit', 'glaze', 'fire'],
   preview: 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"><rect width="20" height="20" fill="#9db497"/></svg>'),
 };
-const fixture = { history: ['royal-rest'], gallery: [completed], draft };
+const fixture = { history: ['royal-rest'], gallery: [completed], draft, retentionStartedAt: Date.now() };
 
 async function seed(page, value) {
   await page.evaluate(({ key, value }) => {

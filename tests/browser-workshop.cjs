@@ -260,6 +260,8 @@ async function fire(page, kind, length) {
     assert.equal(await page.locator('.inspection-pot.is-kept').getAttribute('data-sample-kind'),'sound');
     await page.click("[data-action=inspection-finish]");
     await page.click("[data-action=explain]");
+    assert.equal(await page.inputValue('#work-title'),'');
+    await page.fill('#work-title','구름을 쉬게 하는 의자');
     await page.fill("#explain-use", "윗면이 평평하고 몸통이 튼튼해서 사람이 편하게 앉을 수 있기 때문이다.");
     await page.fill(
       "#explain-beauty",
@@ -268,7 +270,7 @@ async function fire(page, kind, length) {
     await page.click("[data-action=submit]");
     await page.waitForSelector(".customer-review-scene");
     assert.equal((await saved(page)).assessment.accepted,true);
-    assert.ok((await saved(page)).title.startsWith("청자"));
+    assert.equal((await saved(page)).title,'구름을 쉬게 하는 의자');
     const download = page.waitForEvent("download");
     await page.locator(".customer-review-scene [data-action=download]").click();
     assert.match((await download).suggestedFilename(), /\.png$/);

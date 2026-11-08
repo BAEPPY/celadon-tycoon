@@ -63,8 +63,8 @@ test('teacher controls require the teacher route and capability; object browsing
 
 test('an observer board can only change its own view, never control the class or manage students', () => {
   const observer = {teacherMode: false, observerMode: true};
-  for (const action of ['teacher-activity', 'teacher-object', 'cloud-kind', 'teacher-result-view', 'exhibit-object', 'exhibit-previous', 'exhibit-next', 'fullscreen', 'retry-connection', 'retry-boot']) assert.equal(canUseClassroomAction(action, observer), true, action);
-  for (const action of ['create', 'start', 'pause', 'reveal', 'settings', 'end', 'new-room', 'delete-room', 'copy-code', 'copy-invite',
+  for (const action of ['teacher-activity', 'teacher-object', 'cloud-kind', 'teacher-result-view', 'exhibit-object', 'exhibit-previous', 'exhibit-next', 'works-sort', 'view-work', 'teacher-a1-view', 'fullscreen', 'retry-connection', 'retry-boot']) assert.equal(canUseClassroomAction(action, observer), true, action);
+  for (const action of ['create', 'start', 'start-beauty', 'pause', 'reveal', 'settings', 'end', 'new-room', 'delete-room', 'copy-code', 'copy-invite',
     'manage-students', 'lock-room', 'release-student', 'remove-student', 'copy-observer', 'observer-link', 'join', 'submit-answers']) {
     assert.equal(canUseClassroomAction(action, {...observer, teacherToken: 'a'.repeat(43)}), false, action);
   }

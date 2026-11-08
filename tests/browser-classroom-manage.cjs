@@ -21,6 +21,7 @@ const base = process.env.BASE_URL || 'http://127.0.0.1:4173';
     await teacher.goto(`${base}/teacher`); await teacher.locator('[data-form=create] button').click();
     const code = (await teacher.locator('.teacher-room-code strong').innerText()).trim();
     assert.equal(code,'탑텐반');
+    assert.equal(await teacher.locator('[data-action=delete-room]').isVisible(),true,'teacher can find data deletion without opening a menu');
     teacherSession=await teacher.evaluate(()=>JSON.parse(localStorage.getItem('celadon-classroom-teacher-v1')));
     async function join(target, number, name) {
       await target.goto(`${base}/lesson?code=${code}`);
@@ -41,7 +42,7 @@ const base = process.env.BASE_URL || 'http://127.0.0.1:4173';
     assert.match(link, /\/observe\?code=[A-Z2-9]{6}#key=[A-Za-z0-9_-]{30,}$/);
     const observer = await page('observer');
     await observer.goto(link); await observer.locator('.teacher-stage-nav').waitFor();
-    assert.equal(await observer.locator('[data-action=start],[data-action=pause],[data-action=reveal],.manage-menu,[data-form=settings],.participant-panel,[data-action=copy-code]').count(), 0);
+    assert.equal(await observer.locator('[data-action=start],[data-action=pause],[data-action=reveal],.manage-menu,[data-form=settings],.participant-panel,[data-action=copy-code],[data-action=delete-room]').count(), 0);
     assert.ok(!(await observer.locator('#classroom-app').innerText()).includes('봄샘'));
 
     // Entry lock refuses new numbers.

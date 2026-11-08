@@ -14,8 +14,8 @@ const {chromium} = require('playwright');
       const child = new URL(route.request().url()).searchParams.has('classroom');
       route.fulfill({contentType:'text/html', body:child
         ? `<body><button id="game">게임</button><script>${bundle.outputFiles[0].text}</script><script>
-            window.calls={pause:0,resume:0};window.gallery=[];
-            window.bridge=ClassroomBridge.createClassroomGameBridge({onPause:()=>calls.pause++,onResume:()=>calls.resume++,getCompleted:()=>gallery});
+            window.calls={pause:0,resume:0};window.gallery=[];window.expiresAt=Date.now()+86400000;
+            window.bridge=ClassroomBridge.createClassroomGameBridge({onPause:()=>calls.pause++,onResume:()=>calls.resume++,getCompleted:()=>gallery,getExpiresAt:()=>expiresAt});
           </script></body>`
         : '<body><script>window.messages=[];addEventListener("message",event=>messages.push(event.data));</script><iframe src="/?classroom=1&room=ABCDEF&student=student-1&run=run-1"></iframe></body>'});
     });
@@ -51,6 +51,7 @@ const {chromium} = require('playwright');
     assert.equal(completed.length,1);
     assert.equal(completed[0].work.id,'completed-1');
     assert.equal(completed[0].runId,'run-1');
+    assert.equal(completed[0].expiresAt,await frame.evaluate(()=>expiresAt),'the bridge forwards the original game deadline');
     assert.match(completed[0].preview,/^data:image\/(?:png|webp);base64,/);
     assert.ok(Buffer.from(completed[0].preview.split(',')[1],'base64').length<=300*1024);
     const dimensions = await frame.evaluate(async source => {const image=new Image();image.src=source;await image.decode();return [image.width,image.height];},completed[0].preview);

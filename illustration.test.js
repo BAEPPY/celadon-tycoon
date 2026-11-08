@@ -8,8 +8,22 @@ import {
 import { motifPath, cutoutPath } from "./motif-paths.js";
 import { MODEL_CATALOG } from "./models-manifest.js";
 import { PATTERNS } from "./domain.js";
+import { normalizeStampSize } from './motif-size.js';
+import { vesselSVG } from './art.js';
 import { readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
+
+test('이전 무늬는 기본 크기를 유지하고 저장한 무늬 크기는 그림에도 반영한다', () => {
+  assert.equal(normalizeStampSize(undefined), 1);
+  assert.equal(normalizeStampSize(null), 1);
+  assert.equal(normalizeStampSize('invalid'), 1);
+  assert.equal(normalizeStampSize(-10), .5);
+  assert.equal(normalizeStampSize(20), 1.75);
+  const svg=vesselSVG({placements:[{x:100,y:180},{x:180,y:180,stampSize:.5},{x:260,y:180,stampSize:1.75}]});
+  assert.match(svg,/translate\(100 180\) scale\(0\.67\)/);
+  assert.match(svg,/translate\(180 180\) scale\(0\.335\)/);
+  assert.match(svg,/translate\(260 180\) scale\(1\.1725\)/);
+});
 
 test("투명 여백은 제외하고 그림의 실제 경계를 찾는다", () => {
   const rgba = new Uint8Array(8 * 6 * 4);

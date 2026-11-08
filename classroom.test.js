@@ -4,9 +4,10 @@ import {randomBytes} from 'node:crypto';
 import {mkdtemp, rm} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import {ClassroomService, WORK_UPLOAD_GRACE_MS, finishedWork} from './classroom-domain.js';
+import {ClassroomService, WORK_UPLOAD_GRACE_MS, WORK_RETENTION_MS, finishedWork} from './classroom-domain.js';
 import {BlobClassroomStore, FileClassroomStore, StoreConflict, classroomPrefix, classroomStorageStatus} from './classroom-store.js';
 import {createClassroomHandler} from './api/classroom.js';
+import {createCleanupHandler} from './api/cleanup-classroom.js';
 import {assessmentFingerprint} from './assessment-rules.js';
 import {evaluateWork} from './domain.js';
 
@@ -24,7 +25,14 @@ class MemoryStore {
     const next = String(++this.sequence); this.records.set(key, {data: structuredClone(data), etag: next}); return {etag: next};
   }
   async list(prefix) { return [...this.records.keys()].filter(key => key.startsWith(prefix)); }
-  async delete(key) { this.records.delete(key); }
+  async *cleanupPages() {
+    yield [...this.records].filter(([key]) => key.startsWith(`${classroomPrefix()}/`))
+      .map(([key, record]) => ({key, uploadedAt: record.data.submittedAt ?? record.data.createdAt, etag: record.etag}));
+  }
+  async delete(key, etag) {
+    if (etag !== undefined && this.records.has(key) && this.records.get(key).etag !== etag) throw new StoreConflict();
+    this.records.delete(key);
+  }
 }
 async function fixture(settings) {
   const store = new MemoryStore(); let clock = 1700000000000;
@@ -485,7 +493,7 @@ test('an observer link shows class results without student names and cannot cont
   assert.equal(view.state.activity, 3); assert.equal(view.works.length, 1); assert.equal(view.participants.length, 1);
   assert.ok(!JSON.stringify(view).includes('실명하나'));
   assert.ok(!('name' in view.works[0]) && !('number' in view.works[0]));
-  assert.deepEqual(Object.keys(view.participants[0]).sort(), ['activity1Complete', 'activity2Complete', 'completedWorkCount']);
+  assert.deepEqual(Object.keys(view.participants[0]).sort(), ['activity1Complete', 'activity2Complete', 'beautyComplete', 'beautySubmitted', 'completedWorkCount']);
   assert.equal((await f.service.artwork({code, participantId: a.participantId, workId: 'finished-1'}, link.observerToken)).preview, png);
   await rejectsCode(f.service.control({code, command: 'pause'}, link.observerToken), 'teacher-auth');
   await rejectsCode(f.service.overview({code}, link.observerToken), 'teacher-auth');
@@ -620,4 +628,376 @@ test('production without private storage reports health accurately and refuses v
     assert.equal(create.statusCode, 503); assert.equal(create.body.code, 'storage-unavailable');
     assert.ok(!JSON.stringify(health.body).includes('BLOB'));
   } finally { for (const key of keys) { if (before[key] === undefined) delete process.env[key]; else process.env[key] = before[key]; } }
+});
+
+async function completedFixture() {
+  const f = await fixture(), student = await f.join(1), {state} = await f.control('start', 3);
+  const payload = {code: f.room.code, participantId: student.participantId, runId: state.runId, work: rawWork(), preview: png};
+  return {...f, student, game: state, payload};
+}
+function barrier() {
+  let release, reached;
+  const ready = new Promise(resolve => { reached = resolve; });
+  const blocked = new Promise(resolve => { release = resolve; });
+  return {ready, blocked, release, reached};
+}
+
+test('completed works expire exactly at 24 hours for owner, teacher and observer while lesson answers and class access remain', async () => {
+  const f = await fixture(), student = await f.join(1, '계속 참여하는 학생'), code = f.room.code;
+  await f.control('claim-join-code');
+  const first = await f.control('start', 1);
+  await f.service.answer({code, participantId: student.participantId, activity: 1, runId: first.state.runId, clientRevision: 1,
+    answers: {'1': 'yuan', '2': 'goryeo', '3': 'japan'}, final: true}, student.participantToken);
+  await f.control('pause');
+  const second = await f.control('start', 2);
+  const observations = Object.fromEntries(['1', '2', '3', '4', '5'].map(id => [id, {name: `이름 ${id}`, use: `쓰임 ${id}`} ]));
+  await f.service.answer({code, participantId: student.participantId, activity: 2, runId: second.state.runId, clientRevision: 1,
+    answers: observations, final: true}, student.participantToken);
+  await f.control('pause');
+  const game = await f.control('start', 3), observer = await f.control('observer-link');
+  const payload = {code, participantId: student.participantId, runId: game.state.runId, work: rawWork(), preview: png};
+  await f.service.submitWork(payload, student.participantToken);
+  const studentPath = `${classroomPrefix()}/${code}/participants/1.json`, roomPath = `${classroomPrefix()}/${code}/room.json`;
+  const before = await f.store.read(studentPath), roomBefore = await f.store.read(roomPath), aliasBefore = await f.store.read(`${classroomPrefix()}/aliases/tapten.json`);
+  const query = {code, participantId: student.participantId, workId: payload.work.id};
+  f.advance(WORK_RETENTION_MS - 1);
+  for (const bearer of [student.participantToken, f.room.teacherToken, observer.observerToken]) {
+    assert.equal((await f.service.artwork(query, bearer)).preview, png);
+  }
+  assert.equal((await f.service.state(query, student.participantToken)).completedWorks.length, 1);
+  f.advance(1);
+  const [owner, teacher, visitor] = await Promise.all([
+    f.service.state(query, student.participantToken), f.service.overview({code}, f.room.teacherToken), f.service.observe({code}, observer.observerToken),
+  ]);
+  assert.deepEqual(owner.completedWorks, []); assert.deepEqual(teacher.works, []); assert.deepEqual(visitor.works, []);
+  assert.equal(teacher.participants[0].completedWorkCount, 0); assert.equal(visitor.participants[0].completedWorkCount, 0);
+  for (const bearer of [student.participantToken, f.room.teacherToken, observer.observerToken]) await rejectsCode(f.service.artwork(query, bearer), 'work-not-found');
+  assert.deepEqual(owner.answers, before.data.answers);
+  const after = (await f.store.read(studentPath)).data;
+  for (const key of ['id', 'number', 'name', 'tokenHash', 'joinedAt', 'answers']) assert.deepEqual(after[key], before.data[key]);
+  assert.deepEqual(await f.store.read(roomPath), roomBefore);
+  assert.deepEqual(await f.store.read(`${classroomPrefix()}/aliases/tapten.json`), aliasBefore);
+  assert.equal(after.retiredWorks.ids.length, 1); assert.match(after.retiredWorks.ids[0], /^[a-f0-9]{64}$/);
+  assert.ok(!JSON.stringify([...f.store.records]).includes(payload.work.title));
+  assert.ok(!JSON.stringify([...f.store.records]).includes(payload.work.explanationUse));
+  assert.ok(!JSON.stringify([...f.store.records]).includes('data:image'));
+  assert.equal((await f.service.join({code: '탑텐반', number: 1, name: student.student.name, participantToken: student.participantToken})).participantId, '1');
+  await rejectsCode(f.service.submitWork(payload, student.participantToken), 'work-expired');
+});
+
+test('a cached participant snapshot never revives expired work and an image read crossing expiry returns no preview', async () => {
+  const f = await completedFixture(); await f.service.submitWork(f.payload, f.student.participantToken);
+  const key = `${classroomPrefix()}/${f.room.code}/participants/1.json`, cached = await f.store.read(key), originalRead = f.store.read.bind(f.store);
+  f.store.read = async (path, options) => path === key && options?.maxAge ? structuredClone(cached) : originalRead(path);
+  f.advance(WORK_RETENTION_MS - 1);
+  const gate = barrier(); let held = false;
+  f.store.read = async (path, options) => {
+    const value = path === key && options?.maxAge ? structuredClone(cached) : await originalRead(path);
+    if (!held && path.includes('/artworks/')) { held = true; gate.reached(); await gate.blocked; }
+    return value;
+  };
+  const reading = f.service.artwork({code: f.room.code, participantId: '1', workId: f.payload.work.id}, f.room.teacherToken);
+  await gate.ready; f.advance(1); gate.release(); await rejectsCode(reading, 'work-not-found');
+  for (let repeat = 0; repeat < 2; repeat++) {
+    assert.deepEqual((await f.service.state({code: f.room.code, participantId: '1'}, f.student.participantToken)).completedWorks, []);
+    assert.deepEqual((await f.service.overview({code: f.room.code}, f.room.teacherToken)).works, []);
+  }
+  assert.deepEqual((await originalRead(key)).data.works, []);
+});
+
+test('a delayed duplicate upload cannot recreate artwork or its summary after expiration', async () => {
+  const f = await completedFixture(), originalCreate = f.store.create.bind(f.store), gate = barrier(); let held = false;
+  f.store.create = async (key, data) => {
+    if (!held && key.includes('/artworks/')) { held = true; gate.reached(); await gate.blocked; }
+    return originalCreate(key, data);
+  };
+  const delayed = f.service.submitWork(f.payload, f.student.participantToken); await gate.ready;
+  await f.service.submitWork(f.payload, f.student.participantToken);
+  f.advance(WORK_RETENTION_MS);
+  await f.service.state({code: f.room.code, participantId: '1'}, f.student.participantToken);
+  gate.release(); await rejectsCode(delayed, 'work-expired');
+  assert.ok(![...f.store.records.keys()].some(key => key.includes('/artworks/')));
+  assert.deepEqual((await f.service.state({code: f.room.code, participantId: '1'}, f.student.participantToken)).completedWorks, []);
+});
+
+test('expiration retries preserve a concurrent new lesson answer and do not recreate a removed participant', async () => {
+  for (const action of ['answer', 'remove']) {
+    const f = await completedFixture(); await f.service.submitWork(f.payload, f.student.participantToken); f.advance(WORK_RETENTION_MS);
+    await f.control('pause'); const activity = await f.control('start', 1);
+    const originalUpdate = f.store.update.bind(f.store), gate = barrier(); let held = false;
+    f.store.update = async (key, data, etag) => {
+      if (!held && key.endsWith('/participants/1.json') && data.works.length === 0) { held = true; gate.reached(); await gate.blocked; }
+      return originalUpdate(key, data, etag);
+    };
+    const cleaning = f.service.expireStudentWorks(f.room.code, '1'); await gate.ready;
+    if (action === 'answer') await f.service.answer({code: f.room.code, participantId: '1', activity: 1, runId: activity.state.runId,
+      clientRevision: 1, answers: {'1': 'goryeo'}}, f.student.participantToken);
+    else await f.control('remove-student', undefined, {participantId: '1'});
+    gate.release(); await cleaning;
+    const record = await f.store.read(`${classroomPrefix()}/${f.room.code}/participants/1.json`);
+    if (action === 'answer') { assert.equal(record.data.answers[1].answers['1'], 'goryeo'); assert.deepEqual(record.data.works, []); }
+    else assert.equal(record, null);
+    assert.ok(![...f.store.records.keys()].some(key => key.includes('/artworks/')));
+  }
+});
+
+test('an interrupted image deletion leaves a retryable reference and subsequent cleanup removes the full work', async () => {
+  const f = await completedFixture(); await f.service.submitWork(f.payload, f.student.participantToken); f.advance(WORK_RETENTION_MS);
+  const originalDelete = f.store.delete.bind(f.store); let failOnce = true;
+  f.store.delete = async (key, etag) => { if (failOnce && key.includes('/artworks/')) { failOnce = false; throw new Error('temporary deletion failure'); } return originalDelete(key, etag); };
+  await assert.rejects(f.service.expireStudentWorks(f.room.code, '1'), /temporary deletion failure/);
+  assert.equal((await f.store.read(`${classroomPrefix()}/${f.room.code}/participants/1.json`)).data.works.length, 1);
+  await f.service.cleanupExpiredWorks();
+  assert.deepEqual((await f.store.read(`${classroomPrefix()}/${f.room.code}/participants/1.json`)).data.works, []);
+  assert.ok(![...f.store.records.keys()].some(key => key.includes('/artworks/')));
+});
+
+test('an older cleanup cannot delete a new run image that reuses the client work ID', async () => {
+  const f = await completedFixture(); const old = await f.service.submitWork(f.payload, f.student.participantToken); f.advance(WORK_RETENTION_MS);
+  const originalDelete = f.store.delete.bind(f.store), gate = barrier(); let held = false;
+  f.store.delete = async (key, etag) => {
+    if (!held && key.endsWith(`/${old.work.imageId}.json`)) { held = true; gate.reached(); await gate.blocked; }
+    return originalDelete(key, etag);
+  };
+  const cleaning = f.service.expireStudentWorks(f.room.code, '1'); await gate.ready;
+  await f.control('pause'); const next = await f.control('start', 3);
+  const fresh = await f.service.submitWork({...f.payload, runId: next.state.runId}, f.student.participantToken);
+  assert.notEqual(fresh.work.imageId, old.work.imageId);
+  gate.release(); await cleaning;
+  assert.equal((await f.service.artwork({code: f.room.code, participantId: '1', workId: f.payload.work.id}, f.room.teacherToken)).preview, png);
+  assert.equal((await f.service.state({code: f.room.code, participantId: '1'}, f.student.participantToken)).completedWorks[0].runId, next.state.runId);
+});
+
+test('cleanup requires its server secret and never accepts classroom capabilities or query authorization', async () => {
+  const f = await completedFixture(); await f.service.submitWork(f.payload, f.student.participantToken); f.advance(WORK_RETENTION_MS);
+  const secret = randomBytes(32).toString('base64url'), handler = createCleanupHandler({store: f.store, now: f.service.now, secret: () => secret});
+  for (const options of [{}, {auth: f.room.teacherToken}, {auth: f.student.participantToken}, {query: {secret}}, {headers: {authorization: `bearer ${secret}`}}]) {
+    assert.equal((await request(handler, options)).statusCode, 401);
+  }
+  assert.equal((await request(handler, {method: 'POST', auth: secret})).statusCode, 405);
+  for (const configured of [undefined, '', 'too-short']) {
+    const unavailable = createCleanupHandler({store: f.store, now: f.service.now, secret: () => configured});
+    assert.equal((await request(unavailable, {headers: {authorization: `Bearer ${configured}`}})).statusCode, 401);
+  }
+  const cleaned = await request(handler, {auth: secret});
+  assert.equal(cleaned.statusCode, 200); assert.equal(cleaned.body.cleaned, true); assert.equal(cleaned.headers['Cache-Control'], 'private, no-store');
+  assert.ok(![...f.store.records.keys()].some(key => key.includes('/artworks/')));
+  assert.ok(!JSON.stringify(cleaned.body).includes(secret)); assert.ok(!JSON.stringify(cleaned.body).includes(f.student.student.name));
+});
+
+test('paginated Blob cleanup removes overdue orphan images only in its own environment and respects changed image versions', async () => {
+  const beforeEnvironment = process.env.VERCEL_ENV;
+  try {
+    process.env.VERCEL_ENV = 'production';
+    const f = await completedFixture(); await f.service.submitWork(f.payload, f.student.participantToken); f.advance(WORK_RETENTION_MS);
+    const root = `${classroomPrefix()}/${f.room.code}/`, oldPath = `${root}artworks/1/orphan.json`, youngPath = `${root}artworks/1/young.json`, replacedPath = `${root}artworks/1/replaced.json`;
+    const foreignPath = `classroom-v1/preview/${f.room.code}/artworks/1/foreign.json`, aliasPath = `${classroomPrefix()}/aliases/tapten.json`;
+    const oldTime = f.service.now() - WORK_RETENTION_MS;
+    await f.store.create(oldPath, {preview: png, submittedAt: oldTime});
+    await f.store.create(youngPath, {preview: png, submittedAt: f.service.now()});
+    const replaced = await f.store.create(replacedPath, {preview: png, submittedAt: oldTime});
+    await f.store.update(replacedPath, {preview: png, submittedAt: f.service.now()}, replaced.etag);
+    await f.store.create(foreignPath, {preview: png, submittedAt: oldTime});
+    await f.store.create(aliasPath, {code: f.room.code, updatedAt: oldTime});
+    const metadata = async key => ({pathname: key, uploadedAt: new Date((await f.store.read(key)).data.submittedAt ?? oldTime), etag: (await f.store.read(key)).etag});
+    const pages = [
+      {blobs: [await metadata(foreignPath), await metadata(`${root}room.json`), await metadata(aliasPath)], hasMore: true, cursor: 'next-page'},
+      {blobs: [await metadata(oldPath), await metadata(youngPath), {...await metadata(replacedPath), uploadedAt: new Date(oldTime), etag: replaced.etag}], hasMore: false},
+    ];
+    const adapter = new BlobClassroomStore(), calls = [];
+    adapter.sdk = async () => ({list: async options => { calls.push(options); return pages.shift(); }});
+    adapter.read = f.store.read.bind(f.store); adapter.list = f.store.list.bind(f.store); adapter.delete = f.store.delete.bind(f.store);
+    adapter.update = f.store.update.bind(f.store); adapter.deleteMany = keys => Promise.all(keys.map(key => f.store.delete(key)));
+    const cleanup = await new ClassroomService(adapter, {now: f.service.now}).cleanupExpiredWorks();
+    assert.equal(cleanup.cleaned, true); assert.equal(calls.length, 2); assert.equal(calls[1].cursor, 'next-page');
+    for (const call of calls) assert.equal(call.prefix, 'classroom-v1/production/');
+    assert.equal(await f.store.read(oldPath), null);
+    assert.deepEqual((await f.store.read(`${root}participants/1.json`)).data.works, []);
+    for (const key of [youngPath, replacedPath, foreignPath, aliasPath, `${root}room.json`]) assert.ok(await f.store.read(key), `${key} must survive`);
+  } finally { if (beforeEnvironment === undefined) delete process.env.VERCEL_ENV; else process.env.VERCEL_ENV = beforeEnvironment; }
+});
+
+test('legacy image paths expire and retired receipts preserve the ten-work limit only for the current run', async () => {
+  const f = await completedFixture();
+  const first = await f.service.submitWork(f.payload, f.student.participantToken);
+  const root = `${classroomPrefix()}/${f.room.code}/`, studentPath = `${root}participants/1.json`, current = await f.store.read(studentPath);
+  const modernImage = `${root}artworks/1/${first.work.imageId}.json`, legacyImage = `${root}artworks/1/${first.work.id}.json`;
+  await f.store.create(legacyImage, {preview: png}); await f.store.delete(modernImage);
+  delete current.data.works[0].imageId; await f.store.update(studentPath, current.data, current.etag);
+  for (let index = 2; index <= 10; index++) await f.service.submitWork({...f.payload, work: rawWork({id: `finished-${index}`})}, f.student.participantToken);
+  f.advance(WORK_RETENTION_MS);
+  await f.service.state({code: f.room.code, participantId: '1'}, f.student.participantToken);
+  assert.equal(await f.store.read(legacyImage), null);
+  assert.equal((await f.store.read(studentPath)).data.retiredWorks.ids.length, 10);
+  await rejectsCode(f.service.submitWork({...f.payload, work: rawWork({id: 'extra-work'})}, f.student.participantToken), 'work-limit');
+  await f.control('pause'); const next = await f.control('start', 3);
+  await f.service.submitWork({...f.payload, runId: next.state.runId}, f.student.participantToken);
+  f.advance(WORK_RETENTION_MS);
+  await f.service.state({code: f.room.code, participantId: '1'}, f.student.participantToken);
+  const receipts = (await f.store.read(studentPath)).data.retiredWorks;
+  assert.equal(receipts.runId, next.state.runId); assert.equal(receipts.ids.length, 1);
+});
+
+test('filesystem deletion serializes with an in-flight update and rejects deletion of a changed image version', async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), 'celadon-expiration-'));
+  try {
+    const store = new FileClassroomStore(directory), key = `${classroomPrefix()}/ABC234/participants/1.json`;
+    const created = await store.create(key, {works: [], answers: {1: 'original'}});
+    const originalRead = store.read.bind(store), gate = barrier(); let held = false;
+    store.read = async path => {
+      const value = await originalRead(path);
+      if (!held && path === key) { held = true; gate.reached(); await gate.blocked; }
+      return value;
+    };
+    const updating = store.update(key, {works: [], answers: {1: 'changed'}}, created.etag); await gate.ready;
+    const deleting = store.delete(key); gate.release(); await Promise.all([updating, deleting]);
+    assert.equal(await store.read(key), null, 'a late update must not recreate a deleted participant');
+    const image = `${classroomPrefix()}/ABC234/artworks/1/image.json`, previous = await store.create(image, {preview: 'old'});
+    await store.update(image, {preview: 'new'}, previous.etag);
+    await assert.rejects(store.delete(image, previous.etag), StoreConflict);
+    assert.equal((await store.read(image)).data.preview, 'new');
+  } finally { await rm(directory, {recursive: true, force: true}); }
+});
+
+test('Blob deletion sends the listed image version and converts a provider precondition failure into a safe conflict', async () => {
+  const adapter = new BlobClassroomStore(), calls = [], {BlobPreconditionFailedError} = await import('@vercel/blob');
+  adapter.sdk = async () => ({BlobPreconditionFailedError, del: async (key, options) => {
+    calls.push({key, options}); if (options.ifMatch === 'outdated') throw new BlobPreconditionFailedError();
+  }});
+  const key = `${classroomPrefix()}/ABC234/artworks/1/image.json`;
+  await adapter.delete(key, 'listed-version');
+  assert.equal(calls[0].options.ifMatch, 'listed-version');
+  await assert.rejects(adapter.delete(key, 'outdated'), StoreConflict);
+});
+
+test('beauty observation is teacher-started after comparison and preserves the three country answers', async () => {
+  const f = await fixture(), child = await f.join(1), code = f.room.code;
+  await rejectsCode(f.control('start-beauty'), 'beauty-after-comparison');
+  await rejectsCode(f.service.control({code, command: 'start-beauty'}, child.participantToken), 'teacher-auth');
+  const comparison = await f.control('start', 1);
+  await rejectsCode(f.control('start-beauty'), 'already-active');
+  const answers = {'1': 'japan', '2': 'yuan', '3': 'goryeo'};
+  await f.service.answer({code, participantId: '1', runId: comparison.state.runId, activity: 1, clientRevision: 1, answers, final: true}, child.participantToken);
+  await f.control('pause'); const beauty = await f.control('start-beauty');
+  assert.equal(beauty.state.activity, 1); assert.equal(beauty.state.activity1Stage, 'beauty');
+  assert.equal(beauty.state.runs[1], comparison.state.runId); assert.equal(beauty.state.runs.beauty, beauty.state.runId);
+  assert.notEqual(beauty.state.runId, comparison.state.runId); assert.equal(beauty.state.endsAt - beauty.state.startedAt, 90000);
+  const before = await f.service.state({code, participantId: '1'}, child.participantToken);
+  assert.deepEqual(before.answers[1].answers, answers); assert.equal(before.answers[1].submitted, true);
+  assert.equal(before.beautyAnswer.text, '');
+  await rejectsCode(f.service.answer({code, participantId: '1', runId: beauty.state.runId, activity: 1, clientRevision: 2, answers}, child.participantToken), 'activity-closed');
+  await rejectsCode(f.service.beautyAnswer({code, participantId: '1', runId: comparison.state.runId, clientRevision: 1, text: '맑은 빛깔'}, child.participantToken), 'activity-closed');
+});
+
+test('beauty responses form an anonymous phrase cloud with actual frequency and independent completion', async () => {
+  const f = await fixture(), code = f.room.code, students = await Promise.all([f.join(1, '첫째'), f.join(2, '둘째'), f.join(3, '셋째')]);
+  await f.control('start', 1); await f.control('pause'); const beauty = await f.control('start-beauty');
+  const texts = ['은은한 푸른빛', '은은한 푸른빛.', '학 무늬가 섬세해요'];
+  for (let i = 0; i < students.length; i++) await f.service.beautyAnswer({code, participantId: students[i].participantId, runId: beauty.state.runId, clientRevision: 1, text: texts[i], final: i < 2}, students[i].participantToken);
+  const teacher = await f.service.overview({code}, f.room.teacherToken), link = await f.control('observer-link'), observer = await f.service.observe({code}, link.observerToken);
+  assert.deepEqual(teacher.beauty.words, [{text: '은은한 푸른빛', count: 2}, {text: '학 무늬가 섬세해요', count: 1}]);
+  assert.equal(teacher.beauty.respondents, 3); assert.equal(teacher.beauty.total, 3); assert.equal(teacher.beauty.submitted, 2);
+  assert.deepEqual(observer.beauty, teacher.beauty); assert.equal(teacher.participants[0].beautySubmitted, true); assert.equal(teacher.participants[2].beautyComplete, true);
+  for (const name of ['첫째', '둘째', '셋째']) assert.ok(!JSON.stringify(observer).includes(name));
+  assert.ok(!JSON.stringify(observer).includes('participantToken'));
+  const own = await f.service.state({code, participantId: '1'}, students[0].participantToken);
+  assert.equal(own.beautyAnswer.text, texts[0]); assert.ok(!JSON.stringify(own).includes(texts[2])); assert.ok(!('beauty' in own));
+});
+
+test('beauty done validates input, survives reentry, rejects later edits and resets only its own run', async () => {
+  const f = await fixture(), child = await f.join(1), code = f.room.code;
+  const comparison = await f.control('start', 1); await f.control('pause'); const beauty = await f.control('start-beauty');
+  const payload = {code, participantId: '1', runId: beauty.state.runId, clientRevision: 1, text: ''};
+  await rejectsCode(f.service.beautyAnswer({...payload, final: true}, child.participantToken), 'incomplete-answer');
+  await rejectsCode(f.service.beautyAnswer({...payload, text: {}}, child.participantToken), 'invalid-answer');
+  await rejectsCode(f.service.beautyAnswer({...payload, clientRevision: 0}, child.participantToken), 'invalid-revision');
+  const saved = await f.service.beautyAnswer({...payload, text: '  학과 구름이 어우러져요\n  ', final: true}, child.participantToken);
+  assert.equal(saved.beautyAnswer.text, '학과 구름이 어우러져요'); assert.equal(saved.beautyAnswer.submitted, true);
+  const stale = await f.service.beautyAnswer({...payload, text: '늦은 자동 저장'}, child.participantToken); assert.equal(stale.ignored, true); assert.equal(stale.beautyAnswer.submitted, true);
+  await rejectsCode(f.service.beautyAnswer({...payload, clientRevision: 2, text: '바꾼 답'}, child.participantToken), 'answer-submitted');
+  const rejoined = await f.service.join({code, number: 1, name: '학생', participantToken: child.participantToken}); assert.deepEqual(rejoined.beautyAnswer, saved.beautyAnswer);
+  await f.control('pause'); const repeated = await f.control('start-beauty');
+  assert.notEqual(repeated.state.runId, beauty.state.runId); assert.equal(repeated.state.runs[1], comparison.state.runId);
+  assert.equal((await f.service.state({code, participantId: '1'}, child.participantToken)).beautyAnswer.text, '');
+  assert.equal((await f.service.overview({code}, f.room.teacherToken)).beauty.respondents, 0);
+  await rejectsCode(f.service.beautyAnswer({...payload, clientRevision: 3, text: '이전 활동 답'}, child.participantToken), 'activity-closed');
+  await f.control('pause'); const restarted = await f.control('start', 1);
+  assert.equal(restarted.state.activity1Stage, 'comparison'); assert.equal(restarted.state.runs.beauty, undefined);
+});
+
+test('beauty has its own configurable deadline and late writes stay closed in manual transition mode', async () => {
+  for (const autoPause of [true, false]) {
+    const f = await fixture({beautyDuration: 5, autoPause}), child = await f.join(1), code = f.room.code;
+    await f.control('start', 1); await f.control('pause'); const beauty = await f.control('start-beauty');
+    const payload = {code, participantId: '1', runId: beauty.state.runId, clientRevision: 1, text: '둥근 어깨가 아름다워요'};
+    f.advance(4999); await f.service.beautyAnswer(payload, child.participantToken); f.advance(1);
+    await rejectsCode(f.service.beautyAnswer({...payload, clientRevision: 2, final: true}, child.participantToken), 'activity-closed');
+    const state = await f.service.state({code, participantId: '1'}, child.participantToken);
+    assert.equal(state.state.status, autoPause ? 'paused' : 'active'); assert.equal(state.beautyAnswer.submitted, false);
+    await f.control('pause'); await f.control('start', 2);
+    await rejectsCode(f.service.beautyAnswer({...payload, clientRevision: 3}, child.participantToken), 'activity-closed');
+  }
+  for (const beautyDuration of [0, 4, 1801, 'invalid']) await rejectsCode(fixture({beautyDuration}), 'invalid-duration');
+});
+
+test('a delayed beauty autosave cannot undo a confirmed done response', async () => {
+  const f = await fixture(), child = await f.join(1), code = f.room.code;
+  await f.control('start', 1); await f.control('pause'); const beauty = await f.control('start-beauty');
+  const payload = {code, participantId: '1', runId: beauty.state.runId, text: '학이 날아가는 것 같아요'}, gate = barrier(), update = f.store.update.bind(f.store); let held = false;
+  f.store.update = async (key, data, etag) => {
+    if (!held && key.endsWith('/participants/1.json') && data.beautyAnswer?.clientRevision === 1) { held = true; gate.reached(); await gate.blocked; }
+    return update(key, data, etag);
+  };
+  const delayed = f.service.beautyAnswer({...payload, clientRevision: 1}, child.participantToken); await gate.ready;
+  const done = await f.service.beautyAnswer({...payload, clientRevision: 2, final: true}, child.participantToken);
+  gate.release(); const result = await delayed; assert.equal(result.ignored, true); assert.deepEqual(result.beautyAnswer, done.beautyAnswer);
+});
+
+test('beauty API enforces student capabilities, bounds written text, and protects teacher controls', async () => {
+  const f = await fixture(), child = await f.join(1), other = await f.join(2), code = f.room.code;
+  await f.control('start', 1); await f.control('pause'); const beauty = await f.control('start-beauty');
+  const handler = createClassroomHandler({store: f.store, now: f.service.now});
+  const payload = {action: 'beauty-answer', code, participantId: '1', runId: beauty.state.runId, clientRevision: 1, text: '가'.repeat(350)};
+  for (const auth of [undefined, other.participantToken, f.room.teacherToken]) assert.equal((await request(handler, {method: 'POST', payload, auth})).statusCode, 403);
+  const saved = await request(handler, {method: 'POST', payload, auth: child.participantToken});
+  assert.equal(saved.statusCode, 200); assert.equal(saved.body.beautyAnswer.text.length, 300);
+  assert.equal((await request(handler, {method: 'POST', payload: {action: 'control', code, command: 'start-beauty'}, auth: child.participantToken})).statusCode, 403);
+});
+
+test('work uploads retain the original game deadline and cannot extend it with a duplicate', async () => {
+  const f = await completedFixture(), expiresAt = f.service.now() + 1000, payload = {...f.payload, expiresAt};
+  const first = await f.service.submitWork(payload, f.student.participantToken);
+  assert.equal(first.work.expiresAt, expiresAt); assert.match(first.work.imageId, /-x[0-9a-z]+$/);
+  const duplicate = await f.service.submitWork({...payload, expiresAt: expiresAt + WORK_RETENTION_MS}, f.student.participantToken);
+  assert.equal(duplicate.work.expiresAt, expiresAt);
+  f.advance(999); assert.equal((await f.service.overview({code: f.room.code}, f.room.teacherToken)).works.length, 1);
+  f.advance(1); assert.equal((await f.service.overview({code: f.room.code}, f.room.teacherToken)).works.length, 0);
+  await rejectsCode(f.service.submitWork(payload, f.student.participantToken), 'work-expired');
+  assert.ok(![...f.store.records.keys()].some(key => key.includes('/artworks/')));
+  const late = await completedFixture();
+  const capped = await late.service.submitWork({...late.payload, expiresAt: late.service.now() + 2 * WORK_RETENTION_MS}, late.student.participantToken);
+  assert.equal(capped.work.expiresAt, capped.work.submittedAt + WORK_RETENTION_MS);
+});
+
+test('a game upload that crosses its original expiry during persistence is removed before returning success', async () => {
+  for (const kind of ['image', 'summary']) {
+    const f = await completedFixture(), expiresAt = f.service.now() + 1000, gate = barrier(); let held = false;
+    const method = kind === 'image' ? 'create' : 'update', original = f.store[method].bind(f.store);
+    f.store[method] = async (key, data, ...args) => {
+      if (!held && (kind === 'image' ? key.includes('/artworks/') : key.endsWith('/participants/1.json') && data.works.length === 1)) { held = true; gate.reached(); await gate.blocked; }
+      return original(key, data, ...args);
+    };
+    const pending = f.service.submitWork({...f.payload, expiresAt}, f.student.participantToken); await gate.ready;
+    f.advance(1000); gate.release(); await rejectsCode(pending, 'work-expired');
+    assert.ok(![...f.store.records.keys()].some(key => key.includes('/artworks/')));
+    assert.deepEqual((await f.service.state({code: f.room.code, participantId: '1'}, f.student.participantToken)).completedWorks, []);
+  }
+});
+
+test('metadata cleanup honors an orphan upload original deadline before its 24-hour upload age', async () => {
+  const f = await fixture(), expiresAt = f.service.now() + 1000, prefix = `${classroomPrefix()}/${f.room.code}/artworks/1/`;
+  const expired = `${prefix}${'a'.repeat(32)}-x${expiresAt.toString(36)}.json`, young = `${prefix}${'b'.repeat(32)}-x${(expiresAt + 1000).toString(36)}.json`;
+  for (const key of [expired, young]) await f.store.create(key, {preview: png, submittedAt: f.service.now(), expiresAt});
+  f.advance(1000); await f.service.cleanupExpiredWorks();
+  assert.equal(await f.store.read(expired), null); assert.ok(await f.store.read(young));
 });

@@ -13,11 +13,66 @@
     },
     {
       "name": "celadon-incense.glb",
-      "bytes": 571644,
-      "sha256": "020742f7bc86a5cf6f6e5d5790a63f655a5f89007d8cced224fc21f0c97e1806",
+      "bytes": 2509500,
+      "sha256": "32eb5a4698b092023e3dee6ca6390e07e09aa2e86788670a86d4b899910c6479",
       "extensionsRequired": [],
       "meshes": 2,
-      "materials": 2
+      "materials": 1,
+      "extensionsUsed": [
+        "KHR_materials_clearcoat"
+      ],
+      "sourceProvider": "국립중앙박물관",
+      "artifactId": "duk002990",
+      "sourceUrl": "https://www.museum.go.kr/MUSEUM/contents/M0201020000.do?relicId=1227&schM=search",
+      "sourceArchive": "프린트_STL.zip",
+      "sourceArchiveSha256": "c1da20b7327aa24e62e463d0cb4f48d32d0df5bcfc3a299bdb0583c74ff1f3f6",
+      "conversionScript": "scripts/convert-observation-5.py",
+      "conversionDate": "2026-11-08",
+      "blenderVersion": "4.3.2",
+      "geometry": "Original STL body and lid, common source alignment preserved. No reconstruction or generated motifs.",
+      "rotation": "Source Z-up to glTF Y-up; common centering and millimeters-to-meters conversion.",
+      "material": "Uniform reference celadon glaze; no photographic texture or original surface color is claimed. Metallic 0, roughness 0.32, coat 0.35, coat roughness 0.16, IOR 1.5.",
+      "sourceColorInspection": {
+        "plyArchive": "스캔_PLY (2).zip",
+        "plyArchiveSha256": "93b1656dbd99e208ca1d030f0ade5230390fd50c5767f7a4f983f21e5b43aefd",
+        "result": "Both PLY files have only grayscale RGB (254,254,254) and (255,255,255); no photographic color is present. STL attributes are also uniform gray.",
+        "files": [
+          {
+            "name": "duk002990-001-30000_step3.ply",
+            "sha256": "0912db38d5bb6d2e0e8317ea0625d725873462c9e1d441a8bbe0a921186ab591"
+          },
+          {
+            "name": "duk002990-002-30000_step3.ply",
+            "sha256": "fa10e45f3ab4d0be06fa5b96853bbe8acf9b6dbfc70ed33b5b61afa77efd95ef"
+          }
+        ]
+      },
+      "parts": [
+        {
+          "name": "duk002990-001-30000_step3.stl",
+          "sourceSha256": "00c91d532ddfc07600839898b088d2cc6316128448f7a5fa5fddd2f64ab310cd",
+          "sourceTriangles": 240549,
+          "outputTriangles": 64999,
+          "outputVertices": 32198,
+          "connectedComponents": 1,
+          "boundaryEdges": 0,
+          "nonmanifoldEdges": 290,
+          "topologyNote": "Preserves the source nonmanifold region at one foot; no new boundaries or disconnected components."
+        },
+        {
+          "name": "duk002990-002-30000_step3.stl",
+          "sourceSha256": "4070543c5407b00bd6fed0dcf26ebc66a229728cd3e64a835717398bda5ce2a6",
+          "sourceTriangles": 252424,
+          "outputTriangles": 75000,
+          "outputVertices": 37280,
+          "connectedComponents": 1,
+          "boundaryEdges": 0,
+          "nonmanifoldEdges": 0,
+          "eulerCharacteristic": -220,
+          "genus": 111,
+          "topologyNote": "All source through-openings preserved."
+        }
+      ]
     },
     {
       "name": "celadon-maebyeong-v2.glb",
