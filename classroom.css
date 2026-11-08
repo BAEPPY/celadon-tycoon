@@ -89,3 +89,51 @@ dialog.student-manager::backdrop{background:#1c2b3055}
 .manager-actions{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap}
 /* Read-only observer board. */
 .observer-badge{padding:7px 14px;border-radius:999px;background:#e8f4f1;color:#1f6d5f;font-size:14px;white-space:nowrap}
+
+
+/* Completion waits for the teacher; the student has no dismiss action. */
+.completion-dialog{width:min(540px,calc(100vw - 40px));max-height:calc(100dvh - 40px);margin:auto;padding:36px 34px 34px;border:1px solid #c8dcda;border-top:5px solid #087d78;border-radius:14px;background:#fff;color:var(--ink);text-align:center;box-shadow:0 24px 80px #193e442b;overflow:auto}
+.completion-dialog::backdrop{background:#243b4b70;backdrop-filter:blur(3px)}
+.completion-dialog .completion-icon{width:68px;height:68px;display:grid;place-items:center;margin:0 auto 21px;border-radius:50%;background:#e4f5ee;border:1px solid #c7e7da;color:#16745e;font-size:36px;font-weight:700;line-height:1}
+.completion-dialog .completion-icon svg{width:34px;height:34px}
+.completion-dialog h2{font-size:32px;font-weight:750;line-height:1.35;letter-spacing:-.035em;margin:0 0 13px}
+.completion-dialog p{font-size:21px;font-weight:600;line-height:1.6;word-break:keep-all;margin:0 auto;max-width:410px;color:#304952}
+.completion-dialog small{display:block;margin-top:22px;padding-top:20px;border-top:1px solid #e4edec;font-size:16px;line-height:1.6;word-break:keep-all;color:#687b83}
+/* Teacher exhibit pages keep one model and its explanation together. */
+.teacher-result-tabs{display:flex;align-items:center;gap:6px;border-bottom:1px solid #dbe4e7;margin:0 0 15px;padding:0 0 9px}
+.teacher-result-tabs button{min-height:40px;padding:8px 16px;border-radius:6px;background:transparent;border:1px solid transparent;color:#5f737d;font-size:16px;font-weight:650;line-height:1.4}
+.teacher-result-tabs button:hover:not(:disabled){background:#edf5f4;color:#126c69}
+.teacher-result-tabs button.active,.teacher-result-tabs button[aria-selected=true],.teacher-result-tabs button[aria-pressed=true]{background:#e6f5f1;border-color:#b8dcd3;color:#126c60}
+.teacher-result-tabs button:disabled{opacity:1;color:#87969e;background:#f0f3f5;border-color:#e8edef}
+.exhibit-page{padding:21px 24px 17px;overflow:hidden}
+.exhibit-layout{display:grid;grid-template-columns:minmax(230px,.95fr) minmax(0,1.05fr);gap:30px;align-items:center;min-height:310px}
+.exhibit-model{min-width:0}
+.exhibit-model>.activity-label{font-size:16px;margin-bottom:10px}
+.exhibit-model .viewer-host{--lesson-viewer-height:clamp(205px,29vh,270px);min-height:0}
+.exhibit-model .lesson-viewer__viewport{border-radius:9px!important}
+.exhibit-model .lesson-viewer__controls{gap:6px!important;padding:9px 0 5px!important}
+.exhibit-model .lesson-viewer__controls button{min-height:32px!important;padding:5px 9px!important;font-size:16px!important}
+.exhibit-model .lesson-viewer__hint{font-size:14px!important}
+.exhibit-description{min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:16px;padding:4px 0;word-break:keep-all;overflow-wrap:anywhere}
+.exhibit-meta{display:flex;flex-wrap:wrap;align-items:center;gap:7px 12px;color:#46726d;font-size:16px;line-height:1.5;font-weight:600}
+.exhibit-meta>span{display:inline-block}
+.exhibit-description h2{font-size:clamp(25px,2.2vw,32px);font-weight:750;letter-spacing:-.035em;line-height:1.4;margin:0;color:#253f43}
+.exhibit-description p{font-size:18px;line-height:1.7;margin:0}
+.exhibit-use{padding:12px 15px;background:#eef8f4;border-left:3px solid #6bb5a1;border-radius:0 6px 6px 0;width:100%;color:#284f49}
+.exhibit-use>strong,.exhibit-use>span,.exhibit-use>label{font-size:16px;font-weight:700;color:#257560;margin-right:8px}
+.exhibit-note{color:#586d76}
+.exhibit-source{font-size:16px;line-height:1.6;color:#146f71;text-underline-offset:3px;overflow-wrap:anywhere}
+.exhibit-navigation{display:flex;align-items:center;justify-content:space-between;gap:15px;border-top:1px solid #e1e9e9;margin-top:19px;padding-top:15px}
+.exhibit-navigation>.button,.exhibit-navigation>button{min-height:42px;min-width:90px;padding:8px 13px;border:1px solid #c9dcdb;border-radius:6px;background:#fff;color:#226c68;font-size:16px;font-weight:650;line-height:1.4}
+.exhibit-navigation>.button:hover:not(:disabled),.exhibit-navigation>button:hover:not(:disabled){border-color:#82b9b1;background:#edf7f4}
+.exhibit-navigation>button:disabled{opacity:1;color:#8c9b9e;background:#f4f6f7;border-color:#e0e6e8}
+.exhibit-navigation .exhibit-number-pages{display:flex;align-items:center;justify-content:center;gap:7px;min-width:0}
+.exhibit-navigation .exhibit-number-pages button{display:grid;place-items:center;min-width:36px;min-height:38px;padding:6px 10px;border:1px solid #d3e0e0;border-radius:6px;background:#fff;color:#51747a;font-size:16px;font-weight:650;line-height:1}
+.exhibit-navigation .exhibit-number-pages button:hover{background:#edf7f4;border-color:#a5cfc4}
+.exhibit-navigation .exhibit-number-pages button.active,.exhibit-navigation .exhibit-number-pages button[aria-current=true],.exhibit-navigation .exhibit-number-pages button[aria-current=page],.exhibit-navigation .exhibit-number-pages button[aria-pressed=true]{background:#087d78;border-color:#087d78;color:#fff}
+.exhibit-page-count{font-size:16px;line-height:1.5;text-align:center;color:#657e85;margin-top:10px}
+@media(max-width:1200px) and (min-width:801px){.exhibit-page{padding:18px}.exhibit-layout{grid-template-columns:minmax(215px,.8fr) minmax(0,1fr);gap:22px}.exhibit-description{gap:13px}.exhibit-description h2{font-size:26px}.exhibit-description p{font-size:17px}.exhibit-model .lesson-viewer__controls{gap:4px!important}.exhibit-model .lesson-viewer__controls button{padding:5px 7px!important}}
+@media(min-height:681px) and (max-height:820px) and (min-width:801px){.exhibit-page{padding:18px 22px 14px}.exhibit-layout{min-height:0}.exhibit-model .viewer-host{--lesson-viewer-height:200px}.exhibit-model .lesson-viewer__hint{display:none}.exhibit-navigation{margin-top:14px;padding-top:12px}.exhibit-page-count{margin-top:8px}}
+@media(max-height:680px) and (min-width:801px){.teacher-result-tabs{margin-bottom:10px;padding-bottom:7px;gap:4px}.teacher-result-tabs button{min-height:35px;padding:6px 13px;font-size:16px}.exhibit-page{padding:14px 16px 12px}.exhibit-layout{min-height:0;gap:20px;grid-template-columns:minmax(205px,.78fr) minmax(0,1fr)}.exhibit-model>.activity-label{margin-bottom:7px}.exhibit-model .viewer-host{--lesson-viewer-height:168px}.exhibit-model .lesson-viewer__viewport{min-height:150px!important}.exhibit-model .lesson-viewer__controls{gap:4px!important;padding:7px 0 0!important}.exhibit-model .lesson-viewer__controls button{min-height:29px!important;padding:4px 6px!important;font-size:16px!important}.exhibit-model .lesson-viewer__hint{display:none}.exhibit-description{gap:10px;padding:0}.exhibit-description h2{font-size:24px;line-height:1.35}.exhibit-description p{font-size:16px;line-height:1.6}.exhibit-meta,.exhibit-source{font-size:16px;line-height:1.4}.exhibit-use{padding:9px 11px}.exhibit-navigation{margin-top:12px;padding-top:10px;gap:10px}.exhibit-navigation>.button,.exhibit-navigation>button{min-height:37px;padding:6px 10px;min-width:80px}.exhibit-navigation .exhibit-number-pages{gap:5px}.exhibit-navigation .exhibit-number-pages button{min-width:33px;min-height:35px;padding:6px 9px}.exhibit-page-count{margin-top:7px}.completion-dialog{padding:27px 30px}.completion-dialog .completion-icon{width:60px;height:60px;margin-bottom:16px}.completion-dialog h2{font-size:30px}.completion-dialog p{font-size:20px}.completion-dialog small{margin-top:18px;padding-top:17px}}
+@media(max-width:800px){.exhibit-page{padding:18px}.exhibit-layout{grid-template-columns:minmax(170px,.8fr) minmax(0,1fr);gap:20px;min-height:0}.exhibit-model .viewer-host{--lesson-viewer-height:230px}.exhibit-description h2{font-size:25px}.exhibit-description p{font-size:17px}.exhibit-description{gap:12px}.exhibit-navigation{gap:9px}.exhibit-navigation .exhibit-number-pages{gap:4px}.exhibit-navigation .exhibit-number-pages button{min-width:31px;padding:6px 8px}}
+@media(max-width:580px){.exhibit-layout{grid-template-columns:1fr;gap:22px}.exhibit-model .viewer-host{--lesson-viewer-height:235px}.exhibit-description{padding:0 2px}.exhibit-navigation{flex-wrap:wrap;justify-content:center}.exhibit-navigation .exhibit-number-pages{order:-1;flex-basis:100%;margin-bottom:3px}.exhibit-navigation>button,.exhibit-navigation>.button{flex:1}.completion-dialog{padding:26px 22px}.completion-dialog h2{font-size:28px}.completion-dialog p{font-size:19px}.completion-dialog small{font-size:16px}}

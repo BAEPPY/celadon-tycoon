@@ -20,7 +20,8 @@
     "test:classroom-access": "node tests/browser-classroom-access.cjs",
     "test:lesson-viewer": "node tests/browser-lesson-viewer.cjs",
     "test:classroom-manage": "node tests/browser-classroom-manage.cjs",
-    "test:routing": "node tests/browser-routing.cjs"
+    "test:routing": "node tests/browser-routing.cjs",
+    "test:classroom-exhibits": "node tests/browser-classroom-exhibits.cjs"
   },
   "dependencies": {
     "@vercel/blob": "2.8.2",
