@@ -83,7 +83,7 @@ async function checkCover(page, resumable) {
     page.setDefaultTimeout(30000);
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
-    await page.goto(base);
+    await page.goto(new URL('/game', base).href);
     await seed(page, null);
     await checkCover(page, false);
     await page.click('[data-action=new-order]');
@@ -163,7 +163,7 @@ async function checkCover(page, resumable) {
         if (resumable && width === 1024) await page.screenshot({ path: '/tmp/cover-updated-1024.png' });
       }
     }
-    const bundle = await (await page.request.get(new URL('app.js', base).href)).text();
+    const bundle = await (await page.request.get(new URL('/app.js', base).href)).text();
     assert.doesNotMatch(bundle, /손님 도감|공방을 찾[는은] 다섯 사람|sheet-download/);
     assert.deepEqual(errors, []);
     console.log('Entry checks passed: first visit, resume integrity, fresh order, saved gallery/export, invalid/completed drafts, and 8 Chromebook cover layouts.');

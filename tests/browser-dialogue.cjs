@@ -12,7 +12,7 @@ const base=process.env.BASE_URL||'http://127.0.0.1:4173',KEY='celadon-tycoon-v2'
  const failures=[];let total=0;
  try{
   await Promise.all([[1366,768],[1024,600]].map(async([width,height])=>{
-   const page=await browser.newPage({viewport:{width,height}}),errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto(base);
+   const page=await browser.newPage({viewport:{width,height}}),errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto(new URL('/game',base).href);
    for(const [index,order]of targetOrders.entries())for(const customerId of customers){
     const draft={id:`dialogue-${order.id}-${customerId}`,orderId:order.id,customerId,accepted:false,shape:null,modelId:null,step:0,stationView:'counter',technique:'inlay',pattern:'crane',placements:[],strokes:[],width:1,knead:0,decorPhase:0,decorDone:false,firing:[],clay:{body:true,slip:'white',kneads:0,prepared:false},explanationUse:'',explanationBeauty:''};
     await page.evaluate(({key,draft})=>localStorage.setItem(key,JSON.stringify({history:[draft.orderId],gallery:[],draft})),{key:KEY,draft});await page.reload();await page.click('[data-action=start]');await page.waitForSelector('.counter-speech');await page.evaluate(()=>document.fonts.ready);

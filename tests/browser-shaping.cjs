@@ -14,7 +14,7 @@ async function saved(page) {
   return page.evaluate(key => JSON.parse(localStorage.getItem(key)).draft, KEY);
 }
 async function enter(page, work) {
-  await page.goto(base);
+  await page.goto(new URL('/game', base).href);
   await page.evaluate(({key, work}) => localStorage.setItem(key,
     JSON.stringify({history: ['royal-rest'], gallery: [], draft: work})), {key: KEY, work});
   await page.reload();

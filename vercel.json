@@ -5,7 +5,8 @@
   "rewrites": [
     {"source": "/lesson", "destination": "/lesson/index.html"},
     {"source": "/teacher", "destination": "/teacher/index.html"},
-    {"source": "/observe", "destination": "/observe/index.html"}
+    {"source": "/observe", "destination": "/observe/index.html"},
+    {"source": "/game", "destination": "/game/index.html"}
   ],
   "headers": [
     {
@@ -33,5 +34,24 @@
     "api/classroom.js": {
       "maxDuration": 30
     }
-  }
+  },
+  "redirects": [
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "query",
+          "key": "classroom",
+          "value": "1"
+        }
+      ],
+      "destination": "/game",
+      "permanent": false
+    },
+    {
+      "source": "/",
+      "destination": "/lesson",
+      "permanent": false
+    }
+  ]
 }
