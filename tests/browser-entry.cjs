@@ -43,7 +43,7 @@ async function checkCover(page, resumable) {
   assert.equal(await page.locator('[data-action=start]').count(), resumable ? 1 : 0);
   assert.equal(await page.locator('[data-action=new-order]').count(), 1);
   assert.equal((await page.locator('h1').innerText()).replace(/\s+/g, ' ').trim(), TITLE);
-  assert.equal((await page.locator('.mini-logo').innerText()).replace(/\s+/g, ' ').trim(), TITLE);
+  assert.equal((await page.locator('.mini-logo').innerText()).replace(/\s+/g, ' ').trim(), '좋은 청자, 위대한 청자');
   assert.equal(await page.title(), TITLE);
   await noCharacterGallery(page);
   const layout = await page.evaluate(() => {
