@@ -180,6 +180,7 @@ async function fire(page, kind, length) {
     await page.waitForSelector(".sculpt-success");
     assert.ok((await saved(page)).sculpt.fraction >= .9);
     await page.click("[data-action=next-shape]");
+    await page.click("dialog.shape-check-popup[open] [data-action=confirm-shape]");
     await page.click("[data-technique=openwork]");
     await page.click("[data-pattern=cloud]");
     await page.waitForTimeout(350);

@@ -114,7 +114,20 @@ async function pull(page, canvas, index) {
         await page.waitForSelector('.sculpt-success');
         assert.ok((await saved(page)).sculpt.fraction >= .9);
         assert.equal(await page.locator('[data-action=next-shape]').isDisabled(), false);
+        // Every student is asked the same neutral question about the order's use before decorating.
         await page.click('[data-action=next-shape]');
+        const check = page.locator('dialog.shape-check-popup[open]');
+        await check.waitFor();
+        assert.match(await check.locator('.order-quote').innerText(), /\S/, 'the order is shown again');
+        assert.match(await check.innerText(), /이 모양이 손님이 말한 쓰임에 맞나요\?/);
+        assert.doesNotMatch(await check.innerText(), /틀렸|정답|맞았|잘못/, 'the check never reveals whether the shape is right');
+        await check.locator('[data-action=recheck-shape]').click();
+        await check.waitFor({state: 'hidden'});
+        assert.equal((await saved(page)).step, 0, 'choosing again stays on the shaping table');
+        await page.click('[data-action=next-shape]');
+        await page.locator('dialog.shape-check-popup[open] [data-action=confirm-shape]').click();
+        await page.waitForFunction(() => document.querySelector('dialog.shape-check-popup[open]') === null);
+        assert.equal((await saved(page)).step, 1);
         assert.equal(await page.locator('.sculpt-success').count(), 0, 'the success effect clears on decoration');
       }
       await enter(page, draft('stool', 'stool'));

@@ -70,8 +70,31 @@ const base = process.env.BASE_URL || 'http://127.0.0.1:4173';
     await a.getByTestId('classroom-game').waitFor(); await a.waitForTimeout(6000);
     assert.match(await a.getByTestId('lesson-timer').innerText(), /진행 시간\s*0:0[5-9]/);
     await observer.waitForFunction(() => document.querySelector('.teacher-stage-nav button.active')?.textContent.includes('좋은 청자'), {}, {timeout: 15000});
-    await teacher.click('[data-action=pause]');
-    await a.getByTestId('lock-screen').waitFor({timeout: 15000});
+    const timerText = target => target.evaluate(() => document.querySelector('[data-testid=lesson-timer]')?.innerText.replace(/\s+/g, ' ') || '');
+    // Partway through, the teacher announces "5분 뒤에 마칠게요": every screen counts down while the game keeps running.
+    assert.equal(await teacher.locator('[data-action=game-timer]').count(), 4, 'the teacher picks 1, 3, 5 or 10 minutes');
+    await teacher.click('[data-action=game-timer][data-minutes="5"]');
+    await a.waitForFunction(() => /남은 시간 (5:00|4:[45]\d)/.test(document.querySelector('[data-testid=lesson-timer]')?.innerText.replace(/\s+/g, ' ') || ''), {}, {timeout: 15000});
+    await a.waitForFunction(() => document.querySelector('#classroom-toast')?.textContent.includes('5분 뒤에 활동을 마쳐요'), {}, {timeout: 15000});
+    assert.equal(await a.getByTestId('classroom-game').count(), 1, 'the game keeps running during the countdown');
+    await observer.waitForFunction(() => /남은 시간/.test(document.querySelector('[data-testid=lesson-timer]')?.innerText || ''), {}, {timeout: 15000});
+    assert.match(await timerText(teacher), /남은 시간 (5:00|4:[45]\d)/);
+    await teacher.click('[data-action=game-timer-add]');
+    await a.waitForFunction(() => /남은 시간 (6:00|5:[45]\d)/.test(document.querySelector('[data-testid=lesson-timer]')?.innerText.replace(/\s+/g, ' ') || ''), {}, {timeout: 15000});
+    await teacher.click('[data-action=game-timer-cancel]');
+    await a.waitForFunction(() => /진행 시간/.test(document.querySelector('[data-testid=lesson-timer]')?.innerText || ''), {}, {timeout: 15000});
+    assert.equal(await teacher.locator('[data-action=game-timer]').count(), 4, 'after cancelling the teacher can set a new time');
+    // A short timer closes the game for everyone on time, without the teacher pressing 활동 마치기.
+    await teacher.evaluate(async () => {
+      const saved = JSON.parse(localStorage.getItem('celadon-classroom-teacher-v1'));
+      const response = await fetch('/api/classroom', {method: 'POST', headers: {'Content-Type': 'application/json', Authorization: `Bearer ${saved.teacherToken}`}, body: JSON.stringify({action: 'control', code: saved.code, command: 'game-timer', seconds: 30})});
+      if (!response.ok) throw new Error(`game-timer ${response.status}`);
+    });
+    const started = Date.now();
+    await a.getByTestId('lock-screen').waitFor({timeout: 45000});
+    assert.ok(Date.now() - started > 20000, 'the game stays open until the countdown ends');
+    await teacher.locator('.teacher-pause-note').waitFor({timeout: 15000});
+    assert.equal(await teacher.locator('[data-action=game-timer]').count(), 0, 'no timer controls once the activity has closed');
     assert.equal(await a.getByTestId('classroom-game').count(), 0);
     assert.match(await a.getByTestId('lock-screen').innerText(), /크롬북을 닫고/);
 
@@ -91,7 +114,7 @@ const base = process.env.BASE_URL || 'http://127.0.0.1:4173';
     await observer.getByTestId('observer-waiting').waitFor({timeout: 15000});
     assert.ok(!(await observer.locator('#classroom-app').innerText()).includes('봄샘'));
     assert.deepEqual(errors, []);
-    console.log('Classroom management: unified names, anonymous observer, entry lock, release/rejoin, removal, untimed activity 3, stable QR link and waiting after deletion passed.');
+    console.log('Classroom management: unified names, anonymous observer, entry lock, release/rejoin, removal, untimed activity 3 with a teacher-set end timer, stable QR link and waiting after deletion passed.');
   } finally {
     if(teacherSession&&teacher)await teacher.request.post(`${base}/api/classroom`,{headers:{Authorization:`Bearer ${teacherSession.teacherToken}`},data:{action:'control',code:teacherSession.code,command:'delete'}}).catch(()=>{});
     await browser.close();

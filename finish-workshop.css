@@ -119,3 +119,4 @@
 .popup .order-reference{margin-top:12px}
 .confirm-popup p{line-height:1.7}
 .confirm-popup .popup-actions>button{flex:1;min-height:42px;font-size:15px}
+.shape-check-popup .order-quote{margin:8px 0 12px}.shape-check-popup .shape-check-made{font-size:16px}.shape-check-popup .shape-check-question{font-size:19px;color:var(--dark,#573b3e);margin:10px 0 4px}

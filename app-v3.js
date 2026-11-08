@@ -80,6 +80,10 @@ function defaultIllustration(shape){return designsForShape(shape).find(d=>ROTATI
 function setShape(shape,modelId){choosingVariant=false;work.shape=shape;work.modelId=modelId||defaultIllustration(shape);work.knead=0;work.viewFrame=0;work.sculpt=null;resetDecor();if(!save())return;render();}
 function stampPattern(mark){if(expireGameData()||!work)return;if(work.step!==1||work.decorPhase>0||work.technique==='plain')return;if(work.placements.length>=24){toast('문양은 24개까지 놓을 수 있어요.');return;}work.placements.push(mark);if(!save())return;render();}
 function addStroke(stroke){if(expireGameData()||!work)return;work.strokes??=[];if(work.strokes.length>=40){toast('선은 40개까지 그릴 수 있어요.');return;}work.strokes.push(stroke);work.recognition=recognizeDrawing(work.strokes);if(!save())return;render();if(work.recognition)toast(`${PATTERNS.find(p=>p.id===work.recognition.id)?.name} 무늬${work.recognition.confidence} · 그림의 뜻은 직접 골라주세요.`);}
+function shapeCheckMarkup(){
+  const made=getModelArtifact(work.modelId)?.name||SHAPES.find(s=>s.id===work.shape)?.name||'내가 빚은 모양';
+  return `<h2 id="shape-check-title">잠깐! 쓰임을 다시 확인해요</h2><p>손님의 주문을 한 번 더 읽어 보세요.</p><p class="order-quote">${esc(orderQuote(order()))}</p><p class="shape-check-made">내가 빚은 모양 · <strong>${esc(made)}</strong></p><p class="shape-check-question">이 모양이 손님이 말한 쓰임에 맞나요?</p><div class="popup-actions"><button class="small-button" data-action="recheck-shape">모양 다시 고를래요</button><button class="primary green" data-action="confirm-shape">네, 맞아요 → 무늬 작업대로</button></div>`;
+}
 function showPopup(html,extra=''){galleryCraft?.dispose();galleryCraft=null;popup.removeAttribute('aria-labelledby');popup.className='popup '+extra;popup.innerHTML=`<button class="close" data-action="close-popup" aria-label="닫기">×</button>${html}`;if(!popup.open)popup.showModal();readableText(popup);}
 function showTutorial(entry=null,{restore=false}={}){if(!restore||!tutorialSession)tutorialSession={entry,index:0,understood:false,paused:false};pendingEntry=tutorialSession.entry;showPopup(tutorialMarkup(Boolean(pendingEntry),tutorialSession.index,tutorialSession.understood),'tutorial-popup');popup.setAttribute('aria-labelledby','tutorial-title');}
 function moveTutorial(delta){if(!tutorialSession||!popup.open||!popup.classList.contains('tutorial-popup'))return;tutorialSession.index=Math.max(0,Math.min(TUTORIAL_STEPS.length-1,tutorialSession.index+delta));showTutorial(tutorialSession.entry,{restore:true});const preferred=popup.querySelector(`[data-action="tutorial-${delta<0?'prev':'next'}"]`);(preferred?.disabled?popup.querySelector(`[data-action="tutorial-${delta<0?'next':'prev'}"]`):preferred)?.focus();}
@@ -146,7 +150,10 @@ async function action(id){
  case'guide':showTutorial();break;
  case'order':showPopup(`<h2>${esc(order().title)}</h2><p class="order-quote">${esc(orderQuote(order()))}</p><p>${esc(order().hint)}</p><button class="primary green order-reference" data-action="reference">참고 예시 살펴보기</button>`);break;
  case'technique-info':showPopup('<h2>상감 · 투각 · 무문</h2>'+TECHNIQUES.map(t=>`<div class="guide-card"><h3>${t.name}</h3><p>${t.description}</p></div>`).join(''));break;
- case'next-shape':if(work.knead<3&&!work.sculpt?.complete)return;work.step=1;if(!save())return;render();break;
+ // Everyone gets the same neutral question before decorating: it never says whether the shape is right.
+ case'next-shape':if(work.knead<3&&!work.sculpt?.complete)return;showPopup(shapeCheckMarkup(),'confirm-popup shape-check-popup');popup.setAttribute('aria-labelledby','shape-check-title');popup.querySelector('[data-action=confirm-shape]')?.focus();break;
+ case'confirm-shape':closePopup();if(screen!=='game'||work.step!==0||(work.knead<3&&!work.sculpt?.complete))return;work.step=1;if(!save())return;render();break;
+ case'recheck-shape':closePopup();toast('위의 모양 칸에서 다른 모양을 고를 수 있어요.');break;
  case'stamp':craft?.stamp();break;
  case'undo':if(work.tool==='draw'&&(work.strokes||[]).length)work.strokes.pop();else work.placements.pop();work.assessment=null;if(!save())return;render();break;
  case'inlay-fill':if(!work.placements.length&&!work.strokes.length)return;work.inlayMode='fill';work.decorPhase=1;beginInlay(work);if(!save())return;render();break;
