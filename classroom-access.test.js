@@ -53,7 +53,7 @@ test('teacher controls require the teacher route and capability; object browsing
     assert.equal(canUseClassroomAction(action, student), true, action);
     assert.equal(canUseClassroomAction(action, teacher), false, action);
   }
-  for (const action of ['fullscreen', 'retry-connection']) {
+  for (const action of ['fullscreen', 'retry-connection', 'retry-boot']) {
     assert.equal(canUseClassroomAction(action, student), true);
     assert.equal(canUseClassroomAction(action, teacher), true);
   }

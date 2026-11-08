@@ -25,7 +25,7 @@ export const TEACHER_ONLY_ACTIONS = Object.freeze([
 ]);
 const teacherActions = new Set(TEACHER_ONLY_ACTIONS);
 const studentActions = new Set(['join', 'submit-answers', 'next-object', 'previous-object', 'select-object']);
-const commonActions = new Set(['retry-connection', 'fullscreen']);
+const commonActions = new Set(['retry-connection', 'retry-boot', 'fullscreen']);
 
 export function isTeacherAction(action) { return teacherActions.has(action); }
 

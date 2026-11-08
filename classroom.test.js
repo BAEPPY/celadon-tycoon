@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {mkdtemp, rm} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import {ClassroomService, finishedWork} from './classroom-domain.js';
+import {ClassroomService, WORK_UPLOAD_GRACE_MS, finishedWork} from './classroom-domain.js';
 import {BlobClassroomStore, FileClassroomStore, StoreConflict, classroomPrefix, classroomStorageStatus} from './classroom-store.js';
 import {createClassroomHandler} from './api/classroom.js';
 import {assessmentFingerprint} from './assessment-rules.js';
@@ -117,7 +117,14 @@ test('server deadlines and teacher pause close writes; a restart has a new run i
   assert.equal((await f.service.overview({code: f.room.code}, f.room.teacherToken)).comparison[0].respondents, 1);
   const game = await f.control('start', 3); f.advance(5000);
   assert.equal((await f.service.state(payload, student.participantToken)).state.status, 'paused');
-  await rejectsCode(f.service.submitWork({...payload, runId: game.state.runId, work: rawWork(), preview: png}, student.participantToken), 'activity-closed');
+  // A work finished before the bell may still be uploading: accepted shortly after the scheduled end, rejected later.
+  f.advance(WORK_UPLOAD_GRACE_MS - 1000);
+  assert.equal((await f.service.submitWork({...payload, runId: game.state.runId, work: rawWork(), preview: png}, student.participantToken)).work.id, 'finished-1');
+  f.advance(1000);
+  await rejectsCode(f.service.submitWork({...payload, runId: game.state.runId, work: rawWork({id: 'finished-2'}), preview: png}, student.participantToken), 'activity-closed');
+  // A teacher who stops the activity closes uploads at once.
+  const stopped = await f.control('start', 3); f.advance(1000); await f.control('pause');
+  await rejectsCode(f.service.submitWork({...payload, runId: stopped.state.runId, work: rawWork({id: 'finished-3'}), preview: png}, student.participantToken), 'activity-closed');
 });
 
 test('manual transition mode never admits late answers, and game expiry always pauses', async () => {
@@ -143,6 +150,9 @@ test('optional submit button locks only complete final answers; autosaves remain
 
 test('comparison percentages use each pot’s respondents; observation responses are anonymous and frequency counted', async () => {
   const f = await fixture(), students = await Promise.all([f.join(1, '실명하나'), f.join(2, '실명둘'), f.join(3, '실명셋')]);
+  // Answers must not be revealable before an activity has run (the teacher screen is usually projected).
+  await rejectsCode(f.control('reveal', 1), 'reveal-after-activity');
+  await rejectsCode(f.control('reveal', 2), 'reveal-after-activity');
   const first = await f.control('start', 1);
   for (const [index, answers] of [{'1': 'yuan', '2': 'japan'}, {'1': 'goryeo'}].entries()) await f.service.answer({code: f.room.code,
     participantId: students[index].participantId, activity: 1, runId: first.state.runId, clientRevision: 1, answers}, students[index].participantToken);
@@ -201,6 +211,20 @@ test('explicit teacher deletion removes student answers and private images, reta
   assert.equal(f.store.records.size, 1); const remaining = [...f.store.records.values()][0].data;
   assert.deepEqual(Object.keys(remaining).sort(), ['code', 'deletedAt']);
   await rejectsCode(f.service.state({code: f.room.code, participantId: student.participantId}, student.participantToken), 'room-not-found');
+});
+
+test('a teacher deletion interrupted part-way can be run again and still removes every student record', async () => {
+  const f = await fixture(), students = await Promise.all([f.join(1), f.join(2), f.join(3)]), originalDelete = f.store.delete.bind(f.store);
+  let deletes = 0;
+  f.store.delete = async key => { if (++deletes === 2) throw new Error('network'); return originalDelete(key); };
+  await assert.rejects(f.control('delete'), /network/);
+  assert.ok(f.store.records.size > 1, 'the interrupted sweep left records behind');
+  await rejectsCode(f.service.state({code: f.room.code, participantId: students[0].participantId}, students[0].participantToken), 'room-not-found');
+  await rejectsCode(f.service.control({code: f.room.code, command: 'delete'}, students[0].participantToken), 'teacher-auth');
+  assert.deepEqual(await f.control('delete'), {deleted: true});
+  assert.equal(f.store.records.size, 1);
+  assert.deepEqual(Object.keys([...f.store.records.values()][0].data).sort(), ['code', 'deletedAt']);
+  await rejectsCode(f.control('delete'), 'room-not-found');
 });
 
 test('a join created after the teacher deletion sweep is rejected and removes the late personal record', async () => {

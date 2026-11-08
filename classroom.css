@@ -61,3 +61,10 @@ body{border-top-width:4px}.welcome{display:block;padding:32px 22px;max-width:550
 .board-toolbar{min-height:44px;padding:8px 10px;gap:6px}.board-view-switch{padding:2px;gap:2px}.board-view-switch button{padding:6px 8px}.board-question{padding:11px 12px 0;font-size:19px;line-height:1.3}.board-canvas>.word-cloud{flex:0 0 auto;min-height:240px;padding:0}.board-caption{padding:8px 12px 12px;font-size:14px;line-height:1.4}.response-phrases{margin-top:13px}
 }
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+/* Activity 3: classroom-app.js sizes the frame to this box, scaling the game down when the box is smaller than its 1024×600 layout. */
+.game-viewport{flex:1;min-height:0;position:relative;overflow:hidden;border-radius:8px}
+.game-viewport .game-frame{position:absolute;left:0;top:0;width:100%;height:100%;transform-origin:0 0}
+/* The wide spacing is for the six-letter code, not the hint text. */
+.code-input::placeholder{letter-spacing:normal;font-size:17px;font-weight:400;text-transform:none}
+/* Break Korean text between words, not inside them; long codes and links may still wrap anywhere. */
+body{word-break:keep-all;overflow-wrap:anywhere}
