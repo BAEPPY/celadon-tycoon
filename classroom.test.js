@@ -352,6 +352,41 @@ test('manual transition mode never admits late answers, and the game runs until 
   assert.equal((await f.service.state(payload, student.participantToken)).state.status, 'paused');
 });
 
+test('the teacher can announce an end time for activity 3: it counts down, can be extended or cancelled, and then closes the game', async () => {
+  const f = await fixture(), student = await f.join(1), code = f.room.code, query = {code, participantId: student.participantId};
+  // Only while activity 3 is running.
+  await rejectsCode(f.control('game-timer', undefined, {seconds: 300}), 'timer-needs-game');
+  await f.control('start', 1); await rejectsCode(f.control('game-timer', undefined, {seconds: 300}), 'timer-needs-game'); await f.control('pause');
+  const game = await f.control('start', 3); assert.equal(game.state.endsAt, null);
+  for (const seconds of [0, 29, 3601, 90.5, 'five', undefined]) await rejectsCode(f.control('game-timer', undefined, {seconds}), 'invalid-timer');
+  await rejectsCode(f.control('game-timer', undefined, {add: 60}), 'timer-not-set');
+  await rejectsCode(f.service.control({code, command: 'game-timer', seconds: 300}, student.participantToken), 'teacher-auth');
+  f.advance(60000);
+  const set = await f.control('game-timer', undefined, {seconds: 300});
+  assert.equal(set.state.endsAt - set.state.serverNow, 300000); assert.equal(set.state.status, 'active');
+  assert.equal(set.state.runId, game.state.runId, 'setting the timer keeps the same game run');
+  assert.equal((await f.service.state(query, student.participantToken)).state.endsAt, set.state.endsAt, 'students receive the end time');
+  const longer = await f.control('game-timer', undefined, {add: 60}); assert.equal(longer.state.endsAt, set.state.endsAt + 60000);
+  for (const add of [0, 29, 601, 'x']) await rejectsCode(f.control('game-timer', undefined, {add}), 'invalid-timer');
+  assert.equal((await f.control('game-timer', undefined, {cancel: true})).state.endsAt, null);
+  f.advance(10 * 60000); assert.equal((await f.service.state(query, student.participantToken)).state.status, 'active', 'cancelled: no limit again');
+  const again = await f.control('game-timer', undefined, {seconds: 120});
+  const payload = {...query, runId: game.state.runId, work: rawWork(), preview: png};
+  f.advance(120000 - 1);
+  assert.equal((await f.service.state(query, student.participantToken)).state.status, 'active');
+  f.advance(1);
+  const closed = (await f.service.state(query, student.participantToken)).state;
+  assert.equal(closed.status, 'paused', 'at 0 the game closes for everyone'); assert.equal(closed.pausedAt, again.state.endsAt);
+  await rejectsCode(f.control('game-timer', undefined, {add: 60}), 'timer-needs-game');
+  // A work finished just before the end still arrives during the short upload window, and not after it.
+  f.advance(WORK_UPLOAD_GRACE_MS - 1);
+  assert.equal((await f.service.submitWork(payload, student.participantToken)).work.id, 'finished-1');
+  // Pressing 활동 마치기 later does not reopen that window.
+  f.advance(60000); await f.control('pause');
+  await rejectsCode(f.service.submitWork({...payload, work: rawWork({id: 'finished-2'})}, student.participantToken), 'activity-closed');
+  const next = await f.control('start', 3); assert.equal(next.state.endsAt, null, 'a new game run starts without a timer');
+});
+
 test('activity 1 done works with the default settings and persists until a new run', async () => {
   const f = await fixture(), student = await f.join(1), {state} = await f.control('start', 1);
   assert.equal(state.settings.submitButton, false);

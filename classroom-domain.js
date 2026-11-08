@@ -78,16 +78,17 @@ function settingsFrom(raw = {}, previous = DEFAULT_CLASSROOM_SETTINGS) {
   return settings;
 }
 export function classroomState(room, now = Date.now()) {
-  // endsAt is null for activity 3, which runs until the teacher ends it.
+  // endsAt is null for activity 3 until the teacher sets an end timer; it then closes at that time like the other activities.
   const timedOut = room.status === 'active' && Number.isFinite(room.endsAt) && now >= room.endsAt && (room.activity === 3 || room.settings.autoPause);
   return {code: room.code, ...(room.joinCode === CLASSROOM_JOIN_CODE ? {joinCode: CLASSROOM_JOIN_CODE} : {}), activity: room.activity, activity1Stage: room.activity1Stage === 'beauty' ? 'beauty' : 'comparison', status: timedOut ? 'paused' : room.status,
-    runId: room.runId, runs: {...room.runs}, startedAt: room.startedAt, endsAt: room.endsAt ?? null, pausedAt: room.pausedAt ?? null,
+    runId: room.runId, runs: {...room.runs}, startedAt: room.startedAt, endsAt: room.endsAt ?? null, pausedAt: timedOut ? room.endsAt : room.pausedAt ?? null,
     serverNow: now, settings: {...structuredClone(room.settings), beautyDuration: room.settings.beautyDuration ?? DEFAULT_CLASSROOM_SETTINGS.beautyDuration}, revealed: {...room.revealed}, locked: room.locked === true, revision: room.revision};
 }
 // The game stops as soon as the activity closes, but a work finished just before may still be uploading its picture.
 // Accept it for a short while after the close of that same run (the teacher's "활동 마치기", or a deadline left over
 // from an older room), unless another activity has started or the class has ended.
 export const WORK_UPLOAD_GRACE_MS = 20000;
+export const GAME_TIMER_MAX_SECONDS = 60 * 60;
 export const WORK_RETENTION_MS = 24 * 60 * 60 * 1000;
 const workExpiresAt = work => Math.min(work.submittedAt + WORK_RETENTION_MS, Number.isFinite(work.expiresAt) ? work.expiresAt : Infinity);
 const expiredWork = (work, now) => !Number.isFinite(work.submittedAt) || now >= workExpiresAt(work);
@@ -517,8 +518,25 @@ export class ClassroomService {
         if (!room.runs[1]) fail(409, 'beauty-after-comparison', '세 나라 청자를 먼저 비교한 뒤 시작해 주세요.');
         room.activity = 1; room.activity1Stage = 'beauty'; room.status = 'active'; room.runId = this.makeToken(); room.runs.beauty = room.runId;
         room.startedAt = this.now(); room.endsAt = room.startedAt + (room.settings.beautyDuration ?? DEFAULT_CLASSROOM_SETTINGS.beautyDuration) * 1000; room.pausedAt = null;
-      } else if (raw.command === 'pause') { if (room.status === 'active') room.pausedAt = this.now(); room.status = 'paused'; }
-      else if (raw.command === 'end') room.status = 'ended';
+      } else if (raw.command === 'pause') {
+        // A deadline that already passed closed the activity then, not when the teacher pressed the button.
+        if (room.status === 'active') room.pausedAt = state.status === 'paused' && Number.isFinite(room.endsAt) ? room.endsAt : this.now();
+        room.status = 'paused';
+      } else if (raw.command === 'game-timer') {
+        // Activity 3 runs until the teacher says "N분 뒤에 마칠게요": the countdown then closes it like 활동 마치기.
+        if (room.activity !== 3 || state.status !== 'active') fail(409, 'timer-needs-game', '활동 3이 진행 중일 때 마감 시간을 정할 수 있어요.');
+        if (raw.cancel === true) room.endsAt = null;
+        else if (raw.add !== undefined) {
+          const add = Number(raw.add);
+          if (!Number.isFinite(room.endsAt)) fail(409, 'timer-not-set', '먼저 마감 시간을 정해 주세요.');
+          if (!Number.isSafeInteger(add) || add < 30 || add > 600) fail(400, 'invalid-timer', '늘릴 시간을 다시 골라 주세요.');
+          room.endsAt = Math.min(room.endsAt + add * 1000, this.now() + GAME_TIMER_MAX_SECONDS * 1000);
+        } else {
+          const seconds = Number(raw.seconds);
+          if (!Number.isSafeInteger(seconds) || seconds < 30 || seconds > GAME_TIMER_MAX_SECONDS) fail(400, 'invalid-timer', '마감 시간은 30초에서 60분 사이로 정해 주세요.');
+          room.endsAt = this.now() + seconds * 1000;
+        }
+      } else if (raw.command === 'end') room.status = 'ended';
       else if (raw.command === 'settings') {
         if (state.status === 'active') fail(409, 'already-active', '진행 중인 활동을 마친 뒤 설정해 주세요.');
         room.settings = settingsFrom(raw.settings, room.settings);

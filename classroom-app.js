@@ -186,7 +186,9 @@ function teacherViewActive(){return room.activity===teacherActivity&&(teacherAct
 function teacherViewDuration(){return teacherBeautyView()?room.settings?.beautyDuration||90:room.settings?.durations?.[teacherActivity]||0;}
 function expiryMarkup(){return timeExpired()?'<div class="submitted-banner" data-testid="time-finished">시간이 끝났어요. 선생님이 마무리할 때까지 기다려 주세요.</div>':'';}
 // Activity 3 has no time limit: it runs until the teacher ends it, so its clock shows elapsed time instead.
-const untimed=activity=>activity===3;
+// Activity 3 has no limit until the teacher sets an end timer; then it counts down like the other activities.
+const gameTimerSet=()=>room?.activity===3&&room.status==='active'&&Number.isFinite(room.endsAt);
+const untimed=activity=>activity===3&&!gameTimerSet();
 function elapsed(){return room?.startedAt&&room.status==='active'?Math.max(0,Math.floor((now()-room.startedAt)/1000)):0;}
 function remaining(){return room?.endsAt?Math.max(0,Math.ceil((room.endsAt-now())/1000)):(teacherMode?teacherViewDuration():beautyStage()?room.settings?.beautyDuration||90:room?.settings?.durations?.[room?.activity]||0);}
 function formatTime(seconds){return `${Math.floor(seconds/60)}:${String(seconds%60).padStart(2,'0')}`;}
@@ -229,12 +231,19 @@ function renderObserverWaiting(){
   if(viewKey==='observer-waiting')return;viewKey='observer-waiting';
   app.innerHTML=`<section class="waiting" data-testid="observer-waiting"><div class="waiting-inner"><div class="waiting-illustration">${laptopIcon}</div><h1>탑텐반 수업을<br>기다리고 있어요.</h1><p>지금은 열린 탑텐반 수업이 없어요.<br>선생님이 수업을 열면 바로 보여요.</p><div class="waiting-status"><i></i>화면을 그대로 두면 자동으로 이어져요</div></div></section>`;
 }
+function announceGameTimer(previous){
+  if(!previous||previous.code!==room?.code||previous.runId!==room.runId||room.activity!==3||room.status!=='active'||previous.endsAt===room.endsAt)return;
+  if(!Number.isFinite(room.endsAt)){if(Number.isFinite(previous.endsAt))toast(observerMode?'활동 3의 마감 시간이 없어졌어요.':'마감 시간이 없어졌어요. 선생님이 마칠 때까지 계속 만들 수 있어요.');return;}
+  const minutes=Math.max(1,Math.round((room.endsAt-now())/60000));
+  toast(Number.isFinite(previous.endsAt)?`선생님이 시간을 늘렸어요. 약 ${minutes}분 남았어요.`:observerMode?`${minutes}분 뒤에 활동 3을 마쳐요.`:`선생님이 ${minutes}분 뒤에 활동을 마쳐요. 작품을 마무리해 주세요.`);
+}
 function receive(payload,{initial=false}={}){
   // A fixed 탑텐반 observer QR follows 탑텐반 to each new class; start that class's view afresh.
   if(observerMode&&payload.state&&payload.state.code!==room?.code){if(room)clearObserverRoom();initial=true;}
   const previous=room;
   if(payload.state&&room&&payload.state.code===room.code&&(Number(payload.state.revision)<Number(room.revision)||(Number(payload.state.revision)===Number(room.revision)&&Number(payload.state.serverNow)<Number(room.serverNow)))){lastSuccessfulPoll=Date.now();heartbeatGame();return false;}
   room=payload.state||room;
+  if(!teacherMode||observerMode)announceGameTimer(previous);
   // Network delay only makes an estimate smaller, so the largest recent one is the best. Older samples age out, so a
   // corrected device clock (e.g. after waking a Chromebook) is followed within a few polls instead of never.
   if(room?.serverNow){const estimate=Number(room.serverNow)-Date.now();offsetSamples=previous?[...offsetSamples.slice(-4),estimate]:[estimate];offset=Math.max(...offsetSamples);}
@@ -486,13 +495,19 @@ function entryTools(inManager=false){return `<div class="participant-tools"><but
 function studentManagerMarkup(){const list=teacherData?.participants||[];return `<div class="manager-head"><h2>학생 관리</h2><button class="button quiet small" type="button" data-close-manager>닫기</button></div><p class="muted">브라우저 기록이 지워져 다시 들어오지 못하는 학생은 <b>번호 풀기</b>를 누른 뒤 같은 번호로 입장하게 해 주세요. 쓰던 답과 작품은 그대로 이어져요.</p>${entryTools(true)}<div class="manager-scroll"><table class="manager-table"><thead><tr><th>번호</th><th>이름</th><th>상태</th><th>관리</th></tr></thead><tbody>${list.length?list.map(p=>`<tr><td>${esc(p.number)}</td><td>${esc(p.name)}</td><td>${p.released?'다시 입장 대기':'참여 중'}</td><td class="manager-actions"><button class="button secondary small" data-action="release-student" data-id="${esc(p.id)}" ${p.released||controlBusy?'disabled':''}>번호 풀기</button><button class="button danger small" data-action="remove-student" data-id="${esc(p.id)}" data-name="${esc(p.name)}" ${controlBusy?'disabled':''}>내보내기</button></td></tr>`).join(''):'<tr><td colspan="4" class="empty-cell">아직 들어온 학생이 없어요.</td></tr>'}</tbody></table></div>`;}
 function refreshStudentManager(){const dialog=document.querySelector('dialog.student-manager');if(dialog?.open)dialog.innerHTML=studentManagerMarkup();}
 function openStudentManager(){let dialog=document.querySelector('dialog.student-manager');if(!dialog){dialog=document.createElement('dialog');dialog.className='student-manager';dialog.setAttribute('aria-label','학생 관리');dialog.addEventListener('click',event=>{if(event.target.closest('[data-close-manager]')){dialog.close();return;}handleClick(event);});document.body.append(dialog);}dialog.innerHTML=studentManagerMarkup();if(!dialog.open)dialog.showModal();}
+function gameTimerMarkup(){
+  const off=controlBusy?'disabled':'';
+  return gameTimerSet()
+    ?`<div class="game-timer" role="group" aria-label="활동 3 마감 타이머"><p>시간이 끝나면 학생 게임이 저절로 닫혀요.</p><div class="game-timer-buttons"><button class="button secondary small" data-action="game-timer-add" ${off}>+1분</button><button class="button quiet small" data-action="game-timer-cancel" ${off}>타이머 끄기</button></div></div>`
+    :`<div class="game-timer" role="group" aria-label="활동 3 마감 타이머"><p>몇 분 뒤에 마칠까요?</p><div class="game-timer-buttons">${[1,3,5,10].map(minutes=>`<button class="button secondary small" data-action="game-timer" data-minutes="${minutes}" ${off}>${minutes}분</button>`).join('')}</div></div>`;
+}
 function teacherActionMarkup(live,status){
   if(observerMode)return '';
   const disabled=controlBusy||status==='active'||status==='ended';
   const start=teacherBeautyView()?`<button class="button" data-action="start-beauty" ${disabled||!room.runs?.[1]?'disabled':''}>아름다움 찾기 시작 →</button>`:`<button class="button" data-action="start" data-activity="${teacherActivity}" ${disabled?'disabled':''}>활동 ${teacherActivity} 시작 →</button>`;
   const reveal=teacherActivity<3&&!teacherBeautyView()?`<button class="button secondary" data-action="reveal" data-activity="${teacherActivity}" ${status==='active'||controlBusy||!room.runs?.[teacherActivity]||room.revealed?.[teacherActivity]?'disabled':''}>${room.revealed?.[teacherActivity]?'설명 공개됨':'함께 정답 보기'}</button>`:'';
   const next=teacherActivity===1&&!teacherBeautyView()&&room.runs?.[1]&&status==='paused'?`<button class="button secondary beauty-next" data-action="start-beauty" ${controlBusy?'disabled':''}>이어서 아름다움 찾기 →</button>`:'';
-  return `<div class="teacher-action-buttons">${live?`<button class="button" data-action="pause" ${controlBusy?'disabled':''}>활동 마치기 →</button>`:start}${reveal}${next}</div>${teacherBeautyView()&&!room.runs?.[1]?'<p class="beauty-start-note">먼저 세 나라 도자기 비교를 진행한 뒤 시작해 주세요.</p>':''}`;
+  return `<div class="teacher-action-buttons">${live?`<button class="button" data-action="pause" ${controlBusy?'disabled':''}>활동 마치기 →</button>`:start}${reveal}${next}</div>${live&&teacherActivity===3?gameTimerMarkup():''}${teacherBeautyView()&&!room.runs?.[1]?'<p class="beauty-start-note">먼저 세 나라 도자기 비교를 진행한 뒤 시작해 주세요.</p>':''}`;
 }
 function renderTeacher(){
   if(!teacherMode||!(session?.teacherToken||session?.observerToken))return;
@@ -553,9 +568,11 @@ function resetRoom({keepTeacherKey=false}={}){
 function render(){if(observerMode&&session&&!room&&viewKey==='observer-waiting')return;if(!session||!room)return renderWelcome();if(teacherMode)renderTeacher();else renderStudent();}
 function updateTimer(){
   const timer=document.querySelector('[data-testid=lesson-timer]');if(!timer)return;
-  const viewed=teacherMode?teacherActivity:room?.activity;
-  if(untimed(viewed)){const live=room?.activity===viewed&&effectiveStatus()==='active';timer.querySelector('strong').textContent=live?formatTime(elapsed()):'제한 없음';timer.classList.remove('warning','finished');return;}
-  let seconds=remaining();if(teacherMode&&(!teacherViewActive()||effectiveStatus()!=='active'))seconds=teacherViewActive()&&deadlinePassed()?0:teacherViewDuration();timer.querySelector('strong').textContent=formatTime(seconds);timer.classList.toggle('warning',active(room?.activity)&&seconds<=20&&seconds>0);timer.classList.toggle('finished',seconds===0);
+  const viewed=teacherMode?teacherActivity:room?.activity,open=untimed(viewed),label=open?'진행 시간':'남은 시간';
+  // An already-rendered game header switches to a countdown when the teacher sets an end timer.
+  if(timer.querySelector('span').textContent!==label){timer.querySelector('span').textContent=label;timer.setAttribute('aria-label',open?'활동 진행 시간':'남은 활동 시간');}
+  if(open){const live=room?.activity===viewed&&effectiveStatus()==='active';timer.querySelector('strong').textContent=live?formatTime(elapsed()):'제한 없음';timer.classList.remove('warning','finished');return;}
+  let seconds=remaining();if(teacherMode&&(!teacherViewActive()||effectiveStatus()!=='active'))seconds=teacherViewActive()&&deadlinePassed()?0:teacherViewDuration();timer.querySelector('strong').textContent=formatTime(seconds);timer.classList.toggle('warning',active(room?.activity)&&seconds<=(viewed===3?60:20)&&seconds>0);timer.classList.toggle('finished',seconds===0);
 }
 function updateSaveStatus(){
   app.querySelectorAll('[data-activity-done]').forEach(done=>{const activity=done.dataset.activityDone==='beauty'?'beauty':Number(done.dataset.activityDone);done.disabled=answerLocked(activity)||progress(activity)<expectedProgress(activity)||saving;done.textContent=submitted[activity]?'다했어요 ✓':saving?'저장 중…':'다했어요';});
@@ -708,6 +725,9 @@ async function handleClick(event){
     if(action==='fullscreen'){if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen();return;}
     if(action==='start'){settingsDirty=false;await control('start',{activity:Number(button.dataset.activity)});return;}
     if(action==='pause'){await control('pause');return;}
+    if(action==='game-timer'){const minutes=Number(button.dataset.minutes);await control('game-timer',{seconds:minutes*60});if(gameTimerSet())toast(`${minutes}분 뒤에 활동 3을 마쳐요. 학생 화면에도 남은 시간이 보여요.`);return;}
+    if(action==='game-timer-add'){await control('game-timer',{add:60});return;}
+    if(action==='game-timer-cancel'){if(confirm('마감 타이머를 끌까요?\n\n학생들은 선생님이 활동을 마칠 때까지 계속 만들 수 있어요.'))await control('game-timer',{cancel:true});return;}
     if(action==='reveal'){await control('reveal',{activity:Number(button.dataset.activity)});return;}
     if(action==='end'){if(confirm('모든 학생의 활동을 마치고 수업을 종료할까요?'))await control('end');return;}
     if(action==='retry-boot'){boot();return;}
