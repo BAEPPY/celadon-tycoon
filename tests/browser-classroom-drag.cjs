@@ -1,4 +1,4 @@
-/* Genuine browser drags through the classroom UI and persistent HTTP store. */
+/* Trusted mouse and touch drags through the classroom UI and persistent HTTP store. */
 const assert=require('node:assert/strict');
 const {chromium}=require('playwright');
 const base=process.env.BASE_URL||'http://127.0.0.1:4173';
@@ -7,7 +7,8 @@ const base=process.env.BASE_URL||'http://127.0.0.1:4173';
   assert.ok(['127.0.0.1','localhost'].includes(new URL(base).hostname),'Use an isolated local classroom server.');
   const browser=await chromium.launch({headless:true,...(process.env.CHROMIUM_PATH?{executablePath:process.env.CHROMIUM_PATH}:{}),args:['--no-sandbox','--enable-unsafe-swiftshader']});
   let teacherSession;
-  const teacher=await browser.newPage(),student=await browser.newPage({viewport:{width:1366,height:768}}),errors=[],answerRequests=[];
+  const teacher=await browser.newPage(),student=await browser.newPage({viewport:{width:1366,height:768},hasTouch:true}),errors=[],answerRequests=[];
+  const touch=await student.context().newCDPSession(student);
   student.on('pageerror',error=>errors.push(error.message));
   student.on('request',request=>{if(request.method()==='POST'&&new URL(request.url()).pathname==='/api/classroom'&&request.postDataJSON()?.action==='answer')answerRequests.push(request.postDataJSON());});
   const api=async(action,body={})=>{
@@ -33,21 +34,33 @@ const base=process.env.BASE_URL||'http://127.0.0.1:4173';
     await student.waitForFunction(()=>document.querySelector('[data-save-status]')?.dataset.status==='saved');
     assert.deepEqual(await values(),expected,'visible nameplates match the chosen countries');
   }
-  async function beginDrag(country,target){
+  async function dragPoints(country,target){
     const from=await student.locator(`[data-country-chip=${country}]`).boundingBox(),to=await student.locator(target).boundingBox();
     assert.ok(from&&to,'drag source and target are visible');
-    await student.mouse.move(from.x+from.width/2,from.y+from.height/2);await student.mouse.down();
-    await student.mouse.move(from.x+from.width/2+10,from.y+from.height/2,{steps:3});
-    await student.mouse.move(to.x+to.width/2,to.y+to.height/2,{steps:15});
-    // The second move ensures Chromium delivers dragover after entering the target.
-    await student.mouse.move(to.x+to.width/2,to.y+to.height/2+1);
+    return {from:{x:from.x+from.width/2,y:from.y+from.height/2},to:{x:to.x+to.width/2,y:to.y+to.height/2}};
   }
-  async function drag(country,target,id){
-    await beginDrag(country,target);
+  async function beginDrag(country,target,pointer='mouse'){
+    const {from,to}=await dragPoints(country,target);
+    if(pointer==='touch'){
+      await touch.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{...from,id:1}]});
+      for(let step=1;step<=12;step++)await touch.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:from.x+(to.x-from.x)*step/12,y:from.y+(to.y-from.y)*step/12,id:1}]});
+    }else{
+      await student.mouse.move(from.x,from.y);await student.mouse.down();
+      // A direct move must work without another movement to trigger native dragover.
+      await student.mouse.move(to.x,to.y);
+    }
+  }
+  async function releaseDrag(pointer='mouse'){
+    if(pointer==='touch')await touch.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+    else await student.mouse.up();
+  }
+  async function drag(country,target,id,pointer='mouse'){
+    await beginDrag(country,target,pointer);
     assert.equal(await student.locator(`[data-country-drop="${id}"].drop-over`).count(),1,'the full receiving card is highlighted');
-    await student.mouse.up();
-    assert.equal(await student.locator(`#country-${id}`).inputValue(),country,'a genuine mouse drop updates the native select immediately');
+    await releaseDrag(pointer);
+    assert.equal(await student.locator(`#country-${id}`).inputValue(),country,`a trusted ${pointer} drag updates the native select immediately`);
     assert.equal(await student.locator('.drop-over').count(),0,'drop feedback clears after release');
+    assert.equal(await student.locator('[data-country-chip][aria-pressed=true]').count(),0,'releasing a drag does not select a chip through a follow-up click');
   }
   try{
     await teacher.goto(`${base}/teacher`);await teacher.locator('[data-form=create] button').click();await teacher.locator('.teacher-room-code strong').waitFor();
@@ -57,43 +70,52 @@ const base=process.env.BASE_URL||'http://127.0.0.1:4173';
     await student.locator('[name=number]').fill('17');await student.locator('[name=name]').fill('이름표');await student.locator('[data-form=join] button').click();await student.getByTestId('waiting-screen').waitFor();
     await control('start',{activity:1});await student.locator('#country-1').waitFor();
     await student.waitForFunction(()=>document.querySelectorAll('[data-viewer-status=ready]').length===3,null,{timeout:45000});
-    await student.evaluate(()=>{window.countryDragEvents=[];for(const type of ['dragstart','drop'])document.addEventListener(type,event=>window.countryDragEvents.push({type,trusted:event.isTrusted,target:event.target.tagName}));});
+    await student.evaluate(()=>{window.countryPointerEvents=[];for(const type of ['pointerdown','pointerup','pointercancel','dragstart','drop'])document.addEventListener(type,event=>window.countryPointerEvents.push({type,trusted:event.isTrusted,pointerType:event.pointerType}));});
     await drag('yuan','#country-1','1');
     await drag('goryeo','[data-viewer="2"] .lesson-viewer__canvas','2');
     await drag('japan','[data-country-drop="3"] .object-title','3');
     await saved({'1':'yuan','2':'goryeo','3':'japan'});
-    const events=await student.evaluate(()=>window.countryDragEvents);
-    assert.equal(events.filter(event=>event.type==='drop').length,3);assert.ok(events.every(event=>event.trusted),'the browser, not synthetic DataTransfer events, produced every drag and drop');
-    assert.deepEqual(events.filter(event=>event.type==='drop').map(event=>event.target),['SELECT','CANVAS','DIV']);
+    await drag('japan','#country-1','1','touch');
+    await drag('yuan','[data-viewer="2"] .lesson-viewer__canvas','2','touch');
+    await drag('goryeo','[data-country-drop="3"] .object-title','3','touch');
+    await saved({'1':'japan','2':'yuan','3':'goryeo'});
+    const events=await student.evaluate(()=>window.countryPointerEvents);
+    assert.ok(events.every(event=>event.trusted),'all pointer events came from browser input rather than dispatchEvent');
+    for(const pointer of ['mouse','touch'])assert.equal(events.filter(event=>event.type==='pointerup'&&event.pointerType===pointer).length,3,`all three ${pointer} drags completed`);
+    assert.equal(events.some(event=>['pointercancel','dragstart','drop'].includes(event.type)),false,'placement does not depend on native HTML drag-and-drop or scroll-cancelled touch gestures');
 
     await student.setViewportSize({width:1024,height:600});
-    await drag('japan','[data-viewer="1"] .lesson-viewer__canvas','1');
-    await saved({'1':'japan','2':'goryeo','3':'japan'});
+    await drag('goryeo','[data-viewer="1"] .lesson-viewer__canvas','1');
+    await saved({'1':'goryeo','2':'yuan','3':'goryeo'});
     await student.screenshot({path:'/tmp/classroom-country-drag-1024.png'});
     await student.reload();await student.locator('#country-1').waitFor();
-    assert.deepEqual(await values(),{'1':'japan','2':'goryeo','3':'japan'},'same-tab reload restores dragged answers');
+    assert.deepEqual(await values(),{'1':'goryeo','2':'yuan','3':'goryeo'},'same-tab reload restores mouse and touch answers');
 
     // A click-selected chip can be placed on the native select without opening its popup.
-    await student.locator('[data-country-chip=yuan]').click();
+    await student.locator('[data-country-chip=japan]').click();
     await student.locator('[data-viewer="2"]').getByRole('button',{name:'오른쪽으로 돌리기'}).click();
-    assert.equal(await student.locator('#country-2').inputValue(),'goryeo','viewer controls do not place a pending nameplate');
-    assert.equal(await student.locator('[data-country-chip=yuan]').getAttribute('aria-pressed'),'true');
+    assert.equal(await student.locator('#country-2').inputValue(),'yuan','viewer controls do not place a pending nameplate');
+    assert.equal(await student.locator('[data-country-chip=japan]').getAttribute('aria-pressed'),'true');
     await student.locator('#country-2').click({button:'right'});await student.keyboard.press('Escape');
-    assert.equal(await student.locator('#country-2').inputValue(),'goryeo','a secondary pointer button does not place a nameplate');
+    assert.equal(await student.locator('#country-2').inputValue(),'yuan','a secondary pointer button does not place a nameplate');
     await student.locator('#country-2').click();
-    assert.equal(await student.locator('#country-2').inputValue(),'yuan');
+    assert.equal(await student.locator('#country-2').inputValue(),'japan');
     assert.equal(await student.locator('[data-country-chip][aria-pressed=true]').count(),0);
     // The original keyboard-select alternative stays usable without a selected chip.
-    await student.locator('#country-3').focus();await student.keyboard.press('Home');await student.keyboard.press('ArrowDown');await student.keyboard.press('ArrowDown');
-    await saved({'1':'japan','2':'yuan','3':'goryeo'});
+    await student.locator('#country-3').focus();await student.keyboard.press('Home');await student.keyboard.press('ArrowDown');
+    await saved({'1':'goryeo','2':'japan','3':'yuan'});
     await student.locator('[data-country-chip=japan]').focus();await student.keyboard.press('Enter');
     await student.locator('[data-country-drop="3"] .object-title').click();
-    await saved({'1':'japan','2':'yuan','3':'japan'});
+    await saved({'1':'goryeo','2':'japan','3':'japan'});
 
-    // Leaving the cards or pausing in the middle of a real drag cannot write an answer.
+    // Touch cancellation, leaving the cards, and pausing cannot write an answer.
+    await beginDrag('yuan','[data-viewer="1"] .lesson-viewer__canvas','touch');
+    assert.equal(await student.locator('[data-country-drop="1"].drop-over').count(),1);
+    await touch.send('Input.dispatchTouchEvent',{type:'touchCancel',touchPoints:[]});
+    assert.equal(await student.locator('.drop-over').count(),0);assert.equal(await student.locator('#country-1').inputValue(),'goryeo');
     await beginDrag('yuan','[data-viewer="1"] .lesson-viewer__canvas');
     await student.mouse.move(10,10,{steps:10});await student.mouse.up();
-    assert.equal(await student.locator('.drop-over').count(),0);assert.equal(await student.locator('#country-1').inputValue(),'japan');
+    assert.equal(await student.locator('.drop-over').count(),0);assert.equal(await student.locator('#country-1').inputValue(),'goryeo');
     const beforePause=await record(),requestsBeforePause=answerRequests.length;
     await beginDrag('yuan','[data-viewer="1"] .lesson-viewer__canvas');await control('pause');await student.getByTestId('lock-screen').waitFor();await student.mouse.up();
     assert.deepEqual(await record(),beforePause,'pausing during a drag leaves the saved answer untouched');
@@ -112,6 +134,6 @@ const base=process.env.BASE_URL||'http://127.0.0.1:4173';
     await student.mouse.move(completedTarget.x+completedTarget.width/2,completedTarget.y+completedTarget.height/2,{steps:15});await student.mouse.up();
     assert.deepEqual(await record(),completed,'the completed activity stays immutable after a pointer drag attempt');assert.equal(answerRequests.length,requestsAfterCompletion);
     assert.deepEqual(errors,[]);
-    console.log('Country nameplates: trusted mouse drops on select/canvas/card, 1024×600, server persistence, reload, click/keyboard alternatives, cancelled drag, pause and completion locks passed.');
+    console.log('Country nameplates: trusted direct mouse and CDP touch drags on select/canvas/card, 1024×600, persistence/reload, click/keyboard alternatives, touch cancellation, outside release, pause and completion locks passed.');
   }finally{if(teacherSession)await control('delete').catch(()=>{});await browser.close();}
 })().catch(error=>{console.error(error);process.exit(1);});

@@ -1,10 +1,13 @@
 /* Live teacher/observer comparison models survive response updates. Local server only. */
 const assert = require('node:assert/strict');
+const path = require('node:path');
+const {pathToFileURL} = require('node:url');
 const {chromium} = require('playwright');
 const base = process.env.BASE_URL || 'http://127.0.0.1:4173';
 
 (async () => {
   assert.ok(['127.0.0.1', 'localhost'].includes(new URL(base).hostname), 'Run only against a local test server.');
+  const {COMPARISON_ANSWERS, OBSERVATION_ANSWERS} = await import(pathToFileURL(path.join(__dirname, '../lesson-answer-key.js')));
   const browser = await chromium.launch({headless: true,
     ...(process.env.CHROMIUM_PATH ? {executablePath: process.env.CHROMIUM_PATH} : {}),
     args: ['--no-sandbox', '--enable-unsafe-swiftshader']});
@@ -46,6 +49,40 @@ const base = process.env.BASE_URL || 'http://127.0.0.1:4173';
       answers: Object.fromEntries(countries.map((country, index) => [index + 1, country])),
     }});
     assert.equal(result.status, 200, JSON.stringify(result.value));
+  };
+  const assertNeutralInfo = async dialog => {
+    const info = dialog.locator('.lesson-viewer__info');
+    assert.equal(await info.getAttribute('data-info-state'), 'observation');
+    assert.match(await info.innerText(), /어떤 색과 무늬/);
+    assert.equal(await info.locator('a,.lesson-viewer__info-meta,.lesson-viewer__info-use').count(), 0);
+    const text = await dialog.innerText();
+    for (const answer of [...Object.values(COMPARISON_ANSWERS), ...Object.values(OBSERVATION_ANSWERS)]) assert.equal(text.includes(answer.name), false, 'Unrevealed expanded view hides artifact names.');
+  };
+  const expandedInfo = async (page, selector, details, screenshot) => {
+    const expand = page.locator(`${selector} .lesson-viewer__expand`);
+    await expand.click();
+    const dialog = page.locator('dialog.lesson-viewer__dialog[open]');
+    await dialog.locator('[data-viewer-status=ready]').waitFor({timeout: 45000});
+    if (details) {
+      const info = dialog.locator('.lesson-viewer__info'), text = await info.innerText();
+      assert.equal(await info.getAttribute('data-info-state'), 'revealed');
+      for (const key of ['name', 'countryLabel', 'date', 'use', 'note', 'source']) if (details[key]) assert.ok(text.includes(details[key]), `Expanded view includes server ${key}.`);
+      assert.equal(await info.locator('.lesson-viewer__info-use').count(), details.use ? 1 : 0);
+      assert.equal(await info.getByRole('link', {name: '자료 출처 보기 ↗'}).getAttribute('href'), details.sourceUrl);
+      const canvas = await dialog.locator('canvas').elementHandle();
+      await page.waitForResponse(response => ['teacher', 'observe'].includes(new URL(response.url()).searchParams.get('action')));
+      assert.equal(await canvas.evaluate(node => node.isConnected && node === document.querySelector('.lesson-viewer__dialog canvas')), true, 'Polling retains expanded model and its explanation.');
+      if (screenshot) for (const viewport of [{width: 1366, height: 768}, {width: 1024, height: 600}]) {
+        await page.setViewportSize(viewport);
+        const bounds = await dialog.locator('.lesson-viewer__info').boundingBox(), model = await dialog.locator('.lesson-viewer__viewport').boundingBox();
+        assert.ok(bounds.x >= model.x + model.width, 'Revealed explanation fits beside the model on desktop and tablet.');
+        await page.screenshot({path: `/tmp/classroom-expanded-${screenshot}-${viewport.width}.png`});
+      }
+    } else await assertNeutralInfo(dialog);
+    await page.keyboard.press('Escape');
+    await dialog.waitFor({state: 'detached'});
+    assert.equal(await expand.evaluate(button => button === document.activeElement), true);
+    await page.setViewportSize({width: 1366, height: 768});
   };
   try {
     await teacher.goto(`${base}/teacher`);
@@ -101,6 +138,7 @@ const base = process.env.BASE_URL || 'http://127.0.0.1:4173';
     await teacher.locator('[data-teacher-comparison-viewer="2"] .lesson-viewer__expand').click();
     const dialog = teacher.locator('dialog.lesson-viewer__dialog[open]');
     await dialog.locator('[data-viewer-status=ready]').waitFor({timeout: 45000});
+    await assertNeutralInfo(dialog);
     const expandedCanvas = await dialog.locator('canvas').elementHandle();
     const two = await join(22, '두번째확인학생');
     await answer(two, ['japan', 'yuan', 'goryeo']);
@@ -110,12 +148,14 @@ const base = process.env.BASE_URL || 'http://127.0.0.1:4173';
 
     const {observerToken} = await control('observer-link');
     await observer.goto(`${base}/observe?code=${session.code}#key=${observerToken}`); await ready(observer);
+    await expandedInfo(observer, '[data-teacher-comparison-viewer="1"]');
     assert.doesNotMatch(await observer.locator('#classroom-app').innerText(), /응답확인학생|두번째확인학생/);
     assert.equal(await observer.locator('[data-action=start],[data-action=pause],[data-action=reveal],[data-action=manage-students]').count(), 0);
     assert.equal((await call('control', {method: 'POST', auth: observerToken, body: {command: 'pause'}})).status, 403);
 
     await teacher.locator('[data-action=teacher-activity][data-activity="2"]').click();
     await teacher.locator('[data-teacher-viewer][data-viewer-status=ready]').waitFor({timeout: 45000});
+    await expandedInfo(teacher, '[data-teacher-viewer="1"]');
     for (const host of hosts) assert.equal(await host.evaluate(node => node.dataset.viewerStatus), 'disposed', 'Switching activities releases comparison viewers.');
     assert.equal(await teacher.locator('[data-teacher-comparison-viewer]').count(), 0);
     await teacher.locator('[data-action=teacher-activity][data-activity="1"]').click(); await ready(teacher);
@@ -127,6 +167,7 @@ const base = process.env.BASE_URL || 'http://127.0.0.1:4173';
     await teacher.locator('[data-action=exhibit-object][data-id="3"]').click();
     await teacher.locator('[data-exhibit-viewer="3"][data-viewer-status=ready]').waitFor({timeout: 45000});
     assert.equal(await teacher.locator('.exhibit-description h2').innerText(), '청자 상감 모란 국화무늬 참외모양 병');
+    await expandedInfo(teacher, '[data-exhibit-viewer="3"]', COMPARISON_ANSWERS['3'], 'teacher-exhibit');
     for (const viewport of [{width: 1366, height: 768}, {width: 1024, height: 600}]) {
       await teacher.setViewportSize(viewport); await teacher.waitForTimeout(100);
       assert.equal(await teacher.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false);
@@ -134,13 +175,36 @@ const base = process.env.BASE_URL || 'http://127.0.0.1:4173';
     }
     await teacher.setViewportSize({width: 1366, height: 768});
     await teacher.locator('[data-action=teacher-result-view][data-view=responses]').click(); await ready(teacher);
+    await expandedInfo(teacher, '[data-teacher-comparison-viewer="1"]', COMPARISON_ANSWERS['1'], 'teacher-responses');
+    await observer.locator('[data-exhibit-viewer="1"][data-viewer-status=ready]').waitFor({timeout: 45000});
+    await expandedInfo(observer, '[data-exhibit-viewer="1"]', COMPARISON_ANSWERS['1']);
+    await observer.locator('[data-action=teacher-result-view][data-view=responses]').click(); await ready(observer);
+    await expandedInfo(observer, '[data-teacher-comparison-viewer="2"]', COMPARISON_ANSWERS['2']);
+
+    // Observation details include the server-provided use in both result modes.
+    await teacher.locator('[data-action=teacher-activity][data-activity="2"]').click();
+    await teacher.locator('[data-action=start][data-activity="2"]').click();
+    await teacher.locator('[data-action=pause]').click();
+    await teacher.locator('[data-action=reveal][data-activity="2"]').click();
+    await teacher.locator('[data-exhibit-viewer="1"][data-viewer-status=ready]').waitFor({timeout: 45000});
+    await expandedInfo(teacher, '[data-exhibit-viewer="1"]', OBSERVATION_ANSWERS['1']);
+    await teacher.locator('[data-action=teacher-result-view][data-view=responses]').click();
+    await teacher.locator('[data-teacher-viewer="1"][data-viewer-status=ready]').waitFor({timeout: 45000});
+    await expandedInfo(teacher, '[data-teacher-viewer="1"]', OBSERVATION_ANSWERS['1'], 'observation-responses');
+    await observer.locator('[data-action=teacher-activity][data-activity="2"]').click();
+    await observer.locator('[data-exhibit-viewer="1"][data-viewer-status=ready]').waitFor({timeout: 45000});
+    await expandedInfo(observer, '[data-exhibit-viewer="1"]', OBSERVATION_ANSWERS['1']);
+    await observer.locator('[data-action=teacher-result-view][data-view=responses]').click();
+    await observer.locator('[data-teacher-viewer="1"][data-viewer-status=ready]').waitFor({timeout: 45000});
+    await expandedInfo(observer, '[data-teacher-viewer="1"]', OBSERVATION_ANSWERS['1']);
+    await teacher.locator('[data-action=teacher-activity][data-activity="1"]').click(); await ready(teacher);
     const beforeLeave = await teacher.locator('[data-teacher-comparison-viewer]').elementHandles();
     await teacher.locator('.manage-menu summary').click();
     teacher.once('dialog', dialog => dialog.accept());
     await teacher.locator('[data-action=delete-room]').click(); await teacher.locator('[data-form=create]').waitFor(); session = null;
     for (const host of beforeLeave) assert.equal(await host.evaluate(node => node.dataset.viewerStatus), 'disposed', 'Leaving the room releases comparison viewers.');
     assert.deepEqual(errors, []);
-    console.log('Teacher comparison: 3 live models, neutral labels, reachable graphs, rotation/camera and expanded-view preservation, no refetch on response updates, observer privacy and view-change disposal passed.');
+    console.log('Teacher comparison: live models and cameras, no refetch on response updates, teacher/observer revealed explanations in response/exhibit modes, hidden identities before reveal, responsive expanded details and view-change disposal passed.');
   } finally {
     if (session) await control('delete').catch(() => {});
     await browser.close();

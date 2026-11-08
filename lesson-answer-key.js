@@ -28,7 +28,7 @@ export const COMPARISON_ANSWERS = freezeAnswers({
 
 export const OBSERVATION_ANSWERS = freezeAnswers({
   '1': {
-    name: '청자 상감 모란·구름·학무늬 베개', shortName: '베개', date: '고려',
+    name: '청자 상감 모란 구름 학무늬 베개', shortName: '베개', date: '고려',
     use: '누워서 쉴 때 머리를 받칩니다.',
     source: '국립중앙박물관 소장품의 사용자 제공 다각도 사진 참고',
     sourceUrl: 'https://www.museum.go.kr/MUSEUM/contents/M0502000000.do?relicId=970&schM=view&searchId=search',

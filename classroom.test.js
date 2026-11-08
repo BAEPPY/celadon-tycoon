@@ -334,22 +334,52 @@ test('an activity 1 autosave already in flight cannot overwrite a confirmed done
   assert.deepEqual(delayed.answers[1].answers, complete);
 });
 
-test('activity 2 remains editable without optional submission and locks complete final answers when enabled', async () => {
+test('activity 2 done requires all five names and uses and locks the run regardless of the legacy submit setting', async () => {
   for (const submitButton of [false, true]) {
     const f = await fixture({submitButton}), student = await f.join(1), {state} = await f.control('start', 2);
     const payload = {code: f.room.code, participantId: student.participantId, activity: 2, runId: state.runId, clientRevision: 1, answers: {'1': {name: '베개', use: '머리를 받칩니다.'}}};
     const auto = await f.service.answer(payload, student.participantToken); assert.equal(auto.answers[2].submitted, false);
-    if (submitButton) await rejectsCode(f.service.answer({...payload, clientRevision: 2, final: true}, student.participantToken), 'incomplete-answer');
-    else {
-      const optional = await f.service.answer({...payload, clientRevision: 2, final: true}, student.participantToken);
-      assert.equal(optional.answers[2].submitted, false);
-    }
+    assert.equal(state.settings.submitButton, submitButton, 'legacy settings remain readable');
+    await rejectsCode(f.service.answer({...payload, clientRevision: 2, final: true}, student.participantToken), 'incomplete-answer');
     const complete = Object.fromEntries([1, 2, 3, 4, 5].map(id => [id, {name: `청자 ${id}`, use: '생활에 사용합니다.'}]));
+    for (const incomplete of [
+      {...complete, 5: {use: '물을 담아요.'}},
+      {...complete, 5: {name: '물그릇', use: ' \n\t　 '}}
+    ]) await rejectsCode(f.service.answer({...payload, clientRevision: 2, final: true, answers: incomplete}, student.participantToken), 'incomplete-answer');
+    const draft = await f.service.answer({...payload, clientRevision: 2, answers: complete}, student.participantToken);
+    assert.equal(draft.answers[2].submitted, false, 'completing every field still permits review before done');
     const saved = await f.service.answer({...payload, clientRevision: 3, final: true, answers: complete}, student.participantToken);
-    assert.equal(saved.answers[2].submitted, submitButton);
-    if (submitButton) await rejectsCode(f.service.answer({...payload, clientRevision: 4}, student.participantToken), 'answer-submitted');
-    else assert.equal((await f.service.answer({...payload, clientRevision: 4}, student.participantToken)).answers[2].submitted, false);
+    assert.equal(saved.answers[2].submitted, true);
+    const stale = await f.service.answer(payload, student.participantToken);
+    assert.equal(stale.ignored, true); assert.equal(stale.answers[2].submitted, true);
+    assert.deepEqual(stale.answers[2].answers, complete);
+    await rejectsCode(f.service.answer({...payload, clientRevision: 4}, student.participantToken), 'answer-submitted');
+    const refreshed = await f.service.state(payload, student.participantToken);
+    assert.equal(refreshed.answers[2].submitted, true); assert.deepEqual(refreshed.answers[2].answers, complete);
+    assert.equal((await f.service.overview({code: f.room.code}, f.room.teacherToken)).participants[0].activity2Submitted, true);
+    await f.control('pause'); const restarted = await f.control('start', 2);
+    const editable = await f.service.answer({...payload, runId: restarted.state.runId}, student.participantToken);
+    assert.equal(editable.answers[2].submitted, false); assert.equal(editable.answers[2].clientRevision, 1);
+    assert.equal((await f.service.overview({code: f.room.code}, f.room.teacherToken)).participants[0].activity2Submitted, false);
   }
+});
+
+test('an activity 2 autosave already in flight cannot overwrite confirmed done answers', async () => {
+  const f = await fixture(), student = await f.join(1), {state} = await f.control('start', 2);
+  const payload = {code: f.room.code, participantId: student.participantId, activity: 2, runId: state.runId};
+  const update = f.store.update.bind(f.store); let release, arrived, hold = true;
+  const held = new Promise(resolve => {release = resolve;}), ready = new Promise(resolve => {arrived = resolve;});
+  f.store.update = async (key, data, etag) => {
+    if (hold && data.answers?.[2]?.clientRevision === 1) {hold = false; arrived(); await held;}
+    return update(key, data, etag);
+  };
+  const autosave = f.service.answer({...payload, clientRevision: 1, answers: {'1': {name: '베개', use: '머리를 받칩니다.'}}}, student.participantToken);
+  await ready;
+  const complete = Object.fromEntries([1, 2, 3, 4, 5].map(id => [id, {name: `청자 ${id}`, use: '생활에 사용합니다.'}]));
+  await f.service.answer({...payload, clientRevision: 2, final: true, answers: complete}, student.participantToken);
+  release(); const delayed = await autosave;
+  assert.equal(delayed.ignored, true); assert.equal(delayed.answers[2].submitted, true);
+  assert.deepEqual(delayed.answers[2].answers, complete);
 });
 
 test('comparison percentages use each pot’s respondents; observation responses are anonymous and frequency counted', async () => {

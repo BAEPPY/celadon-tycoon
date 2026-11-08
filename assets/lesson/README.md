@@ -16,7 +16,7 @@
 
 기존 게임 `assets/models/`에 보존된 모델을 복사했습니다. 베개·의자·주전자·향로는 사용자 박물관의 기존 네 모델과 같습니다. 사용자가 고른 **오리 연적**은 이후 게임에 추가한 국립중앙박물관 자료입니다.
 
-1. **청자 상감 모란·구름·학무늬 베개** — [국립중앙박물관](https://www.museum.go.kr/MUSEUM/contents/M0502000000.do?relicId=970&schM=view&searchId=search). 사용자 제공 다각도 사진 참고 재현. 밑면 등 일부 형상 추정·보정, 실측 스캔 아님.
+1. **청자 상감 모란 구름 학무늬 베개** — [국립중앙박물관](https://www.museum.go.kr/MUSEUM/contents/M0502000000.do?relicId=970&schM=view&searchId=search). 사용자 제공 다각도 사진 참고 재현. 밑면 등 일부 형상 추정·보정, 실측 스캔 아님.
 2. **청자 투각 의자** — [3DBank 자료](https://www.3dbank.xyz/contents/view_contents.jsp?cuid=2989). 사용자 제공 원본 3D 형상·색상 유지. 광택은 참고 표현.
 3. **청자 오리 모양 연적** — [국립중앙박물관 덕수648](https://www.museum.go.kr/MUSEUM/contents/M0505000000.do?relicId=6952&schM=view&searchId=search). 사용자 제공 OBJ 스캔 형상과 사진 질감, 공공누리 제1유형(출처표시). 원본 질감 유지, 웹용 형상·질감 경량화.
 4. **청자 어룡형 주전자** — [국립중앙박물관](https://www.museum.go.kr/MUSEUM/contents/M0504000000.do?relicId=858&schM=view). 사용자 제공 OBJ 스캔 형상과 사진 질감.

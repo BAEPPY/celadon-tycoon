@@ -58,8 +58,10 @@ function releaseObject(object) {
 /**
  * Returns immediately, so a phase change can cancel even an unfinished load.
  * `ready` resolves after loading or a handled error. dispose() is idempotent.
+ * getExpandedInfo may return information already revealed by the server. Without
+ * it the enlarged view only offers neutral observation prompts.
  */
-export function mountLessonViewer(container, artifact, {expand = true} = {}) {
+export function mountLessonViewer(container, artifact, {expand = true, getExpandedInfo} = {}) {
   if (!(container instanceof HTMLElement)) throw new TypeError('A viewer container is required.');
   if (!artifact || typeof artifact.src !== 'string') throw new TypeError('An artifact source is required.');
   mounted.get(container)?.dispose();
@@ -120,6 +122,51 @@ export function mountLessonViewer(container, artifact, {expand = true} = {}) {
     if (restoreFocus && !disposed && expandButton?.isConnected) expandButton.focus({preventScroll: true});
   }
 
+  function refreshExpandedInfo() {
+    if (!expanded || disposed) return;
+    const supplied = typeof getExpandedInfo === 'function' ? getExpandedInfo() : null;
+    const info = Object.fromEntries(['name', 'countryLabel', 'date', 'use', 'note', 'source', 'sourceUrl', 'license', 'licenseUrl']
+      .map(key => [key, typeof supplied?.[key] === 'string' ? supplied[key].trim() : '']));
+    const signature = JSON.stringify(info);
+    if (expanded.infoSignature === signature) return;
+    expanded.infoSignature = signature;
+    const content = document.createDocumentFragment();
+    const heading = element('h3', 'lesson-viewer__info-title', info.name || '관찰해 보세요');
+    heading.id = `${id}-expanded-info-title`;
+    expanded.info.dataset.infoState = info.name ? 'revealed' : 'observation';
+    if (info.name) {
+      const metadata = [...new Set([info.countryLabel, info.date].filter(Boolean))];
+      if (metadata.length) content.append(element('p', 'lesson-viewer__info-meta', metadata.join(' · ')));
+      content.append(heading);
+      if (info.use) {
+        const use = element('p', 'lesson-viewer__info-use');
+        use.append(element('strong', '', '쓰임'), document.createTextNode(info.use));
+        content.append(use);
+      }
+      if (info.note) content.append(element('p', 'lesson-viewer__info-note', info.note));
+      const source = element('div', 'lesson-viewer__info-source');
+      if (info.source) source.append(element('p', '', info.source));
+      const addLink = (value, text) => {
+        if (!value) return;
+        let url;
+        try {url = new URL(value);} catch {return;}
+        if (!['https:', 'http:'].includes(url.protocol)) return;
+        const link = element('a', '', text);
+        link.href = url.href; link.target = '_blank'; link.rel = 'noopener noreferrer';
+        source.append(link);
+      };
+      addLink(info.sourceUrl, '자료 출처 보기 ↗');
+      addLink(info.licenseUrl, info.license || '자료 이용 조건 보기 ↗');
+      if (source.childNodes.length) content.append(source);
+    } else {
+      content.append(heading, element('p', 'lesson-viewer__info-note', '도자기를 천천히 돌려 보며 눈에 보이는 특징을 찾아보세요.'));
+      const prompts = element('ul', 'lesson-viewer__info-prompts');
+      for (const prompt of ['어떤 색과 무늬가 보이나요?', '위·옆·아래에서 본 모양은 어떻게 다른가요?', '눈에 띄는 부분을 확대해서 살펴보세요.']) prompts.append(element('li', '', prompt));
+      content.append(prompts);
+    }
+    expanded.info.replaceChildren(content);
+  }
+
   function openExpanded() {
     if (disposed || expanded || !expandButton) return;
     closeExpandedViewer?.(false);
@@ -144,9 +191,13 @@ export function mountLessonViewer(container, artifact, {expand = true} = {}) {
     Object.assign(close.style, {font: 'inherit', fontSize: '16px', fontWeight: '700', minHeight: '42px', padding: '9px 16px', border: '1px solid #c9d9da', borderRadius: '8px', background: '#f5f9f9', color: '#285f61', cursor: 'pointer', flexShrink: '0'});
     close.addEventListener('click', () => closeExpanded());
     header.append(title, close);
+    const body = element('div', 'lesson-viewer__dialog-body');
     const host = element('div', 'lesson-viewer__expanded-host');
-    Object.assign(host.style, {display: 'flex', flexDirection: 'column', flex: '1 1 0', minHeight: '0', minWidth: '0'});
-    dialog.append(header, host);
+    const info = element('aside', 'lesson-viewer__info');
+    info.setAttribute('aria-labelledby', `${id}-expanded-info-title`);
+    info.setAttribute('aria-live', 'polite');
+    body.append(host, info);
+    dialog.append(header, body);
     dialog.addEventListener('cancel', event => {event.preventDefault(); closeExpanded();});
     dialog.addEventListener('close', () => {if (expanded?.dialog === dialog) closeExpanded();});
     dialog.addEventListener('click', event => {
@@ -155,7 +206,8 @@ export function mountLessonViewer(container, artifact, {expand = true} = {}) {
       if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) closeExpanded();
     });
     (document.fullscreenElement || document.body).append(dialog);
-    expanded = {dialog, viewer: null};
+    expanded = {dialog, viewer: null, info, infoSignature: null};
+    refreshExpandedInfo();
     closeExpandedViewer = closeExpanded;
     expandButton.setAttribute('aria-expanded', 'true');
     dialog.showModal();
@@ -248,6 +300,7 @@ export function mountLessonViewer(container, artifact, {expand = true} = {}) {
   }
   const controller = {
     ready: null,
+    refreshExpandedInfo,
     dispose() {
       if (disposed) return;
       disposed = true; attempt++;
