@@ -197,6 +197,35 @@ test('fixed join code replacement requires the current teacher, preserves old da
   assert.equal((await service.join({code: '탑텐반', number: 1, name: '다음 학생'})).code, replacement.code);
 });
 
+test('with a teacher passcode set, only the teacher can open or take back 탑텐반, and replacing a class ends it', async () => {
+  const store = new MemoryStore(), service = new ClassroomService(store, {teacherPasscode: '청자-1234'});
+  await rejectsCode(service.create({joinCode: '탑텐반'}), 'teacher-passcode');
+  await rejectsCode(service.create({joinCode: '탑텐반', passcode: '틀린 번호'}), 'teacher-passcode');
+  await rejectsCode(service.create(), 'teacher-passcode');
+  const first = await service.create({joinCode: '탑텐반', passcode: '청자-1234'});
+  const student = await service.join({code: '탑텐반', number: 1, name: '봄샘'});
+  // The same browser replaces its own class without the passcode; the replaced class ends but keeps its records.
+  const second = await service.create({joinCode: '탑텐반', previousCode: first.code}, first.teacherToken);
+  const old = await service.overview({code: first.code}, first.teacherToken);
+  assert.equal(old.state.status, 'ended'); assert.equal(old.participants[0].name, '봄샘');
+  assert.equal((await service.state({code: first.code, participantId: student.participantId}, student.participantToken)).state.status, 'ended');
+  // A teacher whose browser data was wiped takes the code back with the passcode; strangers cannot.
+  await rejectsCode(service.create({joinCode: '탑텐반'}), 'teacher-passcode');
+  const third = await service.create({joinCode: '탑텐반', passcode: ' 청자-1234 '});
+  assert.equal((await service.overview({code: second.code}, second.teacherToken)).state.status, 'ended');
+  assert.equal((await service.join({code: '탑텐반', number: 2, name: '하늘'})).code, third.code);
+  // Without a configured passcode the earlier behaviour stays: a held code cannot be taken over.
+  const open = new ClassroomService(new MemoryStore()), held = await open.create({joinCode: '탑텐반'});
+  await rejectsCode(open.create({joinCode: '탑텐반', passcode: '청자-1234'}), 'join-code-in-use');
+  assert.equal((await open.join({code: '탑텐반', number: 1, name: '학생'})).code, held.code);
+});
+
+test('a student joining 탑텐반 after its class ended is told to wait for a new class', async () => {
+  const store = new MemoryStore(), service = new ClassroomService(store), room = await service.create({joinCode: '탑텐반'});
+  await service.control({code: room.code, command: 'end'}, room.teacherToken);
+  await assert.rejects(service.join({code: '탑텐반', number: 1, name: '학생'}), error => error.code === 'room-ended' && /선생님이 새 수업을 열면/.test(error.message));
+});
+
 test('an existing teacher can claim an unused fixed code, but other rooms and students cannot reassign it', async () => {
   const f = await fixture(), student = await f.join(1), stranger = await f.service.create();
   await rejectsCode(f.service.control({code: f.room.code, command: 'claim-join-code'}, student.participantToken), 'teacher-auth');
@@ -544,6 +573,14 @@ test('observer artwork references are private, per work and per student, and can
   assert.ok(!JSON.stringify(view).includes('첫 실명') && !JSON.stringify(view).includes('둘째 실명'));
   const teacher = await f.service.overview({code}, f.room.teacherToken);
   assert.deepEqual([...new Set(teacher.works.map(work => work.participantId))].sort(), ['12', '7']);
+});
+
+test('a rejected upload does not leave its picture behind', async () => {
+  const f = await fixture(), student = await f.join(1), {state} = await f.control('start', 3), create = f.store.create.bind(f.store);
+  // The teacher releases the student's number while the picture is being stored.
+  f.store.create = async (key, data) => { const result = await create(key, data); if (key.includes('/artworks/')) await f.control('release-student', undefined, {participantId: student.participantId}); return result; };
+  await rejectsCode(f.service.submitWork({code: f.room.code, participantId: student.participantId, runId: state.runId, work: rawWork(), preview: png}, student.participantToken), 'student-auth');
+  assert.ok(![...f.store.records.keys()].some(key => key.includes('/artworks/')), 'no orphaned picture');
 });
 
 test('a teacher deletion interrupted part-way can be run again and still removes every student record', async () => {

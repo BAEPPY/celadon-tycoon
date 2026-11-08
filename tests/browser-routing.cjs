@@ -34,7 +34,8 @@ const base=process.env.BASE_URL||'http://127.0.0.1:4173';
       await page.goto(new URL(pathname,base).href);await page.locator('[data-action=new-order]').waitFor();
       assert.equal(await page.title(),'좋은 청자 위대한 청자');
       assert.equal(await page.evaluate(()=>document.baseURI),new URL('/',base).href);
-      assert.equal(await page.evaluate(()=>[...document.styleSheets].filter(sheet=>sheet.href).length),11);
+      assert.equal(await page.evaluate(()=>[...document.styleSheets].filter(sheet=>sheet.href).length),await page.evaluate(()=>document.querySelectorAll('link[rel=stylesheet]').length));
+      assert.ok(await page.evaluate(()=>document.querySelectorAll('link[rel=stylesheet]').length)>=11,'all game stylesheets are linked');
     }
     // The trailing slash is the important asset-resolution regression: all
     // existing ./assets and ./app.js references must still resolve at origin.

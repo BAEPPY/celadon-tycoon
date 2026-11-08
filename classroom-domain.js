@@ -19,17 +19,21 @@ const roomKey = code => `${ROOM_ROOT(code)}room.json`;
 const studentKey = (code, id) => `${ROOM_ROOT(code)}participants/${id}.json`;
 const artworkKey = (code, id, workId) => `${ROOM_ROOT(code)}artworks/${id}/${workId}.json`;
 export const CLASSROOM_JOIN_CODE = '탑텐반';
+// Optional server-only passcode (Vercel env CLASSROOM_TEACHER_PASSCODE). When set, opening a class requires it unless the
+// teacher is replacing their own class from the same browser; with it, a teacher whose browser data was wiped can take
+// 탑텐반 back. Without it, whoever opens a class while 탑텐반 is free gets the code.
+export function configuredTeacherPasscode(value = process.env.CLASSROOM_TEACHER_PASSCODE) { return typeof value === 'string' && value.trim().length >= 4 ? value.trim() : ''; }
 const joinAliasKey = () => `${classroomPrefix()}/aliases/tapten.json`;
 const ALIAS_IN_USE = '탑텐반 수업이 이미 열려 있어요. 이 수업을 만든 선생님의 브라우저에서 새 수업을 열어 주세요.';
 const emptyAnswer = () => ({runId: '', clientRevision: 0, submitted: false, answers: {}});
 const emptyBeautyAnswer = () => ({runId: '', clientRevision: 0, submitted: false, text: ''});
 export const DEFAULT_CLASSROOM_SETTINGS = Object.freeze({durations: {1: 90, 2: 240, 3: 300}, beautyDuration: 90, submitButton: false, autoPause: true});
 
-function validateCode(value) { const code = clean(value, 100).toUpperCase(); if (!/^[A-Z2-9]{6}$/.test(code)) fail(400, 'invalid-code', '탑텐반 또는 선생님이 알려 준 수업 코드를 확인해 주세요.'); return code; }
+function validateCode(value) { const code = clean(value, 100).toUpperCase(); if (!/^[A-Z2-9]{6}$/.test(code)) fail(400, 'invalid-code', '수업 코드를 다시 확인해 주세요. 우리 반 코드는 탑텐반이에요.'); return code; }
 const publicJoinCode = value => typeof value === 'string' ? value.normalize('NFKC').trim() : '';
-function validateJoinCode(value) { if (publicJoinCode(value) !== CLASSROOM_JOIN_CODE) fail(400, 'invalid-join-code', '수업 코드는 탑텐반으로 적어 주세요.'); return CLASSROOM_JOIN_CODE; }
+function validateJoinCode(value) { if (publicJoinCode(value) !== CLASSROOM_JOIN_CODE) fail(400, 'invalid-join-code', '수업 코드를 연결하지 못했어요. 새로고침한 뒤 다시 눌러 주세요.'); return CLASSROOM_JOIN_CODE; }
 function validateCreateToken(value) {
-  if (typeof value !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(value) || Buffer.from(value, 'base64url').toString('base64url') !== value) fail(400, 'invalid-create-token', '수업을 여는 정보를 다시 준비해 주세요.');
+  if (typeof value !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(value) || Buffer.from(value, 'base64url').toString('base64url') !== value) fail(400, 'invalid-create-token', '수업을 열지 못했어요. 새로고침한 뒤 다시 눌러 주세요.');
   return value;
 }
 function validateNumber(value) { const number = Number(value); if (!Number.isInteger(number) || number < 1 || number > 99) fail(400, 'invalid-number', '번호는 1부터 99 사이의 숫자로 적어 주세요.'); return String(number); }
@@ -199,15 +203,15 @@ function submittedDesign(raw, work) {
   if (raw === undefined || raw === null) return null;
   const design = sanitizeWorkDesign(raw);
   if (!design || design.shape !== work.shape || design.modelId !== (work.modelId || work.shape) || design.technique !== work.technique) {
-    fail(400, 'invalid-design', '완성작의 모양 정보를 다시 확인해 주세요.');
+    fail(400, 'invalid-design', '작품을 보내지 못했어요. 게임을 새로고침한 뒤 다시 보내 주세요.');
   }
   return design;
 }
 
 const TEACHER_ROOM_GONE = '이미 삭제했거나 찾을 수 없는 수업이에요. 새 수업을 열어 주세요.';
 export class ClassroomService {
-  constructor(store, {now = () => Date.now(), makeToken = token, makeCode} = {}) {
-    this.store = store; this.now = now; this.makeToken = makeToken;
+  constructor(store, {now = () => Date.now(), makeToken = token, makeCode, teacherPasscode = configuredTeacherPasscode()} = {}) {
+    this.store = store; this.now = now; this.makeToken = makeToken; this.teacherPasscode = configuredTeacherPasscode(teacherPasscode);
     this.makeCode = makeCode || (() => [...randomBytes(6)].map(value => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[value % 32]).join(''));
   }
   async room(code, options, message = '수업 코드를 찾지 못했어요. 선생님께 확인해 주세요.') {
@@ -250,7 +254,7 @@ export class ClassroomService {
     fail(409, 'try-again', '오래된 작품을 정리하는 중이에요. 잠시 뒤 다시 시도해 주세요.');
   }
   async cleanupExpiredWorks() {
-    let rooms = 0, orphanImages = 0;
+    let rooms = 0, orphanImages = 0, skipped = 0;
     const prefix = `${classroomPrefix()}/`;
     for await (const entries of this.store.cleanupPages()) {
       for (const entry of entries) {
@@ -261,7 +265,9 @@ export class ClassroomService {
           const keys = await this.store.list(`${ROOM_ROOT(code)}participants/`);
           for (const key of keys) {
             const id = key.slice(`${ROOM_ROOT(code)}participants/`.length).match(/^([1-9][0-9]?)\.json$/)?.[1];
-            if (id) await this.expireStudentWorks(code, id);
+            if (!id) continue;
+            try { await this.expireStudentWorks(code, id); }
+            catch (error) { if (!(error instanceof ClassroomError)) throw error; skipped++; }
           }
           rooms++;
         } else if (/^[A-Z2-9]{6}\/artworks\/[1-9][0-9]?\/[a-zA-Z0-9_-]+\.json$/.test(relative)
@@ -272,9 +278,14 @@ export class ClassroomService {
         }
       }
     }
-    return {cleaned: true, rooms, images: orphanImages};
+    return {cleaned: true, rooms, images: orphanImages, skipped};
   }
   teacher(room, bearer) { if (!authorized(bearer, room.teacherHash)) fail(403, 'teacher-auth', '이 수업을 만든 선생님 화면에서 열어 주세요.'); }
+  passcodeMatches(value) {
+    if (!this.teacherPasscode || typeof value !== 'string' || value.length > 200) return false;
+    const actual = Buffer.from(hash(value.normalize('NFKC').trim())), expected = Buffer.from(hash(this.teacherPasscode));
+    return timingSafeEqual(actual, expected);
+  }
   async writeJoinAlias(code, previous) {
     const data = {code, updatedAt: this.now()};
     if (previous) await this.store.update(joinAliasKey(), data, previous.etag);
@@ -313,14 +324,23 @@ export class ClassroomService {
     const joinCode = raw.joinCode === undefined ? null : validateJoinCode(raw.joinCode);
     // The browser persists this random capability before sending, so a lost response cannot strand the fixed alias.
     const createToken = joinCode && raw.createToken !== undefined ? validateCreateToken(raw.createToken) : null;
+    const previousCode = raw.previousCode === undefined ? null : validateCode(raw.previousCode);
+    if (previousCode) this.teacher((await this.room(previousCode, undefined, TEACHER_ROOM_GONE)).data, bearer);
+    const ownsPrevious = Boolean(previousCode);
     let alias;
     if (joinCode) {
       alias = await this.store.read(joinAliasKey());
       const recovered = await this.recoverCreatedAlias(createToken, alias);
       if (recovered) return recovered;
-      const previousCode = raw.previousCode === undefined ? null : validateCode(raw.previousCode);
-      if (alias?.data.code && alias.data.code !== previousCode) fail(409, 'join-code-in-use', ALIAS_IN_USE);
-      if (previousCode) this.teacher((await this.room(previousCode, undefined, TEACHER_ROOM_GONE)).data, bearer);
+    }
+    const passcodeOk = this.passcodeMatches(raw.passcode);
+    if (this.teacherPasscode && !ownsPrevious && !passcodeOk) fail(403, 'teacher-passcode', raw.passcode ? '선생님 확인 번호가 맞지 않아요. 다시 확인해 주세요.' : '선생님 확인 번호를 입력해 주세요.');
+    if (joinCode) {
+      const held = alias?.data.code || null;
+      if (held && held !== previousCode && !passcodeOk) fail(409, 'join-code-in-use', ALIAS_IN_USE);
+      // The class being replaced ends now, so students still in it see that it finished instead of a class that never ends.
+      // Its answers stay readable with its own teacher key, as before.
+      for (const replaced of new Set([ownsPrevious ? previousCode : null, held].filter(Boolean))) await this.endRoom(replaced);
     }
     const teacherToken = createToken || this.makeToken(), now = this.now();
     for (let tries = 0; tries < 8; tries++) {
@@ -348,13 +368,14 @@ export class ClassroomService {
   }
   async join(raw) {
     let code;
+    const viaJoinCode = publicJoinCode(raw.code) === CLASSROOM_JOIN_CODE;
     if (publicJoinCode(raw.code) === CLASSROOM_JOIN_CODE) {
       const alias = await this.store.read(joinAliasKey());
       if (!alias?.data.code) fail(404, 'room-not-found', '아직 탑텐반 수업이 열리지 않았어요. 선생님이 수업을 열면 다시 입장해 주세요.');
       code = validateCode(alias.data.code);
     } else code = validateCode(raw.code);
     const {data: room} = await this.room(code), id = validateNumber(raw.number), name = clean(raw.name, 30);
-    if (room.status === 'ended') fail(409, 'room-ended', '이 수업은 모두 마무리되었어요.');
+    if (room.status === 'ended') fail(409, 'room-ended', viaJoinCode ? '지금은 탑텐반 수업이 열려 있지 않아요. 선생님이 새 수업을 열면 다시 입장해 주세요.' : '이 수업은 모두 마무리되었어요.');
     if (!name || name.length > 20) fail(400, 'invalid-name', '이름을 20자 이내로 적어 주세요.');
     const existing = await this.store.read(studentKey(code, id));
     if (existing && !existing.data.tokenHash) return this.rejoinReleased(code, id, name, existing, room);
@@ -509,7 +530,7 @@ export class ClassroomService {
     if (!Number.isSafeInteger(revision) || revision < 1) fail(400, 'invalid-revision', '답을 다시 저장해 주세요.');
     if (typeof raw.text !== 'string') fail(400, 'invalid-answer', '찾은 아름다움을 글로 적어 주세요.');
     const text = clean(raw.text, 300);
-    if (raw.final && !text) fail(400, 'incomplete-answer', '발견한 아름다움을 적은 뒤 다했어요를 눌러 주세요.');
+    if (raw.final && !text) fail(400, 'incomplete-answer', '발견한 아름다움을 적은 뒤 ‘다했어요’를 눌러 주세요.');
     for (let retry = 0; retry < 6; retry++) {
       const {data: room} = await this.room(code); activeBeautyRoom(room, raw.runId, this.now());
       const current = await this.student(code, id, bearer), student = structuredClone(current.data), before = currentBeautyAnswer(student, room);
@@ -525,7 +546,7 @@ export class ClassroomService {
   async submitWork(raw, bearer) {
     const code = validateCode(raw.code), id = validateNumber(raw.participantId), {data: room} = await this.room(code);
     workRoom(room, raw.runId, this.now()); const {data: initialStudent} = await this.student(code, id, bearer);
-    if (raw.expiresAt !== undefined && (!Number.isSafeInteger(raw.expiresAt) || raw.expiresAt <= 0)) fail(400, 'invalid-expiration', '게임 저장 기한을 다시 확인해 주세요.');
+    if (raw.expiresAt !== undefined && (!Number.isSafeInteger(raw.expiresAt) || raw.expiresAt <= 0)) fail(400, 'invalid-expiration', '작품을 보내지 못했어요. 게임을 새로고침한 뒤 다시 보내 주세요.');
     if (raw.expiresAt !== undefined && this.now() >= raw.expiresAt) workExpired();
     const {work, score} = finishedWork(raw.work), preview = previewImage(raw.preview || raw.work.preview), design = submittedDesign(raw.work.design, work);
     if (retiredWorkIds(initialStudent, room.runId).includes(hash(work.id))) workExpired();
@@ -542,36 +563,49 @@ export class ClassroomService {
       objectiveScore: score.objective, explanationScore: score.explanation, explanationUse: work.explanationUse, explanationBeauty: work.explanationBeauty, submittedAt: this.now()};
     summary.expiresAt = Math.min(summary.submittedAt + WORK_RETENTION_MS, raw.expiresAt ?? Infinity);
     const priorArt = await this.store.read(key);
-    if (!priorArt) { try { await this.store.create(key, {preview, ...(design ? {design} : {}), submittedAt: summary.submittedAt, expiresAt: summary.expiresAt}); } catch (error) { if (!(error instanceof StoreConflict)) throw error; } }
+    let createdHere = false;
+    if (!priorArt) { try { await this.store.create(key, {preview, ...(design ? {design} : {}), submittedAt: summary.submittedAt, expiresAt: summary.expiresAt}); createdHere = true; } catch (error) { if (!(error instanceof StoreConflict)) throw error; } }
     const savedArt = priorArt || await this.store.read(key);
     if (Number.isFinite(savedArt?.data.submittedAt)) summary.submittedAt = savedArt.data.submittedAt;
     summary.expiresAt = Math.min(summary.expiresAt, summary.submittedAt + WORK_RETENTION_MS, Number.isFinite(savedArt?.data.expiresAt) ? savedArt.data.expiresAt : Infinity);
     if (sanitizeWorkDesign(savedArt?.data.design)) summary.designVersion = 1;
-    // In particular, clean an image created after the delete-room sweep.
-    try { await this.room(code); }
-    catch (error) { if (error.code === 'room-not-found') await this.store.delete(key); throw error; }
-    for (let retry = 0; retry < 6; retry++) {
-      const current = await this.student(code, id, bearer), student = structuredClone(current.data);
-      if (retiredWorkIds(student, room.runId).includes(hash(work.id)) || expiredWork(summary, this.now())) {
-        await this.store.delete(key); await this.expireStudentWorks(code, id); workExpired();
+    try {
+      // In particular, clean an image created after the delete-room sweep.
+      try { await this.room(code); }
+      catch (error) { if (error.code === 'room-not-found') await this.store.delete(key); throw error; }
+      for (let retry = 0; retry < 6; retry++) {
+        const current = await this.student(code, id, bearer), student = structuredClone(current.data);
+        if (retiredWorkIds(student, room.runId).includes(hash(work.id)) || expiredWork(summary, this.now())) {
+          await this.store.delete(key); await this.expireStudentWorks(code, id); workExpired();
+        }
+        const duplicate = student.works.find(item => item.id === work.id && item.runId === room.runId);
+        if (duplicate) {
+          const result = await this.backfillWorkDesign(code, id, bearer, room.runId, work, score, design, duplicate);
+          return {state: classroomState(room, this.now()), work: result, duplicate: true};
+        }
+        if (student.works.filter(item => item.runId === room.runId).length + retiredWorkIds(student, room.runId).length >= 10) fail(409, 'work-limit', '이번 활동에는 작품을 10점까지 보낼 수 있어요.');
+        const {data: latestRoom} = await this.room(code); workRoom(latestRoom, raw.runId, this.now());
+        student.works.push(summary);
+        try {
+          await this.store.update(studentKey(code, id), student, current.etag);
+          if (expiredWork(summary, this.now())) { await this.expireStudentWorks(code, id); workExpired(); }
+          const result = await this.backfillWorkDesign(code, id, bearer, room.runId, work, score, design, summary);
+          return {state: classroomState(latestRoom, this.now()), work: result};
+        }
+        catch (error) { if (!(error instanceof StoreConflict)) throw error; }
       }
-      const duplicate = student.works.find(item => item.id === work.id && item.runId === room.runId);
-      if (duplicate) {
-        const result = await this.backfillWorkDesign(code, id, bearer, room.runId, work, score, design, duplicate);
-        return {state: classroomState(room, this.now()), work: result, duplicate: true};
-      }
-      if (student.works.filter(item => item.runId === room.runId).length + retiredWorkIds(student, room.runId).length >= 10) fail(409, 'work-limit', '이번 활동에는 작품을 10점까지 보낼 수 있어요.');
-      const {data: latestRoom} = await this.room(code); workRoom(latestRoom, raw.runId, this.now());
-      student.works.push(summary);
-      try {
-        await this.store.update(studentKey(code, id), student, current.etag);
-        if (expiredWork(summary, this.now())) { await this.expireStudentWorks(code, id); workExpired(); }
-        const result = await this.backfillWorkDesign(code, id, bearer, room.runId, work, score, design, summary);
-        return {state: classroomState(latestRoom, this.now()), work: result};
-      }
-      catch (error) { if (!(error instanceof StoreConflict)) throw error; }
+      fail(409, 'save-retry', '작품을 저장하는 중이에요. 잠시 뒤 다시 보내 주세요.');
+    } catch (error) {
+      // A rejected upload (student removed or released meanwhile, work limit, activity closed) must not leave its picture behind.
+      if (createdHere) await this.discardUnreferencedImage(code, id, imageId, key);
+      throw error;
     }
-    fail(409, 'save-retry', '작품을 저장하는 중이에요. 잠시 뒤 다시 보내 주세요.');
+  }
+  async discardUnreferencedImage(code, id, imageId, key) {
+    try {
+      const student = await this.store.read(studentKey(code, id));
+      if (!student?.data.works?.some(work => work.imageId === imageId)) await this.store.delete(key);
+    } catch { /* The scheduled cleanup removes it after its retention period. */ }
   }
   async backfillWorkDesign(code, id, bearer, runId, submitted, score, design, known) {
     if (!design || known.designVersion === 1) return known;
@@ -632,5 +666,15 @@ export class ClassroomService {
     const tombstone = await this.store.read(roomKey(code));
     if (tombstone) await this.store.update(roomKey(code), {code, deletedAt: this.now()}, tombstone.etag);
     return {deleted: true};
+  }
+  // Callers authorize. Ends a class that 탑텐반 no longer points to; its records are kept.
+  async endRoom(code) {
+    for (let retry = 0; retry < 6; retry++) {
+      const current = await this.store.read(roomKey(code));
+      if (!current || current.data.deletedAt !== undefined || current.data.status === 'ended') return;
+      try { await this.store.update(roomKey(code), {...current.data, status: 'ended', endedAt: this.now(), revision: (current.data.revision || 0) + 1}, current.etag); return; }
+      catch (error) { if (!(error instanceof StoreConflict)) throw error; }
+    }
+    fail(409, 'try-again', '다른 화면에서 수업이 바뀌었어요. 다시 눌러 주세요.');
   }
 }
