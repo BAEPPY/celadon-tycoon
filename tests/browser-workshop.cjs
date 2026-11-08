@@ -87,11 +87,9 @@ async function fire(page, kind, length) {
   if (kind === "dry") {
     const canvas = page.locator(".kiln-gesture-canvas"), box = await canvas.boundingBox();
     const surface = JSON.parse(await canvas.getAttribute("data-surface-bounds"));
-    for (const y of [1/6, .5, 5/6].map(f=>surface.y+surface.height*f)) {
-      await page.mouse.move(box.x + box.width * .12, box.y + box.height * y);
-      await page.mouse.down();
-      await page.mouse.move(box.x + box.width * .88, box.y + box.height * y, {steps: 12});
-      await page.mouse.up();
+    for(let pass=0;pass<8&&!await page.locator('.mini-won').count();pass++)for(const y of [1/6,.5,5/6].map(f=>surface.y+surface.height*f)){
+      if(await page.locator('.mini-won').count()||!await canvas.count())break;
+      await require('./drying-gesture.cjs').dryingSweep(page,canvas,y,.12,.88,12);
     }
   } else if (kind === "glaze") {
     const canvas = page.locator(".kiln-gesture-canvas"), box = await canvas.boundingBox();

@@ -112,8 +112,9 @@ async function onCanvas(page,selector,point){const b=await page.locator(selector
     assert.equal(await page.evaluate(()=>game.pointer),null);
     if(kind==='dry'){
      const bounds=await page.evaluate(()=>game.bounds);
-     for(let zone=0;zone<3;zone++)for(let pass=0;pass<5&&!await page.evaluate(zone=>game.dryZones[zone]>=1,zone);pass++){
-      const y=b.y+(bounds.y+bounds.height*(zone+.5)/3)*b.height;
+     for(let zone=0;zone<3;zone++)for(let pass=0;pass<8&&!await page.evaluate(zone=>game.dryZones[zone]>=1,zone);pass++){
+      const y=b.y+await require('./drying-gesture.cjs').dryingHandleY(canvas,bounds.y+bounds.height*(zone+.5)/3)*b.height;
+      await touch.tap({x:b.x+10,y:b.y+10});
       await touch.drag({x:b.x+(bounds.x-.06)*b.width,y},{x:b.x+(bounds.x+bounds.width+.06)*b.width,y});
      }
     }else{

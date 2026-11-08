@@ -320,3 +320,7 @@ dialog.student-manager::backdrop{background:#1c2b3055}
   .lesson-viewer__info-title{font-size:21px}
   .work-dialog-stage{height:300px}
 }
+
+/* Generated Chromebook pictogram includes its own mint circle. */
+.waiting-illustration.is-closed-chromebook{background:transparent}
+.waiting-illustration .closed-laptop-image{display:block;width:100%;height:100%;object-fit:contain;clip-path:circle(43% at 50% 50%)}
