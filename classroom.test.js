@@ -492,18 +492,58 @@ test('an observer link shows class results without student names and cannot cont
   const game = await f.control('start', 3);
   await f.service.submitWork({code, participantId: a.participantId, runId: game.state.runId, work: rawWork(), preview: png}, a.participantToken);
   const view = await f.service.observe({code}, link.observerToken);
-  assert.equal(view.state.activity, 3); assert.equal(view.works.length, 1); assert.equal(view.participants.length, 1);
+  assert.equal(view.state.activity, 3); assert.equal(view.works.length, 1); assert.equal(view.participantCount, 1);
   assert.ok(!JSON.stringify(view).includes('실명하나'));
   assert.ok(!('name' in view.works[0]) && !('number' in view.works[0]));
-  assert.deepEqual(Object.keys(view.participants[0]).sort(), ['activity1Complete', 'activity2Complete', 'beautyComplete', 'beautySubmitted', 'completedWorkCount']);
-  assert.equal((await f.service.artwork({code, participantId: a.participantId, workId: 'finished-1'}, link.observerToken)).preview, png);
+  assert.equal(view.participants, undefined); assert.deepEqual(view.completionCounts, {1: 0, 2: 0});
+  const participantId = view.works[0].participantId;
+  assert.match(participantId, /^obs_[A-Za-z0-9_-]{43}$/); assert.notEqual(participantId, a.participantId);
+  assert.equal((await f.service.artwork({code, participantId, workId: 'finished-1'}, link.observerToken)).preview, png);
+  await rejectsCode(f.service.artwork({code, participantId: a.participantId, workId: 'finished-1'}, link.observerToken), 'observer-artwork');
   await rejectsCode(f.service.control({code, command: 'pause'}, link.observerToken), 'teacher-auth');
   await rejectsCode(f.service.overview({code}, link.observerToken), 'teacher-auth');
   await rejectsCode(f.service.observe({code}, a.participantToken), 'observer-auth');
   await rejectsCode(f.service.observe({code}, f.room.teacherToken), 'observer-auth');
-  const replaced = await f.control('observer-link');
-  await rejectsCode(f.service.observe({code}, link.observerToken), 'observer-auth');
-  assert.equal((await f.service.observe({code}, replaced.observerToken)).works.length, 1);
+  const repeated = await f.control('observer-link'); assert.equal(repeated.observerToken, link.observerToken);
+  assert.equal((await f.service.observe({code}, link.observerToken)).works.length, 1);
+  await f.control('delete');
+  await rejectsCode(f.service.observe({code}, link.observerToken), 'room-not-found');
+  await rejectsCode(f.service.artwork({code, participantId, workId: 'finished-1'}, link.observerToken), 'room-not-found');
+});
+
+test('observer QR retrieval is stable across parallel teacher tabs and fresh service instances', async () => {
+  const f = await fixture(), code = f.room.code;
+  const links = await Promise.all(Array.from({length: 8}, () => new ClassroomService(f.store).control({code, command: 'observer-link'}, f.room.teacherToken)));
+  assert.equal(new Set(links.map(link => link.observerToken)).size, 1);
+  const key = links[0].observerToken, roomPath = `${classroomPrefix()}/${code}/room.json`, before = await f.store.read(roomPath);
+  const repeated = await f.control('observer-link'); assert.equal(repeated.observerToken, key);
+  assert.deepEqual(await f.store.read(roomPath), before, 'sharing an existing QR does not revise or rewrite the class');
+  assert.equal(Buffer.from(key, 'base64url').length, 32); assert.notEqual(key, f.room.teacherToken);
+  assert.ok(!JSON.stringify([...f.store.records.values()]).includes(key), 'only the observer hash is persisted');
+  await f.control('end'); assert.equal((await f.control('observer-link')).observerToken, key);
+  assert.equal((await f.service.observe({code}, key)).state.status, 'ended');
+  await rejectsCode(f.service.control({code, command: 'observer-link'}, key), 'teacher-auth');
+});
+
+test('observer artwork references are private, per work and per student, and cannot address another work', async () => {
+  const f = await fixture(), first = await f.join(7, '첫 실명'), second = await f.join(12, '둘째 실명'), code = f.room.code;
+  const {observerToken} = await f.control('observer-link'), run = await f.control('start', 3);
+  for (const [student, id] of [[first, 'first-work'], [first, 'second-work'], [second, 'first-work']]) {
+    await f.service.submitWork({code, participantId: student.participantId, runId: run.state.runId, work: rawWork({id}), preview: png}, student.participantToken);
+  }
+  const view = await f.service.observe({code}, observerToken);
+  assert.equal(view.participantCount, 2); assert.equal(view.participants, undefined);
+  assert.equal(new Set(view.works.map(work => work.participantId)).size, 3, 'references cannot correlate two works to one student');
+  for (const work of view.works) {
+    assert.match(work.participantId, /^obs_[A-Za-z0-9_-]{43}$/);
+    assert.ok(!('name' in work) && !('number' in work));
+    assert.equal((await f.service.artwork({code, participantId: work.participantId, workId: work.id}, observerToken)).preview, png);
+    await rejectsCode(f.service.artwork({code, participantId: work.participantId, workId: work.id === 'first-work' ? 'second-work' : 'first-work'}, observerToken), 'observer-artwork');
+  }
+  for (const participantId of ['7', '12', `obs_${'A'.repeat(43)}`]) await rejectsCode(f.service.artwork({code, participantId, workId: 'first-work'}, observerToken), 'observer-artwork');
+  assert.ok(!JSON.stringify(view).includes('첫 실명') && !JSON.stringify(view).includes('둘째 실명'));
+  const teacher = await f.service.overview({code}, f.room.teacherToken);
+  assert.deepEqual([...new Set(teacher.works.map(work => work.participantId))].sort(), ['12', '7']);
 });
 
 test('a teacher deletion interrupted part-way can be run again and still removes every student record', async () => {
@@ -662,9 +702,10 @@ test('completed works expire exactly at 24 hours for owner, teacher and observer
   const studentPath = `${classroomPrefix()}/${code}/participants/1.json`, roomPath = `${classroomPrefix()}/${code}/room.json`;
   const before = await f.store.read(studentPath), roomBefore = await f.store.read(roomPath), aliasBefore = await f.store.read(`${classroomPrefix()}/aliases/tapten.json`);
   const query = {code, participantId: student.participantId, workId: payload.work.id};
+  const observerQuery = {...query, participantId: (await f.service.observe({code}, observer.observerToken)).works[0].participantId};
   f.advance(WORK_RETENTION_MS - 1);
-  for (const bearer of [student.participantToken, f.room.teacherToken, observer.observerToken]) {
-    assert.equal((await f.service.artwork(query, bearer)).preview, png);
+  for (const [bearer, artworkQuery] of [[student.participantToken, query], [f.room.teacherToken, query], [observer.observerToken, observerQuery]]) {
+    assert.equal((await f.service.artwork(artworkQuery, bearer)).preview, png);
   }
   assert.equal((await f.service.state(query, student.participantToken)).completedWorks.length, 1);
   f.advance(1);
@@ -672,8 +713,9 @@ test('completed works expire exactly at 24 hours for owner, teacher and observer
     f.service.state(query, student.participantToken), f.service.overview({code}, f.room.teacherToken), f.service.observe({code}, observer.observerToken),
   ]);
   assert.deepEqual(owner.completedWorks, []); assert.deepEqual(teacher.works, []); assert.deepEqual(visitor.works, []);
-  assert.equal(teacher.participants[0].completedWorkCount, 0); assert.equal(visitor.participants[0].completedWorkCount, 0);
-  for (const bearer of [student.participantToken, f.room.teacherToken, observer.observerToken]) await rejectsCode(f.service.artwork(query, bearer), 'work-not-found');
+  assert.equal(teacher.participants[0].completedWorkCount, 0); assert.equal(visitor.participantCount, 1);
+  assert.deepEqual(visitor.completionCounts, {1: 1, 2: 1});
+  for (const [bearer, artworkQuery] of [[student.participantToken, query], [f.room.teacherToken, query], [observer.observerToken, observerQuery]]) await rejectsCode(f.service.artwork(artworkQuery, bearer), 'work-not-found');
   assert.deepEqual(owner.answers, before.data.answers);
   const after = (await f.store.read(studentPath)).data;
   for (const key of ['id', 'number', 'name', 'tokenHash', 'joinedAt', 'answers']) assert.deepEqual(after[key], before.data[key]);
@@ -1019,8 +1061,9 @@ test('private artwork preserves complete rendering data for authorized readers w
   assert.equal(submitted.work.designVersion, 1); assert.equal(submitted.work.score, evaluateWork(original).total);
   assert.equal(submitted.work.explanationScore, 17);
   const query = {code: f.room.code, participantId: '1', workId: original.id};
-  for (const bearer of [f.student.participantToken, f.room.teacherToken, observer.observerToken]) {
-    const artifact = await f.service.artwork(query, bearer);
+  const observerQuery = {...query, participantId: (await f.service.observe({code: f.room.code}, observer.observerToken)).works[0].participantId};
+  for (const [bearer, artworkQuery] of [[f.student.participantToken, query], [f.room.teacherToken, query], [observer.observerToken, observerQuery]]) {
+    const artifact = await f.service.artwork(artworkQuery, bearer);
     assert.equal(artifact.preview, png); assert.deepEqual(artifact.design, design);
     assert.equal(artifact.design.strokes[0].points.length, 512);
   }

@@ -75,15 +75,22 @@ const base = process.env.BASE_URL || 'http://127.0.0.1:4173';
     assert.equal(await a.getByTestId('classroom-game').count(), 0);
     assert.match(await a.getByTestId('lock-screen').innerText(), /크롬북을 닫고/);
 
-    // A replaced observer link stops working.
-    await teacher.evaluate(async () => {
+    // Reopening the QR from another request keeps the published observer link valid.
+    const repeatedToken = await teacher.evaluate(async () => {
       const saved = JSON.parse(localStorage.getItem('celadon-classroom-teacher-v1'));
       const response = await fetch('/api/classroom', {method: 'POST', headers: {'Content-Type': 'application/json', Authorization: `Bearer ${saved.teacherToken}`}, body: JSON.stringify({action: 'control', code: saved.code, command: 'observer-link'})});
       if (!response.ok) throw new Error(`observer-link ${response.status}`);
+      return (await response.json()).observerToken;
     });
-    await observer.waitForFunction(() => document.querySelector('[data-form-error]')?.textContent.includes('참관 주소가 바뀌었어요'), {}, {timeout: 15000});
+    assert.equal(repeatedToken, new URLSearchParams(new URL(link).hash.slice(1)).get('key'));
+    const stillVisible = await observer.request.get(`${base}/api/classroom`, {headers: {Authorization: `Bearer ${repeatedToken}`}, params: {action: 'observe', code: teacherSession.code}});
+    assert.equal(stillVisible.status(), 200);
+    // Deleting the class revokes its QR and clears an already-open observer board.
+    const deleted = await teacher.request.post(`${base}/api/classroom`, {headers: {Authorization: `Bearer ${teacherSession.teacherToken}`}, data: {action: 'control', code: teacherSession.code, command: 'delete'}});
+    assert.equal(deleted.status(), 200);
+    await observer.waitForFunction(() => document.querySelector('[data-form-error]')?.textContent.includes('참관할 수업을 찾지 못했어요'), {}, {timeout: 15000});
     assert.deepEqual(errors, []);
-    console.log('Classroom management: unified names, observer link without names or controls, entry lock, release/rejoin, removal, untimed activity 3 and replaced observer link passed.');
+    console.log('Classroom management: unified names, anonymous observer, entry lock, release/rejoin, removal, untimed activity 3, stable QR link and deletion revocation passed.');
   } finally {
     if(teacherSession&&teacher)await teacher.request.post(`${base}/api/classroom`,{headers:{Authorization:`Bearer ${teacherSession.teacherToken}`},data:{action:'control',code:teacherSession.code,command:'delete'}}).catch(()=>{});
     await browser.close();
