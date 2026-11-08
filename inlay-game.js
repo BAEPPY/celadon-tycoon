@@ -21,16 +21,16 @@ export class InlayGame {
     this.canvas=document.createElement('canvas');this.canvas.className=`inlay-canvas inlay-${mode}`;this.canvas.tabIndex=0;
     this.canvas.setAttribute('aria-label',mode==='fill'?'무늬 위를 색흙 붓으로 문질러 채우세요. 방향키로 무늬를 고르고 엔터로 칠할 수도 있어요.':'도자기의 색흙을 스펀지로 문질러 닦으세요. 방향키로 무늬를 고르고 엔터로 닦을 수도 있어요.');
     craft.el.append(this.canvas);this.ctx=this.canvas.getContext('2d');const opt={signal:this.abort.signal};
-    this.canvas.addEventListener('pointerdown',e=>{if(e.button!==0||this.done)return;e.preventDefault();this.canvas.focus({preventScroll:true});this.canvas.setPointerCapture(e.pointerId);this.pointer={id:e.pointerId,last:this.position(e)};this.cursor=this.pointer.last;this.brush(this.cursor);this.draw();},opt);
-    this.canvas.addEventListener('pointermove',e=>{this.cursor=this.position(e);if(this.pointer?.id===e.pointerId&&!this.done){const a=this.pointer.last,b=this.cursor,n=Math.max(1,Math.ceil(Math.hypot(b[0]-a[0],b[1]-a[1])/10));for(let i=1;i<=n;i++)this.brush([a[0]+(b[0]-a[0])*i/n,a[1]+(b[1]-a[1])*i/n],false);this.pointer.last=b;this.emit();}this.draw();},opt);
-    for(const event of ['pointerup','pointercancel','lostpointercapture'])this.canvas.addEventListener(event,()=>this.release(),opt);
+    this.canvas.addEventListener('pointerdown',e=>{if(e.button!==0||e.isPrimary===false||this.pointer||this.done)return;e.preventDefault();this.canvas.focus({preventScroll:true});this.canvas.setPointerCapture(e.pointerId);this.pointer={id:e.pointerId,last:this.position(e)};this.cursor=this.pointer.last;this.brush(this.cursor);this.draw();},opt);
+    this.canvas.addEventListener('pointermove',e=>{if(e.isPrimary===false||(this.pointer&&this.pointer.id!==e.pointerId))return;this.cursor=this.position(e);if(this.pointer?.id===e.pointerId&&!this.done){const a=this.pointer.last,b=this.cursor,n=Math.max(1,Math.ceil(Math.hypot(b[0]-a[0],b[1]-a[1])/10));for(let i=1;i<=n;i++)this.brush([a[0]+(b[0]-a[0])*i/n,a[1]+(b[1]-a[1])*i/n],false);this.pointer.last=b;this.emit();}this.draw();},opt);
+    for(const event of ['pointerup','pointercancel','lostpointercapture'])this.canvas.addEventListener(event,e=>{if(this.pointer?.id===e.pointerId)this.release();},opt);
     this.canvas.addEventListener('pointerleave',()=>{if(!this.pointer){this.cursor=null;this.draw();}},{signal:this.abort.signal});
-    window.addEventListener('blur',()=>this.release(),opt);document.addEventListener('visibilitychange',()=>{if(document.hidden)this.release();},opt);
+    this.canvas.addEventListener('blur',()=>this.release(),opt);window.addEventListener('blur',()=>this.release(),opt);document.addEventListener('visibilitychange',()=>{if(document.hidden)this.release();},opt);
     this.canvas.addEventListener('keydown',e=>{if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Enter'].includes(e.code)||this.done)return;e.preventDefault();const visible=this.visibleTargets();if(!visible.length)return;if(e.code==='Enter'){if(e.repeat)return;const target=visible[this.selected%visible.length];this.cursor=target.screen;this.brush(target.screen);}else this.selected=(this.selected+(['ArrowLeft','ArrowUp'].includes(e.code)?-1:1)+visible.length)%visible.length;this.cursor=visible[this.selected%visible.length].screen;this.draw();},opt);
     this.resize=new ResizeObserver(()=>this.size());this.resize.observe(craft.el);
     this.ready=()=>{if(!this.running)return;if(craft.el.dataset.status==='ready'){if(!this.state.targets.length)this.state.targets=craft.getInlayTargets();this.size();this.emit(false);this.watch();}else this.readyFrame=requestAnimationFrame(this.ready);};this.ready();
   }
-  size(){const r=this.canvas.getBoundingClientRect();this.canvas.width=Math.max(1,Math.round(r.width*devicePixelRatio));this.canvas.height=Math.max(1,Math.round(r.height*devicePixelRatio));this.draw();}
+  size(){this.release();const r=this.canvas.getBoundingClientRect();this.canvas.width=Math.max(1,Math.round(r.width*devicePixelRatio));this.canvas.height=Math.max(1,Math.round(r.height*devicePixelRatio));this.draw();}
   position(e){const r=this.canvas.getBoundingClientRect();return [e.clientX-r.left,e.clientY-r.top];}
   visibleTargets(){
     const b=this.craft.box;if(!b)return [];const r=this.canvas.getBoundingClientRect(),w=this.craft.canvas.width,h=this.craft.canvas.height;
@@ -64,5 +64,5 @@ export class InlayGame {
     c.restore();
   }
   release(){const id=this.pointer?.id;this.pointer=null;if(id!==undefined&&this.canvas.hasPointerCapture(id))this.canvas.releasePointerCapture(id);this.draw();}
-  dispose(){this.running=false;this.abort.abort();this.resize.disconnect();cancelAnimationFrame(this.frame);cancelAnimationFrame(this.readyFrame);this.canvas.remove();}
+  dispose(){this.running=false;this.release();this.abort.abort();this.resize.disconnect();cancelAnimationFrame(this.frame);cancelAnimationFrame(this.readyFrame);this.canvas.remove();}
 }

@@ -1,0 +1,177 @@
+.sculpt-touch-controls{display:none}
+/* Native phone workbenches. Desktop/Chromebook scene geometry remains unchanged. */
+@media (max-width:600px), (max-width:1023px) and (pointer:coarse) {
+ html,body{height:auto;min-height:100%;overflow-x:clip;overflow-y:auto;overscroll-behavior-y:auto}
+ body{min-width:320px;-webkit-text-size-adjust:100%}
+ main#app{display:block;height:auto;min-height:100svh;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);overflow:visible}
+ .game-window.shop-game,.game-window.shop-game.is-cover{display:flex;flex-direction:column;height:auto;min-height:100svh;max-height:none;max-width:none;border-width:2px;border-radius:0;box-shadow:none;overflow:clip}
+ .shop-game button,.popup button{min-height:44px!important;font-size:16px}
+ .shop-game input,.shop-game select,.shop-game textarea,.popup input,.popup select,.popup textarea{font-size:16px!important}
+ .shop-game button:not(:disabled):hover{transform:none}
+ .shop-game .hud{position:relative;display:flex;flex-wrap:wrap;min-height:112px;height:auto;padding:8px 10px;gap:6px;z-index:20}
+ .shop-game .mini-logo{font-size:22px;line-height:1.25;white-space:normal;flex:1 1 100%;min-height:44px!important;text-align:center;padding:2px 0}
+ .shop-game .hud-stats,.shop-game .shift-status{display:none}
+ .shop-game .hud-tools{display:grid;grid-template-columns:1fr 1.25fr 1fr 44px;width:100%;gap:6px;margin:0}
+ .shop-game .hud-tools button{height:44px;padding:6px 5px;font-size:16px;min-width:0}
+ .shop-game .cover{min-height:calc(100svh - 116px);height:auto;padding:30px 12px 38px;background-position:center}
+ .cover-content{padding:0;gap:18px;width:100%;max-width:520px}
+ .cover-content h1{font-size:clamp(44px,11vw,62px);line-height:1.18}
+ .cover-content .ribbon{font-size:16px;line-height:1.4;padding:8px 14px}
+ .cover-content>p{font-size:17px;line-height:1.5;padding:12px 16px;border-radius:16px}
+ .cover-actions{width:100%;margin-top:4px;gap:12px;flex-direction:column}
+ .cover-actions .cover-start{width:100%;min-width:0;min-height:52px!important;font-size:20px}
+ .cover-features{flex-wrap:wrap;justify-content:center;font-size:16px;gap:8px 14px}
+ /* Every workbench is a readable document, with only the pottery surface capturing drag gestures. */
+ .shop-game .station-scene{display:flex;flex-direction:column;gap:12px;height:auto;min-height:calc(100svh - 116px);padding:12px;background-position:center top;background-size:auto 100%;overflow:visible}
+ .shop-game .station-scene::before{inset:0;pointer-events:none}
+ .shop-game .station-heading{position:relative;inset:auto;order:0;display:flex;gap:8px;align-items:center;height:auto;min-height:44px;width:100%;z-index:12}
+ .shop-game .station-heading>span{font-size:18px;line-height:1.35;padding:7px 10px;letter-spacing:0;clip-path:none;min-width:0;flex:1}
+ .shop-game .station-heading>.small-button{font-size:16px;padding:7px 9px;flex:none}
+ .shop-game .station-rack{position:relative;inset:auto;order:1;display:flex;flex-direction:column;align-items:stretch;gap:10px;width:100%;height:auto;min-height:0;padding:8px;overflow:visible;z-index:11}
+ .shop-game .shape-trays,.shop-game .pattern-trays{display:grid;grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:84px;gap:8px;min-width:0;width:100%;overflow-x:auto;overflow-y:hidden;padding:0 0 7px;scroll-snap-type:x proximity;overscroll-behavior-x:contain;touch-action:pan-x;scrollbar-width:thin}
+ .shop-game .tray-bin{scroll-snap-align:start;min-height:96px;gap:5px;padding:7px 4px}
+ .shop-game .tray-bin span,.shop-game .tray-bin small{font-size:16px;line-height:1.3}
+ .shop-game .shape-bin img{height:52px;width:100%;object-fit:contain}
+ .shop-game .pattern-bin svg{height:48px;width:48px}
+ .shop-game .pattern-bin span{font-size:16px}.shop-game .pattern-bin small{font-size:14px}
+ .shop-game .shape-family{width:100%;display:flex;flex-direction:row;align-items:center;justify-content:space-between;padding:0;gap:10px;font-size:16px}
+ .shop-game .shape-family .small-button{font-size:16px;padding:7px 10px;flex:none}
+ .shop-game .rack-techniques{display:flex;flex-direction:row;width:100%;gap:6px;min-width:0}
+ .shop-game .technique-option{flex:1;min-width:0;gap:3px}
+ .shop-game .technique-option>.small-button{font-size:16px;line-height:1.2;padding:8px 4px;min-width:0;flex:1}
+ .shop-game .help-dot{width:44px;height:44px;min-width:44px;font-size:20px}
+ .shop-game .technique-tooltip{position:fixed;left:12px;right:12px;top:auto;bottom:calc(12px + env(safe-area-inset-bottom));width:auto;font-size:16px;z-index:100}
+ .shop-game .hand-tools{position:relative;inset:auto;order:2;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));width:100%;max-width:none;gap:8px}
+ .shop-game .hand-tools .tool-tile{font-size:16px;min-height:62px!important;padding:6px 2px;gap:2px}
+ .shop-game .hand-tools .tool-tile i{font-size:24px}
+ .shop-game .station-workspace,.shop-game .shaping-scene .station-workspace,.shop-game .kiln-scene .station-workspace{position:relative;inset:auto;order:3;display:block;flex:none;width:100%;height:360px;min-height:360px;margin:0;z-index:auto}
+ .shop-game .station-workspace>.workpiece{width:100%;height:100%;max-width:none;margin:0}
+ .shop-game .station-workspace .empty-clay{padding:10px 0;font-size:17px;max-height:100%}
+ .shop-game .station-workspace .empty-clay>svg{height:280px;max-width:100%;margin:auto}
+ .shop-game .shaping-scene .station-workspace{height:400px;min-height:400px}
+ .shop-game .shaping-scene .illustration-viewport:has(.sculpt-touch-controls){bottom:56px}
+ .shop-game .sculpt-touch-controls{position:absolute;left:0;right:0;bottom:-56px;display:grid;grid-template-columns:52px minmax(0,1fr) 52px;gap:8px;height:48px;z-index:12}
+ .shop-game .sculpt-touch-controls[hidden]{display:none}
+ .shop-game .sculpt-touch-controls button{min-height:44px!important;font-size:16px;line-height:1.3;padding:6px;border:2px solid #a17a69;border-radius:9px;background:#fff3db;color:#73544e}
+ .shop-game .sculpt-key-hint,.shop-game .inlay-keyboard,.shop-game .gesture-keyboard{display:none}
+ .shop-game .vessel-turns{bottom:0;gap:8px;padding:3px 8px;max-width:100%;border-radius:24px}
+ .shop-game .vessel-turns button{width:48px;height:44px;font-size:26px}
+ .shop-game .turn-label{min-width:80px;font-size:16px}
+ .shop-game .station-scene .station-info,.shop-game .kiln-scene .station-info{position:relative;inset:auto;order:4;width:100%;max-width:none;padding:14px;gap:10px;margin:0;z-index:4}
+ .shop-game .station-scene .station-info h2{font-size:21px;line-height:1.35}
+ .shop-game .station-scene .station-info p,.shop-game .station-scene .station-info label,.shop-game .station-scene .station-info small,.shop-game .station-scene .station-info .text-button{font-size:16px!important;line-height:1.5}
+ .shop-game .station-info .width-control{gap:12px}.shop-game .station-info input[type=range]{min-height:44px;width:100%}
+ .shop-game .station-info .stamp-size-control{gap:6px}.shop-game .station-info .stamp-size-control label{font-size:16px;flex-wrap:wrap}
+ .shop-game .station-nav{position:relative;inset:auto;order:5;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.35fr);gap:10px;width:100%;padding:4px 0 8px;margin:0;z-index:6}
+ .shop-game .station-nav .primary,.shop-game .station-nav .small-button{font-size:17px;line-height:1.4;min-height:48px!important;padding:10px 8px;min-width:0;white-space:normal}
+ .shop-game .station-nav>span{font-size:16px;line-height:1.4}
+ .shop-game .order-summary{position:relative;inset:auto;order:6;width:100%;max-width:none;padding:18px 20px;margin:0;z-index:3}
+ .shop-game .order-summary h3{font-size:20px}.shop-game .order-summary dl{grid-template-columns:42px minmax(0,1fr);font-size:16px;line-height:1.5;gap:6px 10px}
+ .shop-game .order-summary .text-button{font-size:16px;margin-top:8px}
+ .shop-game .variant-shelf{position:relative;inset:auto;order:2;width:100%;padding:12px}
+ .shop-game .variant-shelf h3{font-size:21px}.shop-game .variant-options{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+ .shop-game .variant-card{min-height:142px;padding:10px}.shop-game .variant-card img{height:96px}.shop-game .variant-card span{font-size:16px}
+ .shop-game .is-choosing-variant .station-workspace{display:none}
+ .shop-game .sculpt-success{inset:8% 3% auto;padding:15px}.shop-game .sculpt-success strong{font-size:42px}.shop-game .sculpt-success>span:not(.success-sparkles){font-size:18px}
+ /* Clay preparation is also on the physical phone workbench, independent of desktop background coordinates. */
+ .shop-game .automatic-clay{flex-direction:row;flex-wrap:wrap;justify-content:flex-start;gap:10px;padding:12px}
+ .shop-game .prepared-clay-icon{font-size:40px}.shop-game .automatic-clay strong{font-size:20px}.shop-game .automatic-clay p{font-size:16px}
+ .shop-game .knead-counts{width:100%;justify-content:center;gap:8px}.shop-game .knead-counts i{width:36px;height:36px;font-size:18px}
+ .shop-game.is-clay .kneading-area{position:relative;inset:auto;order:3;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;width:100%;height:340px;min-height:340px;pointer-events:auto}
+ .shop-game .knead-pad,.shop-game .bellows-button{touch-action:none!important}
+ .shop-game.is-clay .knead-pad{position:relative;inset:auto;width:min(100%,330px);height:270px;transform:none;margin:0}
+ .shop-game.is-clay .knead-pad>svg{width:100%;height:100%;max-height:270px;overflow:visible}
+ .shop-game.is-clay .kneading-area .sculpt-progress,.shop-game.is-clay .kneading-area>p{position:relative;inset:auto;transform:none;width:100%;max-width:100%;margin:0}
+ .shop-game.is-clay .kneading-area>p{font-size:17px;text-align:center}
+ .shop-game .inlay-choices{gap:8px;width:100%}.shop-game .inlay-choice{min-width:0;flex:1;gap:7px;padding:9px 5px;font-size:17px}
+ .shop-game .inlay-choice .soil-swatch{width:30px;height:35px}.shop-game .inlay-choice small{font-size:16px}
+ .shop-game .firing-trays{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+ .shop-game .firing-bin{min-height:84px;gap:6px}.shop-game .firing-bin i{font-size:22px}.shop-game .firing-bin strong{font-size:18px}.shop-game .firing-bin small{font-size:15px}
+ .shop-game .kiln-scene .station-info p.firing-order{white-space:normal}.shop-game .firing-order br{display:none}
+ .shop-game .station-scene:has(.kiln-minigame:not(.kiln-gesture-dock)){z-index:40}
+ .kiln-minigame:not(.kiln-gesture-dock){position:fixed;inset:calc(8px + env(safe-area-inset-top)) calc(8px + env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) calc(8px + env(safe-area-inset-left));z-index:60;overflow-y:auto;padding:10px;align-items:center}
+ .kiln-minigame:not(.kiln-gesture-dock) .minigame-card{width:100%;max-height:none;padding:14px;border-radius:18px}
+ .kiln-minigame h2{font-size:23px;line-height:1.3;margin:0 0 8px}
+ .kiln-minigame .mini-instruction{font-size:17px;line-height:1.4;margin-bottom:10px}
+ .kiln-firing-work{grid-template-columns:1fr;gap:12px}.kiln-fanning-scene{height:190px;max-height:190px;aspect-ratio:auto}
+ .kiln-heat-controls{gap:10px}.kiln-heat-controls .heat-meter{height:30px}.kiln-heat-controls .mini-status{font-size:17px;line-height:1.4;min-height:24px}
+ .kiln-minigame .bellows-button{font-size:18px;min-height:48px!important}.kiln-minigame .mini-controls{gap:10px;margin-top:12px}.kiln-minigame .mini-controls button{font-size:16px;flex:1;padding:8px}
+ .shop-game .kiln-gesture-dock{position:static;inset:auto;overflow:visible;padding:0}
+ .shop-game .kiln-scene .station-info .kiln-gesture-dock .minigame-card{padding:0!important;width:100%}
+ .shop-game .kiln-scene .station-info .kiln-gesture-dock .mini-controls button{min-height:44px!important;font-size:16px}
+ /* Inspection uses two clear rows rather than four squeezed desktop silhouettes. */
+ .shop-game .four-inspection{--inspection-mobile:1}
+ .shop-game .inspection-intro{position:relative;inset:auto;order:1;display:flex;flex-direction:column;align-items:stretch;gap:10px;pointer-events:auto}
+ .shop-game .inspection-intro>div:first-child{padding:14px}.shop-game .inspection-intro h2{font-size:22px}.shop-game .inspection-intro p{font-size:17px;line-height:1.5}
+ .shop-game .inspection-tool-note{font-size:16px;gap:12px;padding:8px 14px}.shop-game .inspection-tool-note>svg{height:40px;width:30px}
+ .shop-game .inspection-lineup{position:relative;inset:auto;order:2;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:end;gap:46px 10px;width:100%;height:auto;margin:20px 0 32px}
+ .shop-game .inspection-pot{width:min(100%,180px);height:auto;aspect-ratio:1;max-height:none;min-height:0!important;justify-self:center}
+ .shop-game .inspection-pot-number{font-size:16px;bottom:-28px;min-height:26px}
+ .shop-game .inspection-note{position:relative;inset:auto;order:3;transform:none;translate:none;width:auto;max-width:100%;font-size:16px;line-height:1.5;padding:8px 12px;border-radius:12px}
+ .shop-game .inspection-navigation{order:4;grid-template-columns:1fr}.shop-game .inspection-shortcut{display:none}
+ .shop-game .is-complete .inspection-lineup .inspection-pot.is-kept{position:relative;inset:auto;translate:none;width:min(100%,180px);height:auto;grid-column:1/-1}
+ .shop-game .is-complete .inspection-pot.is-broken{display:none}.shop-game .inspection-kept-seal{font-size:17px;top:5%;padding:5px 10px}
+ .shop-game .inspection-outcome{position:fixed;left:12px;right:12px;top:50%;translate:0 -50%;width:auto;max-width:440px;margin:auto;padding:22px;z-index:50}
+ .shop-game .inspection-outcome h2{font-size:42px}.shop-game .inspection-outcome p{font-size:20px}
+ /* Put each speaker beside their words, and keep the desk and finished piece in their own rows. */
+ .shop-game .counter-scene,.shop-game .customer-review-scene{display:grid;grid-template-columns:90px minmax(0,1fr);grid-template-areas:'person dialogue' 'piece piece' 'desk desk';gap:16px 10px;position:relative;height:auto;min-height:calc(100svh - 116px);padding:20px 12px 0;overflow:visible;background-position:center top;background-size:auto 100%}
+ .shop-game .counter-person,.shop-game .review-person{position:relative;inset:auto;grid-area:person;align-self:start;width:100%;height:240px;margin-top:24px;overflow:hidden;z-index:2}
+ .shop-game .counter-person .character-sprite{height:240px;width:120px;max-width:none;transform:translateX(-15px)}
+ .shop-game .review-person .reaction-portrait{width:100%;height:100%;object-position:center top}
+ .shop-game .counter-walker{left:12px;top:44px;bottom:auto;height:240px;width:120px;scale:1!important}
+ .shop-game .counter-scene .counter-dialogue,.game-window.shop-game .customer-review-scene .review-dialogue{position:relative;inset:auto;grid-area:dialogue;min-width:0;display:flex;flex-direction:column;gap:14px;padding:0}
+ .shop-game .counter-scene .counter-speech,.game-window.shop-game .customer-review-scene .review-speech{min-height:0;--tail-top:44px;padding:13px;border-width:2px;border-radius:15px}
+ .shop-game .counter-speech>span,.shop-game .review-speech .review-speaker{font-size:16px;margin-bottom:8px}
+ .shop-game .counter-speech>p,.shop-game .review-speech .review-quote{font-size:17px;line-height:1.55}
+ .shop-game .counter-speech::before,.shop-game .review-speech::before{left:-18px;top:44px;width:20px;height:24px}
+ .shop-game .counter-speech::after,.shop-game .review-speech::after{left:-14px;top:47px;width:17px;height:18px}
+ .shop-game .counter-scene .counter-responses{display:flex;flex-direction:column;padding:0;gap:10px;margin:0}
+ .shop-game .counter-responses .primary,.shop-game .counter-responses .small-button{width:100%;min-width:0;font-size:17px;line-height:1.4;padding:10px}
+ .shop-game .counter-scene:has(.desk-props) .counter-piece{position:relative;inset:auto;grid-area:piece;height:330px;width:100%;min-height:0}
+ .shop-game .counter-piece .workpiece{width:100%;height:100%;max-width:none}
+ .shop-game .counter-front{position:relative;inset:auto;grid-area:desk;height:98px;min-height:98px;margin-top:8px;width:100%}
+ .shop-game .counter-front .desk-ink{left:4%;bottom:32%;width:38%}
+ .shop-game .counter-front .counter-order.reference-book{right:3%;bottom:32%;width:46%;min-height:44px!important}
+ .shop-game .counter-order.reference-book>span{font-size:18px!important}
+ .game-window.shop-game .customer-review-scene .review-speech h2{font-size:25px;line-height:1.3;margin:0 0 10px}
+ .game-window.shop-game .customer-review-scene .review-speech .review-detail{font-size:16px;line-height:1.5;margin-top:10px}
+ .shop-game .review-score{display:flex;flex-wrap:wrap;gap:8px;padding:12px;font-size:16px}.shop-game .review-score strong{font-size:28px}.shop-game .review-score .text-button{margin-left:0;font-size:16px}
+ .shop-game .review-actions{display:flex;flex-direction:column;gap:10px}.shop-game .review-actions button{flex:auto;width:100%;font-size:17px;line-height:1.4;min-height:48px!important}
+ /* Dialogs scroll vertically, remain readable, and allow the onscreen keyboard to reveal each field. */
+ .popup{width:calc(100vw - 16px);max-width:none;max-height:calc(100dvh - 16px);margin:auto;padding:calc(18px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right)) calc(18px + env(safe-area-inset-bottom)) calc(14px + env(safe-area-inset-left));border-radius:16px;overflow-x:hidden;overflow-y:auto;scroll-padding:60px 0 24px;overscroll-behavior:contain}
+ .popup h2{font-size:24px;line-height:1.35;padding-right:42px;margin-bottom:14px}.popup h3{font-size:20px}
+ .popup p,.popup .field-label,.popup label,.popup small{font-size:16px;line-height:1.5}
+ .popup .close{position:absolute;top:calc(8px + env(safe-area-inset-top));right:calc(8px + env(safe-area-inset-right));width:44px;height:44px;font-size:25px;z-index:15}
+ .popup .popup-actions{flex-wrap:wrap;gap:10px}.popup .popup-actions button{font-size:16px;min-width:0;padding:9px 12px}
+ .explanation-popup .explanation-fields{grid-template-columns:1fr;gap:14px;margin-top:16px}
+ .explanation-popup .name-workshop{padding:12px}.explanation-popup #work-title{min-height:48px;font-size:17px!important}
+ .explanation-popup textarea{height:140px;min-height:120px;resize:vertical;font-size:17px!important;line-height:1.5}
+ .explanation-popup .field-label{font-size:17px;line-height:1.5}.explanation-popup .explanation-feedback{font-size:16px;min-height:0;line-height:1.5}
+ .explanation-popup .naming-tip,.explanation-popup .assessment-notice{font-size:16px;line-height:1.5}.explanation-popup>.primary{font-size:18px;min-height:50px!important;margin-top:12px}
+ .popup .gallery-grid{grid-template-columns:1fr;gap:16px}.popup .gallery-grid article{display:grid;gap:10px;padding:14px}.popup .gallery-grid img{height:230px}.popup .gallery-grid button{font-size:17px}
+ .popup .finished-preview{height:360px;min-height:300px;width:100%}.popup .guide-cards{grid-template-columns:1fr}.popup .order-reference{max-width:100%}
+ .museum-popup #model-tabs label{flex-direction:column;align-items:stretch;font-size:16px;gap:7px}.museum-popup select{min-height:48px;font-size:16px!important;width:100%}
+ .museum-popup .artifact-viewport{height:320px!important;min-height:240px!important}.museum-popup .artifact-controls{flex-wrap:wrap;gap:8px!important}.museum-popup .artifact-control{font-size:16px!important;min-height:44px!important;padding:8px 10px!important}
+ .museum-popup .artifact-title{font-size:21px!important}.museum-popup .artifact-use,.museum-popup .artifact-clue,.museum-popup .artifact-credit,.museum-popup .artifact-source-note,.museum-popup .artifact-hint{font-size:16px!important;line-height:1.5}
+ .tutorial-popup[open]{width:100%;height:100dvh;max-height:100dvh;margin:0;padding:calc(12px + env(safe-area-inset-top)) calc(12px + env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom)) calc(12px + env(safe-area-inset-left));border:0;border-radius:0;gap:12px;overflow-y:auto}
+ .tutorial-heading{gap:10px;padding-right:44px}.tutorial-popup h2{font-size:23px;padding:0;margin:0}.tutorial-counter{font-size:17px}
+ .tutorial-content{min-height:140px;flex:1 1 240px;overflow:hidden}.tutorial-process{object-fit:contain}
+ .tutorial-navigation{gap:8px}.tutorial-popup .tutorial-caption{font-size:17px;line-height:1.4}.tutorial-arrow{width:44px;min-width:44px}
+ .tutorial-footer{flex-wrap:wrap;gap:10px;min-height:44px}.tutorial-download{font-size:16px;white-space:normal;min-height:44px;display:flex;align-items:center}
+ .tutorial-completion{width:100%;justify-content:space-between;gap:12px}.tutorial-check{font-size:18px;min-height:44px}.tutorial-check input{width:26px;height:26px}.tutorial-footer .primary{font-size:18px;min-width:130px;min-height:48px!important}
+ #toast{bottom:calc(12px + env(safe-area-inset-bottom));max-width:calc(100vw - 24px);font-size:16px;line-height:1.5;padding:12px;z-index:100}
+}
+@media (min-width:601px) and (max-width:1023px) and (pointer:coarse) {
+ .shop-game .hud{min-height:62px;flex-wrap:nowrap}.shop-game .mini-logo{flex:1 1 auto;text-align:left;font-size:21px}.shop-game .hud-tools{width:auto;grid-template-columns:80px 100px 80px 44px;flex:none}
+ .shop-game .station-scene{padding:14px 22px;gap:12px}.shop-game .station-workspace,.shop-game .shaping-scene .station-workspace,.shop-game .kiln-scene .station-workspace{height:330px;min-height:330px}
+ .shop-game .shape-trays,.shop-game .pattern-trays{grid-auto-columns:92px}.shop-game .rack-techniques{max-width:440px;align-self:center}
+ .shop-game .station-info,.shop-game .order-summary{max-width:700px!important;align-self:center}.shop-game .hand-tools{max-width:600px;align-self:center}
+ .shop-game .firing-trays{grid-template-columns:repeat(4,minmax(0,1fr))}.shop-game .variant-options{grid-template-columns:repeat(3,minmax(0,1fr))}
+ .shop-game .counter-scene,.shop-game .customer-review-scene{grid-template-columns:180px minmax(0,1fr);gap:16px 24px;padding:20px 28px 0}
+ .shop-game .counter-person,.shop-game .review-person{height:280px}.shop-game .counter-person .character-sprite{height:280px;width:140px;transform:none;margin:auto}
+ .shop-game .counter-front .desk-ink{width:24%}.shop-game .counter-front .counter-order.reference-book{width:30%}
+ .shop-game .inspection-lineup{max-width:600px;align-self:center;gap:44px 30px}.shop-game .inspection-pot{width:180px}
+ .kiln-minigame:not(.kiln-gesture-dock){align-items:flex-start;padding:8px}.kiln-minigame:not(.kiln-gesture-dock) .minigame-card{max-width:760px;padding:12px}
+ .kiln-firing-work{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px}.kiln-fanning-scene{height:160px;max-height:160px}.kiln-minigame h2{font-size:22px;margin:0 0 6px}.kiln-minigame .mini-instruction{font-size:16px;margin-bottom:8px}.kiln-minigame .mini-controls{margin-top:8px}
+ .popup .gallery-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.tutorial-content{min-height:100px;flex-basis:100px}.tutorial-footer{flex-wrap:nowrap}.tutorial-completion{width:auto;margin-left:auto}.tutorial-download{flex-basis:auto}
+}

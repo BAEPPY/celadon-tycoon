@@ -168,17 +168,10 @@ export class Craft2D {
       this.stampPreview = null;
       this.dirty = true;
     }, opt);
-    this.canvas.addEventListener(
-      "pointercancel",
-      () => {
-        this.drag = null;
-        this.stroke = null;
-        this.stampPreview = null;
-        this.stopRotationMotion();
-        this.paint();
-      },
-      opt,
-    );
+    for(const event of ['pointercancel','lostpointercapture'])this.canvas.addEventListener(event,e=>{if(this.drag?.id===e.pointerId)this.cancelPointer();},opt);
+    this.canvas.addEventListener('blur',()=>{if(this.drag)this.cancelPointer();},opt);
+    window.addEventListener('blur',()=>this.cancelPointer(),opt);
+    document.addEventListener('visibilitychange',()=>{if(document.hidden)this.cancelPointer();},opt);
     this.canvas.addEventListener(
       "keydown",
       (e) => {
@@ -236,7 +229,7 @@ export class Craft2D {
     return ready;
   }
   async update(work, stage) {
-    this.stopRotationMotion();
+    this.cancelPointer();
     this.rotationTransition=null;
     this.glaze = 0;
     this.work = work;
@@ -308,6 +301,7 @@ export class Craft2D {
     }
   }
   size() {
+    if(this.drag)this.cancelPointer();
     const r = this.el.getBoundingClientRect(),
       scale = Math.min(devicePixelRatio, 1.75);
     this.canvas.width = Math.max(1, Math.round(r.width * scale));
@@ -837,7 +831,7 @@ export class Craft2D {
       : null;
   }
   down(e) {
-    if (!this.interactive || !this.source || this.el.dataset.status !== "ready") return;
+    if (e.button!==0||e.isPrimary===false||this.drag||!this.interactive || !this.source || this.el.dataset.status !== "ready") return;
     // A click immediately after turning starts from one exact authored pose.
     this.stopRotationMotion();this.rotationTransition=null;
     this.canvas.focus({ preventScroll: true });
@@ -846,6 +840,7 @@ export class Craft2D {
     e.preventDefault();
     this.canvas.setPointerCapture(e.pointerId);
     this.drag = {
+      id:e.pointerId,
       x: e.clientX,
       y: e.clientY,
       tilt: this.tilt,
@@ -858,7 +853,7 @@ export class Craft2D {
     }
   }
   move(e) {
-    if (!this.interactive) return;
+    if (!this.interactive||e.isPrimary===false||(this.drag&&this.drag.id!==e.pointerId)) return;
     if (!this.drag) {
       this.stampPreview = this.editable() && (this.work.tool || 'stamp') === 'stamp' ? this.hit(e) : null;
       this.dirty = true;
@@ -888,12 +883,13 @@ export class Craft2D {
     }
   }
   up(e) {
-    if (!this.interactive || !this.drag) return;
+    if (!this.interactive || !this.drag||this.drag.id!==e.pointerId) return;
     const drag = this.drag,
       points = this.stroke;
     this.drag = null;
     this.stroke = null;
     this.stampPreview = null;
+    if(this.canvas.hasPointerCapture(drag.id))this.canvas.releasePointerCapture(drag.id);
     this.pulse = !points||this.readOnly ? 0 : 0.65;
     this.sway = !points||this.readOnly||this.motion ? 0 : 0.015;
     if(!points&&this.rotationMotion){
@@ -915,6 +911,12 @@ export class Craft2D {
           renderer: "illustration-2d",
         });
     }
+    this.paint();
+  }
+  cancelPointer() {
+    const id=this.drag?.id;this.drag=null;this.stroke=null;this.stampPreview=null;
+    this.stopRotationMotion();this.rotationTransition=null;
+    if(id!==undefined&&this.canvas.hasPointerCapture(id))this.canvas.releasePointerCapture(id);
     this.paint();
   }
   stamp() {
@@ -999,7 +1001,7 @@ export class Craft2D {
     return out.toDataURL("image/webp", 0.92);
   }
   dispose() {
-    this.stopRotationMotion();this.rotationTransition=null;
+    this.cancelPointer();
     ++this.loadId;
     cancelAnimationFrame(this.frame);
     this.abort.abort();

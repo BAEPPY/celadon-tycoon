@@ -69,7 +69,7 @@ body{border-top-width:4px}.welcome{display:block;padding:32px 22px;max-width:550
 .board-toolbar{min-height:44px;padding:8px 10px;gap:6px}.board-view-switch{padding:2px;gap:2px}.board-view-switch button{padding:6px 8px}.board-question{padding:11px 12px 0;font-size:19px;line-height:1.3}.board-canvas>.word-cloud{flex:0 0 auto;min-height:240px;padding:0}.board-caption{padding:8px 12px 12px;font-size:14px;line-height:1.4}.response-phrases{margin-top:13px}
 }
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
-/* Activity 3: classroom-app.js sizes the frame to this box, scaling the game down when the box is smaller than its 1024×600 layout. */
+/* Activity 3: native touch layout on phones, fitted desktop layout on Chromebooks. */
 .game-viewport{flex:1;min-height:0;position:relative;overflow:hidden;border-radius:8px}
 .game-viewport .game-frame{position:absolute;left:0;top:0;width:100%;height:100%;transform-origin:0 0}
 /* The wide spacing is for the six-letter code, not the hint text. */
@@ -205,3 +205,118 @@ dialog.student-manager::backdrop{background:#1c2b3055}
 .country-drag-preview{position:fixed;top:0;left:0;z-index:10000;pointer-events:none;padding:8px 24px;border:2px solid #167e7f;border-radius:8px;background:#e8f6f2;color:#176e64;font-size:18px;font-weight:700;box-shadow:0 5px 18px #214e4a30}
 
 .teacher-data-actions{padding:16px}.teacher-data-actions .button{width:100%}.teacher-data-actions p{margin:10px 0 0;color:var(--muted);font-size:12px;line-height:1.6}
+
+/* Match the native game breakpoint. A short touch screen scrolls instead of shrinking the lesson. */
+@media(max-width:600px),(max-width:1023px) and (pointer:coarse){
+  html{scroll-padding-block:16px}
+  body{border-top-width:4px}
+  input,textarea,select{font-size:16px;scroll-margin-block:80px}
+  .button,.button.small,.country-chip,.country-select,.nav-arrow,.object-dot,
+  .teacher-stage-nav button,.teacher-result-tabs button,.teacher-object-tabs button,
+  .beauty-stage-tabs button,.board-view-switch button,.works-sort button,
+  .exhibit-navigation>button,.exhibit-navigation .exhibit-number-pages button{min-height:44px}
+  .lesson-shell{padding:12px max(12px,env(safe-area-inset-right)) max(18px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left))}
+  .lesson-header{gap:10px;flex-wrap:wrap;margin-bottom:16px}
+  .brand-title{font-size:18px}.brand small{display:none}
+  .student-badge{margin-left:auto}.student-badge .pill{display:none}
+  .current-activity{order:3;width:100%;justify-content:flex-start;font-size:14px}
+  .current-activity strong{font-size:14px}.current-activity small{display:none}
+  .lesson-heading{align-items:flex-start;gap:12px;margin-bottom:16px}
+  .lesson-heading h1{font-size:24px}.lesson-heading p{font-size:16px}
+  .timer{min-width:86px;padding:9px;gap:5px}.timer svg{display:none}.timer strong{font-size:25px}
+  .compare-shell,.beauty-shell{height:auto;min-height:calc(100dvh - 4px);display:block}
+  .compare-shell .compare-grid{min-height:0;gap:14px}
+  .compare-shell .object-card{display:flex;flex-direction:column;padding:12px;gap:0}
+  .compare-shell .object-title{margin-bottom:8px}
+  .compare-shell .country-drop{align-self:stretch}
+  .compare-shell .viewer-host{min-height:0;flex:none}
+  .compare-shell .lesson-viewer__viewport{height:220px!important;min-height:0!important;flex:none}
+  .compare-shell .country-select{margin-top:8px;min-height:48px;padding:10px;font-size:17px}
+  .compare-shell .country-tray{position:static;flex-wrap:wrap;gap:8px;padding:12px;margin-top:14px}
+  .country-tray>span{width:100%;text-align:center;margin:0}
+  .compare-shell .country-chip{min-height:44px;flex:1;max-width:120px;padding:9px 14px;font-size:17px}
+  .compare-shell>.answer-footer{padding:12px 0;gap:12px;margin:0;flex-wrap:wrap}
+  .compare-shell>.answer-footer .save-status{flex:1;min-width:160px}
+  .compare-shell>.answer-footer>.button{min-height:48px}
+  .lesson-viewer__controls{gap:5px!important;flex-wrap:wrap!important}
+  .lesson-viewer__controls button{min-width:44px!important;min-height:44px!important;padding:7px 9px!important;font-size:16px!important}
+  .lesson-viewer__expand{min-height:44px!important;font-size:15px!important}
+  .lesson-viewer__hint{font-size:13px!important}
+  .observe-layout,.beauty-layout{gap:14px;align-items:start}
+  .observe-stage,.beauty-shell .beauty-object{padding:14px;display:block}
+  .observe-stage .viewer-host,.beauty-shell .beauty-object .viewer-host{--lesson-viewer-height:250px;display:block;min-height:0}
+  .beauty-shell .beauty-object .lesson-viewer__viewport{height:250px!important;min-height:0!important}
+  .beauty-shell .beauty-object h2{font-size:21px;margin:6px 0 12px}
+  .observe-stage .observe-navigation{display:flex;flex-wrap:wrap;gap:8px}
+  .observe-navigation .object-dots{flex:1;gap:5px}
+  .nav-arrow,.object-dot{min-width:44px;width:44px;height:44px;flex:none}
+  .observation-writing,.beauty-shell .beauty-writing{padding:16px;display:flex;flex-direction:column;gap:16px;min-width:0}
+  .observation-writing>div:first-child{display:block}
+  .observation-writing .writing-heading h2,.beauty-shell .beauty-writing .writing-heading h2{font-size:21px}
+  .observation-writing label,.beauty-shell .beauty-writing label{display:grid;grid-template-rows:none;gap:8px;font-size:16px}
+  .observation-writing textarea,.beauty-shell .beauty-writing textarea{height:130px;min-height:130px;padding:11px 12px;font-size:16px;resize:vertical}
+  .observation-writing input{font-size:16px;padding:12px}
+  .beauty-shell .beauty-writing .answer-footer{margin-top:0;gap:12px;flex-wrap:wrap;width:100%}
+  .beauty-shell .beauty-writing .answer-footer>.button{min-height:48px;margin-left:auto}
+  .observation-writing .observation-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .observation-actions>.observed-progress{grid-column:1/-1;margin:0}
+  .observation-actions>.button{min-height:48px;width:100%;padding:10px}
+  .teacher-header{margin:-12px -12px 16px;padding:12px;gap:10px}
+  .teacher-header .brand{width:100%}.teacher-room-code{flex:1;min-width:0;flex-wrap:wrap}
+  .teacher-tools{margin-left:auto;flex-wrap:wrap}.teacher-tools>.pill{display:none}
+  .code-actions{flex-wrap:wrap}.code-actions .button,.teacher-tools .button{min-height:44px}
+  .teacher-workspace{display:flex;flex-direction:column;gap:16px}
+  .teacher-main,.teacher-sidebar{width:100%;min-width:0}
+  .teacher-sidebar{position:static;max-height:none;overflow:visible;order:-1;grid-template-columns:1fr}
+  .teacher-control-bar{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:14px}
+  .teacher-control-bar>.timer{grid-column:2;grid-row:1/3}
+  .teacher-action-buttons{grid-column:1/-1;grid-template-columns:repeat(2,minmax(0,1fr))}
+  .teacher-metrics{gap:12px;justify-content:flex-start;flex-wrap:wrap}
+  .teacher-stage-nav button{font-size:14px;line-height:1.5;padding:8px 5px;min-width:0}
+  .participant-panel{overflow-x:auto}.participants-table{min-width:300px}
+  .board-toolbar{flex-wrap:wrap}.teacher-object-tabs{flex-wrap:wrap}
+  .teacher-object-tabs button{min-width:44px}
+  .lesson-viewer__dialog{width:calc(100vw - 16px)!important;height:calc(100dvh - 16px)!important;padding:12px!important;border-radius:12px!important}
+  .lesson-viewer__dialog-title{font-size:18px!important}.lesson-viewer__dialog-close{min-height:44px!important;padding:9px 12px!important}
+  .work-dialog{width:calc(100vw - 16px);max-height:calc(100dvh - 16px)}
+  .work-dialog-header{padding:10px 12px}.work-dialog-header .button{min-height:44px}
+  .work-dialog-body{padding:12px;gap:18px}.work-dialog-details section p{font-size:16px}
+  .work-dialog .student-work-viewer__controls button,.work-photo-controls button{min-width:44px!important;min-height:44px!important}
+  .work-dialog .student-work-viewer__controls{flex-wrap:wrap}
+  dialog.student-manager{width:calc(100vw - 16px);max-height:calc(100dvh - 16px);padding:14px}
+  .manager-table{min-width:300px}.manager-table .button{min-height:44px}
+  .game-shell{height:calc(100dvh - 4px);min-height:0;padding:6px max(6px,env(safe-area-inset-right)) max(6px,env(safe-area-inset-bottom)) max(6px,env(safe-area-inset-left))}
+  .game-shell .lesson-header{flex-wrap:nowrap;margin-bottom:5px;padding-bottom:5px;min-height:28px;gap:8px}
+  .game-shell .brand-mark,.game-shell .brand small,.game-shell .current-activity,.game-shell .student-badge .pill{display:none}
+  .game-shell .brand-title,.game-shell .student-badge strong{font-size:14px}
+  .game-save-status{font-size:12px;padding-top:4px}
+}
+@media(max-width:600px){
+  .welcome{padding:24px max(16px,env(safe-area-inset-right)) max(24px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left))}
+  .welcome-form{padding:22px 18px}.welcome-form form{gap:17px}.identity-fields{gap:10px}
+  .lesson-heading{flex-wrap:wrap}.lesson-heading>div:not(.timer){flex:1 1 100%}.lesson-heading>.timer{margin-left:auto}
+  .compare-grid,.beauty-layout,.observe-layout{grid-template-columns:1fr}
+  .compare-shell .lesson-viewer__viewport{height:230px!important}
+  .observe-navigation .object-dots{flex-wrap:wrap}
+  .teacher-header .code-actions{width:100%}.teacher-overview h1{font-size:23px}
+  .teacher-visuals{grid-template-columns:1fr}.teacher-comparison-grid .comparison-result-card{display:block;padding:14px}
+  .observation-board{grid-template-columns:1fr}.board-context{display:flex;flex-direction:column}
+  .board-context .viewer-host{width:100%;--lesson-viewer-height:210px}.board-context .teacher-object-tabs{margin:0}
+  .exhibit-page{padding:14px}.exhibit-layout{grid-template-columns:1fr}.exhibit-description h2{font-size:23px}
+  .exhibit-navigation{flex-wrap:wrap}.exhibit-navigation .exhibit-number-pages{order:-1;flex-basis:100%;gap:5px}
+  .exhibit-navigation .exhibit-number-pages button{min-width:44px}
+  .lesson-viewer__dialog-body{display:flex;flex-direction:column;overflow-y:auto;gap:14px;overscroll-behavior:contain}
+  .lesson-viewer__expanded-host{flex:none;height:clamp(290px,50dvh,410px)}
+  .lesson-viewer__info{flex:none;overflow:visible;padding:15px}.lesson-viewer__info-title{font-size:22px}
+  .works-grid{grid-template-columns:1fr}.work-dialog-body{grid-template-columns:1fr}.work-dialog-stage{height:370px}
+}
+@media(min-width:601px) and (max-width:1023px) and (pointer:coarse){
+  .compare-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .compare-shell .lesson-viewer__viewport{height:190px!important}
+  .observe-layout,.beauty-layout{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .lesson-viewer__dialog-body{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(230px,1fr);overflow:hidden}
+  .lesson-viewer__expanded-host{height:auto;min-height:0}
+  .lesson-viewer__info{overflow-y:auto;min-height:0;padding:12px;font-size:15px}
+  .lesson-viewer__info-title{font-size:21px}
+  .work-dialog-stage{height:300px}
+}

@@ -24,7 +24,7 @@ import {tutorialMarkup,TUTORIAL_STEPS,walkingCustomerMarkup,CustomerArrival} fro
 const app=document.querySelector('#app'),popup=document.querySelector('#popup'),museum=document.querySelector('#museum');
 const KEY=classroomStorageKey(),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let clayGame,inlayGame,inspectionGame,galleryCraft,galleryOriginal,assessmentRequest,classroomBridge,choosingVariant=false;
-let tutorialSeen=false,pendingEntry=null,tutorialSession=null,customerArrival=null;
+let tutorialSeen=false,pendingEntry=null,tutorialSession=null,customerArrival=null,renderedPhoneStage=null;
 const emptyState=()=>({history:[],gallery:[],draft:null,sound:false});
 let state=emptyState(),work=null,screen='cover',craft,sculpt,mini,busy=false,toastTimer,modelModule,modelToken=0,selectedCatalog='pillow',galleryPage=0,retentionTimer;
 let gameStorage;try{gameStorage=localStorage;}catch{}
@@ -53,6 +53,8 @@ function cover(){return `<section class="cover shop-cover"><div class="cover-con
 function readableText(root){for(const el of root.querySelectorAll('button,p,span,small,label,select,input,textarea,a,dt,dd,h1,h2,h3'))if(parseFloat(getComputedStyle(el).fontSize)<14)el.style.fontSize='14px';}
 function render(){
  if(expireGameData())return;
+ const phoneStage=[screen,work?.id,work?.step,work?.inlayMode,choosingVariant].join(':');
+ const enteredPhoneStage=phoneStage!==renderedPhoneStage;renderedPhoneStage=phoneStage;
  customerArrival?.pause();
  sculpt?.dispose();sculpt=null;clayGame?.dispose();clayGame=null;inlayGame?.dispose();inlayGame=null;inspectionGame?.dispose();inspectionGame=null;craft?.el.remove();
  const content=screen==='cover'?cover():screen==='reaction'?reviewMarkup(work):screen==='counter'||screen==='counter-delivery'?counterScreen():screen==='clay'?clayMarkup(work):screen==='inspection'?inspectionMarkup(work):stationMarkup(work,{choosingVariant});
@@ -67,6 +69,9 @@ function render(){
  readableText(app);
  if(screen==='counter'&&customerArrival?.workId===work?.id)customerArrival.mount(document.querySelector('.counter-scene'));
  if(screen==='inspection')inspectionGame=new InspectionGame(document.querySelector('.inspection-scene'),work,{onChange:(next,{settled})=>{if(expireGameData()||!work)return;work.inspection=next;save();if(settled)render();}});
+ // Phone stations scroll as documents. A new step starts at its heading, while
+ // stamping, drawing and inspection updates keep the learner's current view.
+ if(enteredPhoneStage&&matchMedia('(max-width:600px), (max-width:1023px) and (pointer:coarse)').matches)window.scrollTo(0,0);
 }
 
 function begin(fresh=false){if(expireGameData())return;choosingVariant=false;customerArrival?.dispose();customerArrival=null;if(fresh){state.draft=null;work=null;}if(state.draft&&state.draft.step<4)work=structuredClone(state.draft);else if(!work||work.step===4){const o=drawNextOrder(state.history);state.history.push(o.id);const customerId=randomCustomerId(state.lastCustomerId);state.lastCustomerId=customerId;work={id:crypto.randomUUID(),customerId,orderId:o.id,accepted:false,clay:freshClay(),shape:null,modelId:null,technique:'inlay',pattern:'crane',placements:[],strokes:[],width:1,knead:0,sculpt:null,decorPhase:0,decorDone:false,firing:[],step:0,explanationUse:'',explanationBeauty:'',selfUse:false,selfBeauty:false};if(!save())return;customerArrival=new CustomerArrival(work.id,customerId);}work.strokes??=[];work.explanationUse??='';work.explanationBeauty??='';if(!work.clay)work.clay={...freshClay(),body:true,kneads:6,prepared:true};work.clay.body=true;if(!work.customerId){work.customerId=randomCustomerId(state.lastCustomerId);state.lastCustomerId=work.customerId;if(!save())return;}screen=work.stationView||(work.shape?(work.step===3?'counter-delivery':'game'):'counter');render();}
