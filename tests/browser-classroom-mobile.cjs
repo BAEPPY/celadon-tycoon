@@ -97,8 +97,8 @@ const sizes=[{width:360,height:640},{width:390,height:844},{width:430,height:932
     await layout(teacher,'work-expanded',{dialog:'.work-dialog[open]',targets:['[data-close-work]','[data-work-view]']});
     assert.match(await teacher.locator('.work-dialog').innerText(),/모바일학생/);assert.match(await teacher.locator('.work-dialog').innerText(),/선을 닦았어요/);
     await teacher.locator('[data-close-work]').tap();
-    const {observerToken}=await api('control',{body:{command:'observer-link'}}),observer=await phone('observer');
-    await observer.goto(`${base}/observe?code=${room.code}#key=${observerToken}`,{waitUntil:'domcontentloaded'});await observer.locator('.work-card').waitFor();assert.equal(await observer.locator('[data-action=start],[data-action=pause],[data-sort=number]').count(),0);
+    const {observerToken,observerCode=room.code}=await api('control',{body:{command:'observer-link'}}),observer=await phone('observer');
+    await observer.goto(`${base}/observe?code=${encodeURIComponent(observerCode)}#key=${observerToken}`,{waitUntil:'domcontentloaded'});await observer.locator('.work-card').waitFor();assert.equal(await observer.locator('[data-action=start],[data-action=pause],[data-sort=number]').count(),0);
     await observer.locator('[data-action=view-work]').tap();await observer.locator('.work-dialog[open]').waitFor();assert.doesNotMatch(await observer.locator('.work-dialog').innerText(),/모바일학생/);await layout(observer,'observer-work',{dialog:'.work-dialog[open]'});
     assert.deepEqual(errors,[]);
     console.log('Mobile classroom: real join, touch nameplates, teacher-gated stages, final saves/waits, orientation drafts, reduced-keyboard viewport, enlarged 3D/works, observer privacy and native game frame passed at 360/390/430/844/956px.');

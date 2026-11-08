@@ -25,7 +25,7 @@ const base=process.env.BASE_URL||'http://127.0.0.1:4173';
     await student.goto(`${base}/lesson?code=${room.code}`);await student.fill('[name=number]','7');await student.fill('[name=name]','별빛');await student.click('[data-form=join] button');await student.getByTestId('waiting-screen').waitFor();
     const identity=await student.evaluate(()=>JSON.parse(sessionStorage.getItem('celadon-classroom-student-v1')));
     const state=()=>api('state',{auth:identity.participantToken,body:{participantId:identity.participantId}});
-    const {observerToken}=await control('observer-link');await observer.goto(`${base}/observe?code=${room.code}#key=${observerToken}`);await observer.locator('.teacher-stage-nav').waitFor();
+    const {observerToken,observerCode=room.code}=await control('observer-link');await observer.goto(`${base}/observe?code=${encodeURIComponent(observerCode)}#key=${observerToken}`);await observer.locator('.teacher-stage-nav').waitFor();
     await teacher.click('[data-action=start][data-activity="1"]');await student.locator('[data-country-for="1"]').waitFor();
     for(const [id,value] of [['1','japan'],['2','yuan'],['3','goryeo']])await student.selectOption(`[data-country-for="${id}"]`,value);
     await student.locator('[data-comparison-done]').click();await student.locator('.completion-dialog[open]').waitFor();
