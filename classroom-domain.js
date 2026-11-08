@@ -1,4 +1,4 @@
-import {createHash, randomBytes, timingSafeEqual} from 'node:crypto';
+import {createHash, createHmac, randomBytes, timingSafeEqual} from 'node:crypto';
 import {ORDERS, SHAPES, TECHNIQUES, evaluateWork} from './domain.js';
 import {assessmentInput, normalizeAssessment, rubricAssessment} from './assessment-rules.js';
 import {classroomPrefix, StoreConflict} from './classroom-store.js';
@@ -36,14 +36,26 @@ function validateCreateToken(value) {
   if (typeof value !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(value) || Buffer.from(value, 'base64url').toString('base64url') !== value) fail(400, 'invalid-create-token', '수업을 열지 못했어요. 새로고침한 뒤 다시 눌러 주세요.');
   return value;
 }
-// Observers fetch work pictures by this reference, which does not reveal the student number.
-const observerRef = (room, id) => `o${hash(`${room.observerHash}\0${id}`).slice(0, 24)}`;
 function validateNumber(value) { const number = Number(value); if (!Number.isInteger(number) || number < 1 || number > 99) fail(400, 'invalid-number', '번호는 1부터 99 사이의 숫자로 적어 주세요.'); return String(number); }
 function validateWorkId(value) { const id = clean(value, 101); if (!/^[a-zA-Z0-9_-]{1,100}$/.test(id)) fail(400, 'invalid-work', '작품 정보를 다시 확인해 주세요.'); return id; }
 function authorized(value, storedHash) {
   if (typeof value !== 'string' || value.length < 30 || value.length > 100 || typeof storedHash !== 'string') return false;
   const actual = Buffer.from(hash(value)), expected = Buffer.from(storedHash);
   return actual.length === expected.length && timingSafeEqual(actual, expected);
+}
+// Keep published QR links stable across teacher tabs and server instances. The
+// room's teacher hash is private; observers cannot derive it from their token.
+const observerDigest = (room, purpose) => createHmac('sha256', room.teacherHash).update(`${room.code}:${purpose}`).digest('base64url');
+const observerLinkToken = room => observerDigest(room, 'observer-link-v1');
+const observerWorkReference = (room, participantId, workId) => `obs_${observerDigest(room, `observer-work-v1:${participantId}:${workId}`)}`;
+function observerWorkParticipant(room, reference, workId) {
+  if (typeof reference !== 'string' || !/^obs_[A-Za-z0-9_-]{43}$/.test(reference)) fail(403, 'observer-artwork', '참관 화면에서 작품을 다시 열어 주세요.');
+  const candidate = Buffer.from(reference); let found;
+  // Only 99 class numbers are valid. Resolve without exposing a number in a
+  // URL, storing a second lookup table, or stopping at the matching number.
+  for (let number = 1; number <= 99; number++) if (timingSafeEqual(candidate, Buffer.from(observerWorkReference(room, String(number), workId)))) found = String(number);
+  if (!found) fail(403, 'observer-artwork', '참관 화면에서 작품을 다시 열어 주세요.');
+  return found;
 }
 function settingsFrom(raw = {}, previous = DEFAULT_CLASSROOM_SETTINGS) {
   const settings = {durations: {...previous.durations}, beautyDuration: previous.beautyDuration ?? DEFAULT_CLASSROOM_SETTINGS.beautyDuration, submitButton: previous.submitButton, autoPause: previous.autoPause};
@@ -432,8 +444,9 @@ export class ClassroomService {
     const [students, reveal] = await Promise.all([this.students(code), this.revealedAnswers(room)]);
     const summary = classroomSummary(room, students, this.now());
     return {state: classroomState(room, this.now()), comparison: summary.comparison, observations: summary.observations, beauty: summary.beauty,
-      participants: summary.participants.map(({activity1Complete, activity2Complete, beautyComplete, beautySubmitted, completedWorkCount}) => ({activity1Complete, activity2Complete, beautyComplete, beautySubmitted, completedWorkCount})),
-      works: summary.works.map(({name, number, participantId, ...work}) => ({...work, participantId: observerRef(room, participantId)})), reveal};
+      participantCount: summary.participants.length,
+      completionCounts: {1: summary.participants.filter(student => student.activity1Complete).length, 2: summary.participants.filter(student => student.activity2Complete).length},
+      works: summary.works.map(({name, number, participantId, ...work}) => ({...work, participantId: observerWorkReference(room, participantId, work.id)})), reveal};
   }
   async state(raw, bearer) {
     // Only polling may reuse short-lived reads. Every mutation re-reads durable state.
@@ -480,8 +493,10 @@ export class ClassroomService {
         room.revealed[activity] = true;
       } else if (raw.command === 'lock-room') room.locked = raw.locked === true;
       else if (raw.command === 'observer-link') {
-        // A new link replaces the previous one; only its hash is stored, like the teacher and student keys.
-        observerToken = this.makeToken(); room.observerHash = hash(observerToken);
+        observerToken = observerLinkToken(room);
+        if (authorized(observerToken, room.observerHash)) return {state: classroomState(room, this.now()), observerToken};
+        // Older random links migrate once when the teacher requests a new QR.
+        room.observerHash = hash(observerToken);
       } else fail(400, 'invalid-control', '진행 버튼을 다시 확인해 주세요.');
       room.revision++;
       try { await this.store.update(roomKey(code), room, current.etag); return {state: classroomState(room, this.now()), ...(observerToken ? {observerToken} : {})}; }
@@ -623,14 +638,9 @@ export class ClassroomService {
   }
   async artwork(raw, bearer) {
     const code = validateCode(raw.code), workId = validateWorkId(raw.workId), {data: room} = await this.room(code);
-    let id;
-    if (authorized(bearer, room.observerHash)) {
-      id = Array.from({length: 99}, (_, index) => String(index + 1)).find(candidate => observerRef(room, candidate) === raw.participantId);
-      if (!id) fail(404, 'work-not-found', '완성작을 찾지 못했어요.');
-    } else {
-      id = validateNumber(raw.participantId);
-      if (!authorized(bearer, room.teacherHash)) await this.student(code, id, bearer);
-    }
+    const teacher = authorized(bearer, room.teacherHash), observer = !teacher && authorized(bearer, room.observerHash);
+    const id = observer ? observerWorkParticipant(room, raw.participantId, workId) : validateNumber(raw.participantId);
+    if (!teacher && !observer) await this.student(code, id, bearer);
     const student = await this.expireStudentWorks(code, id);
     const work = student && visibleWorks(student.data, this.now()).filter(work => work.id === workId).sort((a, b) => b.submittedAt - a.submittedAt)[0];
     if (!work) fail(404, 'work-not-found', '완성작을 찾지 못했어요.');
