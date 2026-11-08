@@ -29,7 +29,10 @@
     "test:classroom-works": "node tests/browser-classroom-works.cjs",
     "test:game-upload-retention": "node tests/browser-game-upload-retention.cjs",
     "test:classroom-beauty": "node tests/browser-classroom-beauty.cjs",
-    "test:incense-texture": "node tests/browser-incense-texture.cjs"
+    "test:incense-texture": "node tests/browser-incense-texture.cjs",
+    "test:student-work-viewer": "node tests/browser-student-work-viewer.cjs",
+    "test:classroom-work-360": "node tests/browser-classroom-work-360.cjs",
+    "test:onboarding": "node tests/browser-onboarding.cjs"
   },
   "dependencies": {
     "@vercel/blob": "2.8.2",

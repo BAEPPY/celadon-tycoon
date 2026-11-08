@@ -1,3 +1,4 @@
+const {enterGame}=require('./game-entry.cjs');
 /* Verify the public classroom entry and the separately routed game, including its relative assets. */
 const assert=require('node:assert/strict');
 const {chromium}=require('playwright');
@@ -37,7 +38,7 @@ const base=process.env.BASE_URL||'http://127.0.0.1:4173';
     }
     // The trailing slash is the important asset-resolution regression: all
     // existing ./assets and ./app.js references must still resolve at origin.
-    await page.locator('[data-action=new-order]').click();await page.locator('[data-action=accept]').waitFor();
+    await enterGame(page,'new-order');await page.locator('[data-action=accept]').waitFor();
     await page.waitForFunction(()=>[...document.querySelectorAll('.desk-props img,.reference-book img')].every(image=>image.complete&&image.naturalWidth>0));
     await page.locator('[data-action=accept]').click();
     await page.locator('.knead-pad').focus();for(let i=0;i<6;i++)await page.locator('.knead-pad').press('Space');

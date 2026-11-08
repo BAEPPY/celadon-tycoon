@@ -1,6 +1,9 @@
 import {ClassroomError, ClassroomService} from '../classroom-domain.js';
 import {classroomStorageStatus, classroomStore, StoreUnavailable} from '../classroom-store.js';
 
+// Includes a bounded full drawing plus its preview, below Vercel's 4.5 MB request limit.
+export const MAX_CLASSROOM_BODY_BYTES = 4_000_000;
+
 function send(res, status, value) {
   res.statusCode = status;
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -12,8 +15,8 @@ async function body(req) {
   let text;
   if (req.body && typeof req.body === 'object') text = JSON.stringify(req.body);
   else if (typeof req.body === 'string') text = req.body;
-  else { text = ''; for await (const chunk of req) { text += chunk; if (Buffer.byteLength(text) > 800000) throw new ClassroomError(413, 'body-too-large', '보내는 작품 자료가 너무 커요.'); } }
-  if (Buffer.byteLength(text) > 800000) throw new ClassroomError(413, 'body-too-large', '보내는 작품 자료가 너무 커요.');
+  else { text = ''; for await (const chunk of req) { text += chunk; if (Buffer.byteLength(text) > MAX_CLASSROOM_BODY_BYTES) throw new ClassroomError(413, 'body-too-large', '보내는 작품 자료가 너무 커요.'); } }
+  if (Buffer.byteLength(text) > MAX_CLASSROOM_BODY_BYTES) throw new ClassroomError(413, 'body-too-large', '보내는 작품 자료가 너무 커요.');
   try { const value = JSON.parse(text || '{}'); if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(); return value; }
   catch { throw new ClassroomError(400, 'invalid-json', '보내는 내용을 다시 확인해 주세요.'); }
 }

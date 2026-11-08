@@ -2,6 +2,7 @@ import {createHash, randomBytes, timingSafeEqual} from 'node:crypto';
 import {ORDERS, SHAPES, TECHNIQUES, evaluateWork} from './domain.js';
 import {assessmentInput, normalizeAssessment, rubricAssessment} from './assessment-rules.js';
 import {classroomPrefix, StoreConflict} from './classroom-store.js';
+import {sanitizeWorkDesign} from './work-design.js';
 
 export class ClassroomError extends Error {
   constructor(status, code, message) { super(message); this.status = status; this.code = code; }
@@ -178,6 +179,15 @@ export function finishedWork(raw) {
   work.assessment = normalizeAssessment(raw.assessment, work) || rubricAssessment(work);
   if (!work.assessment.accepted) fail(400, 'unfinished-work', '작품 설명을 마무리한 뒤 보내 주세요.');
   return {work, score: evaluateWork(work)};
+}
+
+function submittedDesign(raw, work) {
+  if (raw === undefined || raw === null) return null;
+  const design = sanitizeWorkDesign(raw);
+  if (!design || design.shape !== work.shape || design.modelId !== (work.modelId || work.shape) || design.technique !== work.technique) {
+    fail(400, 'invalid-design', '완성작의 모양 정보를 다시 확인해 주세요.');
+  }
+  return design;
 }
 
 const TEACHER_ROOM_GONE = '이미 삭제했거나 찾을 수 없는 수업이에요. 새 수업을 열어 주세요.';
@@ -500,12 +510,13 @@ export class ClassroomService {
     workRoom(room, raw.runId, this.now()); const {data: initialStudent} = await this.student(code, id, bearer);
     if (raw.expiresAt !== undefined && (!Number.isSafeInteger(raw.expiresAt) || raw.expiresAt <= 0)) fail(400, 'invalid-expiration', '게임 저장 기한을 다시 확인해 주세요.');
     if (raw.expiresAt !== undefined && this.now() >= raw.expiresAt) workExpired();
-    const {work, score} = finishedWork(raw.work), preview = previewImage(raw.preview || raw.work.preview);
+    const {work, score} = finishedWork(raw.work), preview = previewImage(raw.preview || raw.work.preview), design = submittedDesign(raw.work.design, work);
     if (retiredWorkIds(initialStudent, room.runId).includes(hash(work.id))) workExpired();
     const existingWork = initialStudent.works.find(item => item.id === work.id && item.runId === room.runId);
     if (existingWork) {
       if (expiredWork(existingWork, this.now())) { await this.expireStudentWorks(code, id); workExpired(); }
-      return {state: classroomState(room, this.now()), work: existingWork, duplicate: true};
+      const result = await this.backfillWorkDesign(code, id, bearer, room.runId, work, score, design, existingWork);
+      return {state: classroomState(room, this.now()), work: result, duplicate: true};
     }
     if (initialStudent.works.filter(item => item.runId === room.runId).length + retiredWorkIds(initialStudent, room.runId).length >= 10) fail(409, 'work-limit', '이번 활동에는 작품을 10점까지 보낼 수 있어요.');
     // A new run can reuse a client ID without an older cleanup touching the new image.
@@ -514,10 +525,11 @@ export class ClassroomService {
       objectiveScore: score.objective, explanationScore: score.explanation, explanationUse: work.explanationUse, explanationBeauty: work.explanationBeauty, submittedAt: this.now()};
     summary.expiresAt = Math.min(summary.submittedAt + WORK_RETENTION_MS, raw.expiresAt ?? Infinity);
     const priorArt = await this.store.read(key);
-    if (!priorArt) { try { await this.store.create(key, {preview, submittedAt: summary.submittedAt, expiresAt: summary.expiresAt}); } catch (error) { if (!(error instanceof StoreConflict)) throw error; } }
+    if (!priorArt) { try { await this.store.create(key, {preview, ...(design ? {design} : {}), submittedAt: summary.submittedAt, expiresAt: summary.expiresAt}); } catch (error) { if (!(error instanceof StoreConflict)) throw error; } }
     const savedArt = priorArt || await this.store.read(key);
     if (Number.isFinite(savedArt?.data.submittedAt)) summary.submittedAt = savedArt.data.submittedAt;
     summary.expiresAt = Math.min(summary.expiresAt, summary.submittedAt + WORK_RETENTION_MS, Number.isFinite(savedArt?.data.expiresAt) ? savedArt.data.expiresAt : Infinity);
+    if (sanitizeWorkDesign(savedArt?.data.design)) summary.designVersion = 1;
     // In particular, clean an image created after the delete-room sweep.
     try { await this.room(code); }
     catch (error) { if (error.code === 'room-not-found') await this.store.delete(key); throw error; }
@@ -527,18 +539,51 @@ export class ClassroomService {
         await this.store.delete(key); await this.expireStudentWorks(code, id); workExpired();
       }
       const duplicate = student.works.find(item => item.id === work.id && item.runId === room.runId);
-      if (duplicate) return {state: classroomState(room, this.now()), work: duplicate, duplicate: true};
+      if (duplicate) {
+        const result = await this.backfillWorkDesign(code, id, bearer, room.runId, work, score, design, duplicate);
+        return {state: classroomState(room, this.now()), work: result, duplicate: true};
+      }
       if (student.works.filter(item => item.runId === room.runId).length + retiredWorkIds(student, room.runId).length >= 10) fail(409, 'work-limit', '이번 활동에는 작품을 10점까지 보낼 수 있어요.');
       const {data: latestRoom} = await this.room(code); workRoom(latestRoom, raw.runId, this.now());
       student.works.push(summary);
       try {
         await this.store.update(studentKey(code, id), student, current.etag);
         if (expiredWork(summary, this.now())) { await this.expireStudentWorks(code, id); workExpired(); }
-        return {state: classroomState(latestRoom, this.now()), work: summary};
+        const result = await this.backfillWorkDesign(code, id, bearer, room.runId, work, score, design, summary);
+        return {state: classroomState(latestRoom, this.now()), work: result};
       }
       catch (error) { if (!(error instanceof StoreConflict)) throw error; }
     }
     fail(409, 'save-retry', '작품을 저장하는 중이에요. 잠시 뒤 다시 보내 주세요.');
+  }
+  async backfillWorkDesign(code, id, bearer, runId, submitted, score, design, known) {
+    if (!design || known.designVersion === 1) return known;
+    for (let retry = 0; retry < 6; retry++) {
+      const {data: room} = await this.room(code); workRoom(room, runId, this.now());
+      const current = await this.student(code, id, bearer), student = structuredClone(current.data);
+      const work = student.works.find(item => item.id === submitted.id && item.runId === runId);
+      if (!work || expiredWork(work, this.now())) { await this.expireStudentWorks(code, id); workExpired(); }
+      if (work.designVersion === 1) return work;
+      // Only supplement an original resend. Scores, explanations and the preview remain immutable.
+      if (['title', 'shape', 'explanationUse', 'explanationBeauty'].some(key => work[key] !== submitted[key])
+        || work.score !== score.total || work.objectiveScore !== score.objective || work.explanationScore !== score.explanation) return work;
+      const key = imageKey(code, id, work), artifact = await this.store.read(key);
+      if (!artifact) return work; // Never recreate an image removed by expiry or teacher deletion.
+      if (!sanitizeWorkDesign(artifact.data.design)) {
+        try {
+          await this.store.update(key, {...artifact.data, design, submittedAt: work.submittedAt, expiresAt: workExpiresAt(work)}, artifact.etag);
+        } catch (error) { if (error instanceof StoreConflict) continue; throw error; }
+      }
+      if (expiredWork(work, this.now())) { await this.expireStudentWorks(code, id); workExpired(); }
+      const updated = {...work, designVersion: 1};
+      student.works = student.works.map(item => item === work ? updated : item);
+      try {
+        await this.store.update(studentKey(code, id), student, current.etag);
+        if (expiredWork(work, this.now())) { await this.expireStudentWorks(code, id); workExpired(); }
+        return updated;
+      } catch (error) { if (!(error instanceof StoreConflict)) throw error; }
+    }
+    fail(409, 'save-retry', '작품의 모양을 저장하는 중이에요. 잠시 뒤 다시 보내 주세요.');
   }
   async artwork(raw, bearer) {
     const code = validateCode(raw.code), id = validateNumber(raw.participantId), workId = validateWorkId(raw.workId), {data: room} = await this.room(code);
@@ -549,7 +594,7 @@ export class ClassroomService {
     const result = await this.store.read(imageKey(code, id, work));
     if (expiredWork(work, this.now())) { await this.expireStudentWorks(code, id); fail(404, 'work-not-found', '완성작을 찾지 못했어요.'); }
     if (!result) fail(404, 'work-not-found', '작품 사진을 찾지 못했어요.');
-    return {preview: result.data.preview};
+    return {preview: result.data.preview, design: sanitizeWorkDesign(result.data.design)};
   }
   async removeRoom(code, bearer) {
     // Marking the room deleted first stops new joins and answers. The teacher hash stays until the sweep has

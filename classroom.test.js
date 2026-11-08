@@ -6,10 +6,12 @@ import os from 'node:os';
 import path from 'node:path';
 import {ClassroomService, WORK_UPLOAD_GRACE_MS, WORK_RETENTION_MS, finishedWork} from './classroom-domain.js';
 import {BlobClassroomStore, FileClassroomStore, StoreConflict, classroomPrefix, classroomStorageStatus} from './classroom-store.js';
-import {createClassroomHandler} from './api/classroom.js';
+import {createClassroomHandler, MAX_CLASSROOM_BODY_BYTES} from './api/classroom.js';
 import {createCleanupHandler} from './api/cleanup-classroom.js';
 import {assessmentFingerprint} from './assessment-rules.js';
 import {evaluateWork} from './domain.js';
+import {classroomWorkPayload} from './classroom-game-bridge.js';
+import {sanitizeWorkDesign} from './work-design.js';
 
 // This adapter is test-only. Real requests always use durable files or private Blob.
 class MemoryStore {
@@ -588,7 +590,7 @@ test('API enforces bearer authorization on every student write and teacher read/
   assert.equal((await request(handler, {method: 'POST', payload: {action: 'control', code: f.room.code, command: 'pause'}, auth: student.participantToken})).statusCode, 403);
   assert.equal((await request(handler, {query: {action: 'teacher', code: f.room.code, teacherToken: f.room.teacherToken}})).statusCode, 403);
   assert.equal((await request(handler, {method: 'POST', payload: '{bad'})).statusCode, 400);
-  assert.equal((await request(handler, {method: 'POST', payload: {action: 'create', extra: 'x'.repeat(800001)}})).statusCode, 413);
+  assert.equal((await request(handler, {method: 'POST', payload: {action: 'create', extra: 'x'.repeat(MAX_CLASSROOM_BODY_BYTES + 1)}})).statusCode, 413);
   assert.equal((await request(handler, {method: 'POST', payload: {action: 'create'}, headers: {origin: 'https://evil.test'}})).statusCode, 403);
   assert.equal((await request(handler, {method: 'DELETE'})).statusCode, 405);
   const read = await request(handler, {query: {action: 'state', code: f.room.code, participantId: student.participantId}, auth: student.participantToken});
@@ -1000,4 +1002,111 @@ test('metadata cleanup honors an orphan upload original deadline before its 24-h
   for (const key of [expired, young]) await f.store.create(key, {preview: png, submittedAt: f.service.now(), expiresAt});
   f.advance(1000); await f.service.cleanupExpiredWorks();
   assert.equal(await f.store.read(expired), null); assert.ok(await f.store.read(young));
+});
+
+function detailedWork() {
+  return rawWork({modelId: 'pillow', width: 1.1, viewFrame: 13, decorPhase: 2, clay: {slip: 'dark'},
+    placements: [{x: 180, y: 190, uv: [.4, .6], pattern: 'crane', stampSize: 1.6, surfaceAngle: Math.PI + .3, surfaceV: .53, surfaceRadius: .2}],
+    strokes: [{points: Array.from({length: 512}, (_, index) => ({uv: [.4 + index / 10000, .6], surfaceAngle: Math.PI + index / 1000, surfaceV: .53, surfaceRadius: .2}))}],
+    inlay: {slip: 'dark', fillDone: true, wipeDone: true, fill: ['48:25', '49:25'], wipe: ['48:25']}});
+}
+
+test('private artwork preserves complete rendering data for authorized readers without changing scores or public summaries', async () => {
+  const f = await completedFixture(), other = await f.join(2), observer = await f.control('observer-link'), original = detailedWork();
+  const payload = classroomWorkPayload(original), design = sanitizeWorkDesign(original);
+  payload.design.participantToken = 'must-not-be-stored'; payload.design.placements[0].studentName = 'must-not-be-stored';
+  const submitted = await f.service.submitWork({...f.payload, work: payload}, f.student.participantToken);
+  assert.equal(submitted.work.designVersion, 1); assert.equal(submitted.work.score, evaluateWork(original).total);
+  assert.equal(submitted.work.explanationScore, 17);
+  const query = {code: f.room.code, participantId: '1', workId: original.id};
+  for (const bearer of [f.student.participantToken, f.room.teacherToken, observer.observerToken]) {
+    const artifact = await f.service.artwork(query, bearer);
+    assert.equal(artifact.preview, png); assert.deepEqual(artifact.design, design);
+    assert.equal(artifact.design.strokes[0].points.length, 512);
+  }
+  await rejectsCode(f.service.artwork(query, other.participantToken), 'student-auth');
+  const summary = (await f.service.overview({code: f.room.code}, f.room.teacherToken)).works[0];
+  assert.equal(summary.designVersion, 1);
+  for (const field of ['design', 'placements', 'strokes', 'inlay', 'preview']) assert.equal(summary[field], undefined);
+  const student = (await f.store.read(`${classroomPrefix()}/${f.room.code}/participants/1.json`)).data;
+  assert.ok(!JSON.stringify(student).includes('surfaceRadius'));
+  assert.ok(!JSON.stringify([...f.store.records.values()]).includes('must-not-be-stored'));
+  f.advance(WORK_RETENTION_MS);
+  await rejectsCode(f.service.artwork(query, f.room.teacherToken), 'work-not-found');
+  assert.ok(!JSON.stringify([...f.store.records.values()]).includes('surfaceRadius'));
+});
+
+test('the API accepts a complete 40-stroke drawing above the old preview-only body limit', async () => {
+  const f = await completedFixture(), work = detailedWork();
+  work.strokes = Array.from({length: 40}, () => ({points: Array.from({length: 512}, (_, index) => ({
+    uv: [.4000000000000001 + index / 100000, .6000000000000001], surfaceAngle: Math.PI + index / 10000,
+    surfaceV: .5300000000000001, surfaceRadius: .2000000000000001,
+  }))}));
+  const packet = {action: 'work', ...f.payload, work: classroomWorkPayload(work)};
+  const bytes = Buffer.byteLength(JSON.stringify(packet)); assert.ok(bytes > 800000); assert.ok(bytes < MAX_CLASSROOM_BODY_BYTES);
+  const response = await request(createClassroomHandler({store: f.store, now: f.service.now}), {method: 'POST', payload: packet, auth: f.student.participantToken});
+  assert.equal(response.statusCode, 200); assert.equal(response.body.work.designVersion, 1);
+  const artifact = await f.service.artwork({code: f.room.code, participantId: '1', workId: work.id}, f.room.teacherToken);
+  assert.equal(artifact.design.strokes.length, 40); assert.ok(artifact.design.strokes.every(stroke => stroke.points.length === 512));
+});
+
+test('malformed or mismatched renderer designs cannot enter private artwork storage', async () => {
+  for (const mutate of [design => {design.modelId = '../../secret';}, design => {design.shape = 'stool';}, design => {design.technique = 'openwork';}, design => {design.strokes[0].points[0].surfaceAngle = Infinity;}]) {
+    const f = await completedFixture(), work = classroomWorkPayload(detailedWork()); mutate(work.design);
+    await rejectsCode(f.service.submitWork({...f.payload, work}, f.student.participantToken), 'invalid-design');
+    assert.ok(![...f.store.records.keys()].some(key => key.includes('/artworks/')));
+  }
+});
+
+test('an original resend backfills legacy rendering once without changing the preview, scores, or original expiry', async () => {
+  const f = await completedFixture(), original = detailedWork(), expiresAt = f.service.now() + 10000;
+  const legacy = classroomWorkPayload(original); delete legacy.design;
+  const initial = await f.service.submitWork({...f.payload, work: legacy, expiresAt}, f.student.participantToken);
+  const query = {code: f.room.code, participantId: '1', workId: original.id}, key = `${classroomPrefix()}/${f.room.code}/artworks/1/${initial.work.imageId}.json`;
+  assert.equal((await f.service.artwork(query, f.room.teacherToken)).design, null);
+  f.advance(1000);
+  const changed = classroomWorkPayload(detailedWork()); changed.title = '바뀐 제목';
+  await f.service.submitWork({...f.payload, work: changed, expiresAt: expiresAt + 1000}, f.student.participantToken);
+  assert.equal((await f.service.artwork(query, f.room.teacherToken)).design, null, 'different content is not an original resend');
+  const replacementPreview = `data:image/png;base64,${Buffer.concat([Buffer.from(png.split(',')[1], 'base64'), Buffer.from([0])]).toString('base64')}`;
+  const restored = await f.service.submitWork({...f.payload, work: classroomWorkPayload(original), preview: replacementPreview, expiresAt: expiresAt + WORK_RETENTION_MS}, f.student.participantToken);
+  assert.equal(restored.duplicate, true); assert.deepEqual(restored.work, {...initial.work, designVersion: 1});
+  const artifact = await f.store.read(key);
+  assert.equal(artifact.data.preview, png); assert.equal(artifact.data.submittedAt, initial.work.submittedAt); assert.equal(artifact.data.expiresAt, expiresAt);
+  assert.deepEqual(artifact.data.design, sanitizeWorkDesign(original));
+  const modifiedDesign = classroomWorkPayload(original); modifiedDesign.design.placements[0].stampSize = .5;
+  await f.service.submitWork({...f.payload, work: modifiedDesign, expiresAt: expiresAt + WORK_RETENTION_MS}, f.student.participantToken);
+  assert.deepEqual(await f.store.read(key), artifact, 'a stored rendering is immutable');
+  f.advance(9000); await rejectsCode(f.service.artwork(query, f.room.teacherToken), 'work-not-found');
+  assert.equal(await f.store.read(key), null);
+});
+
+test('a rendering backfill racing expiry or classroom deletion cannot recreate private data', async () => {
+  for (const action of ['expire', 'delete']) {
+    const f = await completedFixture(), original = detailedWork(), legacy = classroomWorkPayload(original); delete legacy.design;
+    await f.service.submitWork({...f.payload, work: legacy, expiresAt: f.service.now() + 1000}, f.student.participantToken);
+    const gate = barrier(), originalUpdate = f.store.update.bind(f.store); let held = false;
+    f.store.update = async (key, data, etag) => {
+      if (!held && key.includes('/artworks/') && data.design) { held = true; gate.reached(); await gate.blocked; }
+      return originalUpdate(key, data, etag);
+    };
+    const backfill = f.service.submitWork({...f.payload, work: classroomWorkPayload(original)}, f.student.participantToken); await gate.ready;
+    if (action === 'expire') { f.advance(1000); await f.service.state({code: f.room.code, participantId: '1'}, f.student.participantToken); }
+    else await f.control('delete');
+    gate.release(); await rejectsCode(backfill, action === 'expire' ? 'work-expired' : 'room-not-found');
+    assert.ok(![...f.store.records.keys()].some(key => key.includes('/artworks/')));
+    assert.ok(!JSON.stringify([...f.store.records.values()]).includes('surfaceRadius'));
+  }
+});
+
+test('legacy rendering backfill never recreates a missing artifact or accepts an old activity run', async () => {
+  const f = await completedFixture(), original = detailedWork(), legacy = classroomWorkPayload(original); delete legacy.design;
+  const initial = await f.service.submitWork({...f.payload, work: legacy}, f.student.participantToken);
+  const key = `${classroomPrefix()}/${f.room.code}/artworks/1/${initial.work.imageId}.json`;
+  await f.store.delete(key);
+  const resent = await f.service.submitWork({...f.payload, work: classroomWorkPayload(original)}, f.student.participantToken);
+  assert.equal(resent.work.designVersion, undefined); assert.equal(await f.store.read(key), null);
+  await f.control('pause'); await f.control('start', 3);
+  await rejectsCode(f.service.submitWork({...f.payload, work: classroomWorkPayload(original)}, f.student.participantToken), 'activity-closed');
+  assert.equal(await f.store.read(key), null);
 });

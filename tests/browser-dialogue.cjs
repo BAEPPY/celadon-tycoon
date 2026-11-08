@@ -1,3 +1,4 @@
+const {enterGame}=require('./game-entry.cjs');
 /* The two longest order quotes × five speakers × two Chromebook sizes, on the actual built app. */
 const assert=require('node:assert/strict');
 const {chromium}=require('playwright');
@@ -15,7 +16,7 @@ const base=process.env.BASE_URL||'http://127.0.0.1:4173',KEY='celadon-tycoon-v2'
    const page=await browser.newPage({viewport:{width,height}}),errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto(new URL('/game',base).href);
    for(const [index,order]of targetOrders.entries())for(const customerId of customers){
     const draft={id:`dialogue-${order.id}-${customerId}`,orderId:order.id,customerId,accepted:true,shape:null,modelId:null,step:0,stationView:'counter',technique:'inlay',pattern:'crane',placements:[],strokes:[],width:1,knead:0,decorPhase:0,decorDone:false,firing:[],clay:{body:true,slip:'white',kneads:0,prepared:false},explanationUse:'',explanationBeauty:''};
-    await page.evaluate(({key,draft})=>localStorage.setItem(key,JSON.stringify({history:[draft.orderId],gallery:[],draft})),{key:KEY,draft});await page.reload();await page.click('[data-action=start]');await page.waitForSelector('.counter-speech');await page.evaluate(()=>document.fonts.ready);
+    await page.evaluate(({key,draft})=>localStorage.setItem(key,JSON.stringify({history:[draft.orderId],gallery:[],draft})),{key:KEY,draft});await page.reload();await enterGame(page,'start');await page.waitForSelector('.counter-speech');await page.evaluate(()=>document.fonts.ready);
     const result=await page.evaluate(()=>{
      const bubble=document.querySelector('.counter-speech'),quote=bubble.querySelector('p'),scene=document.querySelector('.counter-scene'),b=bubble.getBoundingClientRect(),tail=getComputedStyle(bubble,'::after'),tailOuter=getComputedStyle(bubble,'::before');
      const issues=[];if(document.documentElement.scrollWidth>innerWidth+1||document.documentElement.scrollHeight>innerHeight+1)issues.push('page scroll');

@@ -1,10 +1,11 @@
+const {enterGame}=require('./game-entry.cjs');
 /* Run after build against the actual app; isolated storage, pointer-only filling and wiping. */
 const assert=require('node:assert/strict');
 const {chromium}=require('playwright');
 const KEY='celadon-tycoon-v2',base=process.env.BASE_URL||'http://127.0.0.1:4173';
 const draft=extra=>({id:'decoration-browser-check',orderId:'royal-rest',customerId:'king',accepted:true,clay:{body:true,slip:'white',kneads:6,prepared:true},shape:'stool',modelId:'stool',width:1,knead:3,step:1,stationView:'game',technique:'inlay',pattern:'cloud',tool:'stamp',placements:[],strokes:[],decorPhase:0,decorDone:false,firing:[],viewFrame:0,...extra});
 async function saved(page){return page.evaluate(key=>JSON.parse(localStorage.getItem(key)).draft,KEY);}
-async function seed(page,work){await page.goto(new URL('/game',base).href);await page.evaluate(({key,work})=>localStorage.setItem(key,JSON.stringify({history:['royal-rest'],gallery:[],draft:work})),{key:KEY,work});await page.reload();await page.click('[data-action=start]');await page.waitForSelector('.illustration-viewport[data-status=ready]');await page.evaluate(()=>document.fonts.ready);}
+async function seed(page,work){await page.goto(new URL('/game',base).href);await page.evaluate(({key,work})=>localStorage.setItem(key,JSON.stringify({history:['royal-rest'],gallery:[],draft:work})),{key:KEY,work});await page.reload();await enterGame(page,'start');await page.waitForSelector('.illustration-viewport[data-status=ready]');await page.evaluate(()=>document.fonts.ready);}
 async function point(page,u,v){return page.locator('.illustration-viewport>canvas').first().evaluate((canvas,{u,v})=>{const r=canvas.getBoundingClientRect(),b=JSON.parse(canvas.parentElement.dataset.objectBox);return {x:r.x+(b[0]+u*b[2])*r.width,y:r.y+(b[1]+v*b[3])*r.height};},{u,v});}
 async function pixel(page,u=.5,v=.55){return page.locator('.illustration-viewport>canvas').first().evaluate((canvas,{u,v})=>{const b=JSON.parse(canvas.parentElement.dataset.objectBox);return [...canvas.getContext('2d').getImageData(Math.round((b[0]+u*b[2])*canvas.width),Math.round((b[1]+v*b[3])*canvas.height),1,1).data];},{u,v});}
 async function rotate(page,n){for(let i=0;i<n;i++){await page.click('[data-turn="1"]');await page.waitForSelector('.illustration-viewport[data-status=ready]');}await page.waitForTimeout(100);}
@@ -35,7 +36,7 @@ async function pixels(page){return page.locator('.illustration-viewport>canvas')
   const smallImage=await canvasImage(page);await setStampSize(page,175);assert.equal(await canvasImage(page),smallImage,'new tool size leaves existing marks untouched');
   await page.locator('.illustration-viewport>canvas').first().focus();await page.keyboard.press('Space');scaled=await saved(page);
   assert.deepEqual(scaled.placements.map(p=>p.stampSize),[undefined,.5,1.75],'keyboard stamp saves the selected size');
-  const scaledImage=await canvasImage(page);await page.reload();await page.click('[data-action=start]');await page.waitForSelector('.illustration-viewport[data-status=ready]');
+  const scaledImage=await canvasImage(page);await page.reload();await enterGame(page,'start');await page.waitForSelector('.illustration-viewport[data-status=ready]');
   assert.equal(await page.inputValue('#stamp-size'),'175');assert.equal(await canvasImage(page),scaledImage,'all saved sizes survive reload');
   await rotate(page,17);assert.equal(await page.locator('.turn-label').innerText(),'255°');await rotate(page,7);assert.equal(await page.locator('.turn-label').innerText(),'0°');
   assert.equal(await canvasImage(page),scaledImage,'a full turn preserves the size and position of each stamp');
