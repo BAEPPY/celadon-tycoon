@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Readable} from 'node:stream';
 import {assessmentInput, assessmentFingerprint, normalizeAssessment, rubricAssessment, explanationScores} from './assessment-rules.js';
-import assess, {assessWithGateway, selectModel, resolveGatewayToken, ASSESSMENT_SYSTEM} from './api/assess.js';
+import assess, {assessWithGateway, selectModel, resolveGatewayToken, providerErrorCode, ASSESSMENT_SYSTEM} from './api/assess.js';
+import {requestAssessment} from './assessment.js';
 
 const work = {
   orderId: 'royal-rest', shape: 'pillow', modelId: 'pillow', technique: 'inlay', pattern: 'crane',
@@ -28,12 +29,42 @@ test('자연스러운 모양·쓰임 소개와 구체적 제작 과정은 특정
   const steps = rubricAssessment({...work, explanationBeauty:'학 무늬를 파고 흰 흙을 채운 다음 표면을 여러 번 닦았어요.'});
   assert.equal(steps.accepted, true);assert.ok(steps.beauty.score >= 7);
   const noUse = rubricAssessment({...work, explanationUse:'학 무늬가 있는 베개를 만들었어요.'});
-  assert.equal(noUse.accepted, false);
+  assert.equal(noUse.accepted, true, '익숙한 물건 이름과 문양을 소개해도 간단한 쓰임을 인정한다');
   for (const [shape, text] of [['gourdBottle', '잘록한 조롱박 병을 만들었어요.'], ['maebyeong', '넓은 어깨가 있는 매병을 만들었어요.'], ['chrysanthemumCup', '속이 오목한 잔을 만들었어요.']]) {
-    assert.equal(rubricAssessment({...work, shape, explanationUse: text}).accepted, false, '모양 이름만으로 쓰임 설명을 대신하지 않는다');
+    assert.equal(rubricAssessment({...work, shape, explanationUse: text}).accepted, true, '모양과 구체적 특징의 짧은 소개도 통과한다');
   }
   const emptyEffort = rubricAssessment({...work, explanationBeauty:'예쁘게 만들려고 정말 열심히 했어요.'});
   assert.equal(emptyEffort.accepted, false);
+});
+const shortIncense = {...work, shape:'incense', modelId:'incense', technique:'openwork', placements:[{pattern:'lotus'}],
+  explanationUse:'연꽃무늬를 넣고, 향로예요',
+  explanationBeauty:'따뜻한 손길로 곳곳에 연꽃무늬를 넣는데 신경 썼다. 투각기법을 사용했다.'};
+test('짧은 실제 답변과 특정 부분에 들인 노력 또는 기법 소개는 통과한다', () => {
+  const result=rubricAssessment(shortIncense);
+  assert.equal(result.accepted,true);assert.ok(result.use.score>=5&&result.beauty.score>=5);
+  for(const [technique,text] of [['openwork','연꽃 무늬에 신경 썼어요.'],['openwork','투각 기법을 사용했어요.'],['inlay','상감을 사용했어요.'],['plain','표면에 정성을 들였어요.'],['plain','무문 기법을 사용했어요.']]) {
+    assert.equal(rubricAssessment({...shortIncense,technique,explanationBeauty:text}).accepted,true,text);
+  }
+  for(const text of ['', '   ', '연꽃, 무늬, 몸통', '열심히 했어요.', '수학 숙제를 열심히 했어요.', '오늘 점심은 피자였어요.']) {
+    assert.equal(rubricAssessment({...shortIncense,explanationBeauty:text}).accepted,false,text);
+  }
+  assert.equal(rubricAssessment({...shortIncense,technique:'inlay'}).accepted,false,'다른 기법을 사용했다는 명백한 모순은 안내한다');
+});
+test('이전에 거절된 AI 답변도 다시 제출하면 새 기준으로 평가한다', async () => {
+  const previousFetch=globalThis.fetch, result=rubricAssessment(shortIncense);let calls=0;
+  try {
+    globalThis.fetch=async()=>{calls++;return {ok:true,json:async()=>result};};
+    const old={...result,source:'ai',accepted:false,beauty:{score:4,feedback:'더 자세히 적어 주세요.'}};
+    assert.equal((await requestAssessment({...shortIncense,assessment:old})).accepted,true);
+    assert.equal(calls,1);
+    const accepted={...result,source:'ai'};
+    assert.equal((await requestAssessment({...shortIncense,assessment:accepted})).accepted,true);
+    assert.equal(calls,1,'이미 완료한 AI 점수는 유지한다');
+    globalThis.fetch=async()=>{throw new TypeError('network unavailable');};
+    const fallback=await requestAssessment(shortIncense);
+    assert.equal(fallback.source,'rubric');assert.equal(fallback.accepted,true);
+    assert.equal(fallback.notice,'기본 기준으로 설명을 확인했어요.');
+  } finally {globalThis.fetch=previousFetch;}
 });
 test('기본 기준은 실제 기법과 모순되는 설명에 수정을 요청한다', () => {
   const wrong = rubricAssessment({...work, technique: 'plain', explanationBeauty: '상감으로 파인 무늬에 흰 흙을 채워 또렷하게 나타났기 때문이다.'});
@@ -118,9 +149,30 @@ test('환경변수가 없어도 요청 문맥 OIDC로 인증하고 다음 요청
 });
 test('API는 잘못된 작품과 너무 긴 글을 거절하고 비밀 없는 상태만 반환한다', async () => {
   const health = await invoke('GET', {});assert.equal(health.statusCode, 200);assert.equal(health.headers['Cache-Control'], 'no-store');assert.equal(typeof health.body.aiConfigured, 'boolean');
+  assert.equal(health.body.check,'authentication-only');
   const invalid = await invoke('POST', {...assessmentInput(work), shape: 'invented'});assert.equal(invalid.statusCode, 400);
   const long = await invoke('POST', {...assessmentInput(work), explanationUse: '가'.repeat(301)});assert.equal(long.statusCode, 400);
   const method = await invoke('DELETE', {});assert.equal(method.statusCode, 405);
+});
+test('Gateway 403에서도 짧은 설명은 통과하고 로그는 알려진 오류 코드만 남긴다', async () => {
+  const previousFetch=globalThis.fetch, previousWarn=console.warn, previousKey=process.env.AI_GATEWAY_API_KEY, logs=[];
+  try {
+    process.env.AI_GATEWAY_API_KEY='test-secret-not-for-logs';
+    console.warn=(...args)=>logs.push(args.join(' '));
+    globalThis.fetch=async url=>url.endsWith('/models')
+      ? {ok:true,json:async()=>({data:[{id:'openai/gpt-6.1-sol'}]})}
+      : {ok:false,status:403,json:async()=>({error:{code:'customer_verification_required',message:`${shortIncense.explanationBeauty} test-secret-not-for-logs`}})};
+    const response=await invoke('POST',assessmentInput(shortIncense));
+    assert.equal(response.statusCode,200);assert.equal(response.body.source,'rubric');assert.equal(response.body.accepted,true);
+    assert.deepEqual(logs,['Explanation AI unavailable: gateway-403 customer_verification_required']);
+    assert.equal(providerErrorCode({error:{code:'private writing',type:'authentication_error'}}),'authentication_error');
+    assert.equal(providerErrorCode({error:{code:'test-secret-not-for-logs',message:'anything'}}),'unknown');
+    assert.equal(providerErrorCode(null),'unknown');
+    assert.ok(!JSON.stringify(response.body).includes('test-secret-not-for-logs'));
+  } finally {
+    globalThis.fetch=previousFetch;console.warn=previousWarn;
+    if(previousKey===undefined)delete process.env.AI_GATEWAY_API_KEY;else process.env.AI_GATEWAY_API_KEY=previousKey;
+  }
 });
 
 

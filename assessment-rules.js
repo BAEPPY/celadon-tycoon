@@ -56,9 +56,9 @@ const USE_RULES = {
 };
 const CAUSE = /때문|그래서|덕분|도록|위해|위하|있어|있으|수\s*있|좋아|좋고|편하|편리|잘\s*(?:받|보|담|나|퍼)|알맞|안정|쉽|도움|줄\s*수|해\s*주|해주|하려|하므로|하니|해서|하여|하니까|니까|므로/;
 const SHAPE_WORDS = {pillow:/베개/,stool:/의자/,pitcher:/주전자/,incense:/향로/,maebyeong:/매병|병/,gourdBottle:/조롱박|병/,duckDropper:/연적/,chrysanthemumCup:/잔/,cupStand:/잔|받침/};
-const MOTIF_WORDS = /무늬|문양|학|구름|연꽃|모란|국화|매화|대나무|버들|포도|글자/;
+const MOTIF_WORDS = /무늬|문양|운학문|(?:^|[\s.,])학(?=[을의이과은\s.,]|$)|구름|연꽃|모란|국화|매화|대나무|버들|버드나무|포도|글자|풀꽃/;
 const NONSENSE = /(?:[ㅋㅎㅠㅜ]){3,}|(.)\1{6,}|(?:asdf|qwer|zxcv){2,}|무시.*지시|지시.*무시|만점\s*(?:줘|주|처리)|점수\s*(?:100|백)\s*점|ignore\s+(?:all|previous)|system\s*prompt/i;
-function meaningful(text) { return text.length >= 8 && (text.match(/[가-힣]/g) || []).length >= 5 && !NONSENSE.test(text); }
+function meaningful(text) { return text.length >= 5 && (text.match(/[가-힣]/g) || []).length >= 3 && !NONSENSE.test(text); }
 function response(score, feedback) { return {score, feedback}; }
 export function explanationHints(work = {}) {
   const input=assessmentInput(work),names={cloud:'구름',crane:'학',lotus:'연꽃',peony:'모란',chrysanthemum:'국화',plum:'매화',bamboo:'대나무',willow:'버드나무',grape:'포도',wildflower:'풀꽃',text:'글자'};
@@ -79,17 +79,20 @@ export function explanationHints(work = {}) {
       : work.technique === 'plain' ? '예: 몸통을 천천히 빚고 표면을 고르게 다듬었어요. 부드러운 곡선과 맑은 푸른빛을 살리고 싶었기 때문이에요.'
       : `예: ${motif} 무늬를 파고 ${slip}을 채운 다음 여러 번 닦았어요. 무늬가 또렷하게 보이게 하고 싶었기 때문이에요.`};
 }
-export function rubricAssessment(work = {}, notice = '기본 기준 평가 · 모양과 쓰임, 공들인 부분과 만드는 과정을 살폈어요.') {
+export function rubricAssessment(work = {}, notice = '기본 기준으로 설명을 확인했어요.') {
   const input = assessmentInput(work), useText = input.explanationUse, beautyText = input.explanationBeauty, rule = USE_RULES[input.shape];
   let use = response(0, '어떤 모양이나 문양을 만들었는지, 어디에 쓰면 좋을지 적어 주세요.');
   if (meaningful(useText) && rule) {
-    const useFits = rule.use.test(useText), featureFits = rule.feature.test(useText), causal = CAUSE.test(useText), choice = featureFits || SHAPE_WORDS[input.shape]?.test(useText) || MOTIF_WORDS.test(useText);
-    use = !useFits ? response(1, `${rule.reason} 설명해 보아요.`)
+    const useFits = rule.use.test(useText), featureFits = rule.feature.test(useText), causal = CAUSE.test(useText), shapeFits = SHAPE_WORDS[input.shape]?.test(useText), motifFits = MOTIF_WORDS.test(useText), choice = featureFits || shapeFits || motifFits;
+    // A familiar vessel name already conveys its everyday use. A short
+    // description of that vessel and its motif/feature is enough to continue.
+    use = !useFits && shapeFits && (featureFits || motifFits) ? response(5, '만든 모양과 특징을 소개했어요. 어디에 쓰고 싶은지도 덧붙여 볼 수 있어요.')
+      : !useFits ? response(1, '만든 그릇의 모양이나 어디에 쓰면 좋을지 한 가지 더 알려 주세요.')
       : !choice ? response(3, '쓰임을 찾았어요. 어떤 모양이나 문양으로 만들었는지도 덧붙여 주세요.')
       : !causal || !featureFits ? response(6, '만든 모양이나 문양과 알맞은 쓰임을 소개했어요. 그 선택이 좋은 이유를 덧붙여도 좋아요.')
       : response(useText.length >= 28 ? 9 : 7, '이 그릇의 쓰임과 구체적인 모양을 이유로 연결했어요.');
   }
-  let beauty = response(0, '공들인 부분을 하나 고르고, 어떻게 만들었는지 구체적으로 적어 주세요.');
+  let beauty = response(0, '공들인 부분이나 사용한 기법을 짧게 적어 주세요.');
   if (meaningful(beautyText)) {
     const inlay = /상감|색흙|다른\s*색.*흙|흰\s*(?:흙|색)|검은\s*(?:흙|색)|백토|자토|채우|채워|파인/,
       openwork = /투각|구멍|뚫|빛|그림자|통하|연기/,
@@ -98,14 +101,18 @@ export function rubricAssessment(work = {}, notice = '기본 기준 평가 · �
     const concrete = actual.test(beautyText) || MOTIF_WORDS.test(beautyText) || /가장자리|몸통|손잡이|주둥이|뚜껑|윗면|입구/.test(beautyText);
     const processes = beautyText.match(/파고|파서|팠|새기|새겨|새겼|채우|채워|채웠|채운|닦|다듬|빚|뚫|칠하|칠해|칠했|구웠|굽|말리|말렸|늘리|늘렸|눌러|돌려|고르게|여러\s*번|천천히|조심히/g) || [];
     const effect = /또렷|뚜렷|선명|대비|어울|조화|잘\s*보|드러|빛|그림자|입체|시원|정교|아름|아름답|부드러|맑|고르|섬세|살리|살렸|나타/.test(beautyText);
+    const effort = /신경|공을?\s*들|정성|집중|열심|애썼|애를\s*썼|꼼꼼|정교|조심|손길/.test(beautyText);
+    const creation = /넣|넣었|그리|그려|그렸|표현|사용|꾸미|꾸며|꾸몄|만들|만든|만드|만듦/.test(beautyText);
+    const namedTechnique = (input.technique === 'inlay' ? /상감/ : input.technique === 'openwork' ? /투각/ : /무문/).test(beautyText);
     const contradiction = (input.technique === 'plain' && /상감|투각|흙을\s*채|구멍을\s*뚫/.test(beautyText)) ||
-      (input.technique === 'inlay' && /투각으로|구멍을\s*뚫어/.test(beautyText)) ||
-      (input.technique === 'openwork' && /상감으로|색흙을\s*채/.test(beautyText));
+      (input.technique === 'inlay' && /투각으로|투각\s*(?:기법)?을?\s*(?:사용|했)|구멍을\s*뚫어/.test(beautyText)) ||
+      (input.technique === 'openwork' && /상감으로|상감\s*(?:기법)?을?\s*(?:사용|했)|색흙을\s*채/.test(beautyText));
     beauty = contradiction ? response(1, '설명한 기법이 지금 작품과 달라요. 실제로 만든 기법과 그 효과를 설명해 주세요.')
       : !concrete ? response(2, '어느 무늬, 색, 곡선 또는 제작 기법을 말하는지 구체적으로 적어 주세요.')
       : processes.length && (effect || processes.length >= 2) ? response(effect && processes.length >= 2 ? 9 : 7, '공들인 부분과 구체적으로 만든 과정을 잘 이야기했어요.')
       : processes.length ? response(6, '공들인 부분을 어떻게 만들었는지 이야기했어요. 그 방법의 효과를 덧붙여도 좋아요.')
-      : !effect || !CAUSE.test(beautyText) ? response(4, '부분을 잘 골랐어요. 어떤 손길이나 방법으로 만들었는지 덧붙여 주세요.')
+      : effort || creation || namedTechnique ? response(5, '공들인 부분이나 사용한 기법을 잘 소개했어요.')
+      : !effect || !CAUSE.test(beautyText) ? response(3, '부분을 잘 골랐어요. 신경 쓴 점이나 사용한 기법도 짧게 적어 주세요.')
       : response(actual.test(beautyText) && beautyText.length >= 28 ? 9 : 7, '실제로 만든 특징이 어떤 효과를 내는지 이유를 설명했어요.');
   }
   return {version: 1, source: 'rubric', fingerprint: assessmentFingerprint(work), accepted: use.score >= 5 && beauty.score >= 5, use, beauty, notice};

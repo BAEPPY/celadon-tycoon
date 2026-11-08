@@ -74,7 +74,7 @@ async function submitWork(){
  if(assessmentRequest)return;
  if(!work.title?.trim())work.title=suggestedName(work);
  const id=work.id,controller=new AbortController();assessmentRequest=controller;
- const button=popup.querySelector('[data-action=submit]');if(button){button.disabled=true;button.textContent='설명 속 이유를 살펴보고 있어요…';}
+ const button=popup.querySelector('[data-action=submit]');if(button){button.disabled=true;button.textContent='작품 설명을 확인하고 있어요…';}
  popup.querySelectorAll('textarea,input,select').forEach(el=>el.disabled=true);
  try{
   const assessment=await requestAssessment(work,{signal:controller.signal});
