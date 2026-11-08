@@ -3,6 +3,21 @@
 const mounted = new WeakMap();
 let libraries;
 let viewerNumber = 0;
+let closeExpandedViewer;
+
+function installDialogStyles() {
+  if (document.querySelector('style[data-lesson-viewer-dialog]')) return;
+  const style = document.createElement('style');
+  style.dataset.lessonViewerDialog = '';
+  style.textContent = `
+    .lesson-viewer__dialog::backdrop { background: rgb(25 44 49 / 65%); }
+    .lesson-viewer__expand:focus-visible, .lesson-viewer__dialog-close:focus-visible {
+      outline: 3px solid #269d97; outline-offset: 3px;
+    }
+    .lesson-viewer__dialog:not([open]) { display: none !important; }
+  `;
+  document.head.append(style);
+}
 
 const element = (tag, className, text) => {
   const node = document.createElement(tag);
@@ -44,7 +59,7 @@ function releaseObject(object) {
  * Returns immediately, so a phase change can cancel even an unfinished load.
  * `ready` resolves after loading or a handled error. dispose() is idempotent.
  */
-export function mountLessonViewer(container, artifact) {
+export function mountLessonViewer(container, artifact, {expand = true} = {}) {
   if (!(container instanceof HTMLElement)) throw new TypeError('A viewer container is required.');
   if (!artifact || typeof artifact.src !== 'string') throw new TypeError('An artifact source is required.');
   mounted.get(container)?.dispose();
@@ -55,6 +70,7 @@ export function mountLessonViewer(container, artifact) {
   let THREE, renderer, scene, camera, controls, object, floor, environment;
   let radius = 1.5, modelHeight = 2.6, homePosition, homeTarget, fitDistance = 0;
   let lastWidth = 0, lastHeight = 0;
+  let expanded;
   container.replaceChildren();
   container.classList.add('lesson-viewer');
   container.dataset.viewerStatus = 'loading';
@@ -63,8 +79,8 @@ export function mountLessonViewer(container, artifact) {
   Object.assign(viewport.style, {
     position: 'relative', width: '100%', height: 'var(--lesson-viewer-height, clamp(220px, 32vh, 360px))',
     minHeight: '180px', overflow: 'hidden', borderRadius: '18px',
-    background: 'radial-gradient(ellipse at 50% 30%, #fffdf5 0%, #f4f0e2 62%, #e5e9dc 100%)',
-    border: '1px solid #d5dfd1',
+    background: 'radial-gradient(ellipse at 50% 30%, #ffffff 0%, #f5f8f8 62%, #eef4f3 100%)',
+    border: '1px solid #d8e2e1',
   });
   const status = element('div', 'lesson-viewer__status');
   Object.assign(status.style, {position: 'absolute', inset: '0', display: 'grid', alignContent: 'center', justifyItems: 'center', gap: '12px', padding: '22px', textAlign: 'center', color: '#426756', zIndex: '1'});
@@ -74,6 +90,79 @@ export function mountLessonViewer(container, artifact) {
   status.append(statusText);
   viewport.append(status);
   container.append(viewport);
+
+  const expandButton = expand ? element('button', 'lesson-viewer__expand', '⛶ 크게 보기') : null;
+  if (expandButton) {
+    expandButton.type = 'button';
+    expandButton.setAttribute('aria-label', `${label} 크게 보기`);
+    expandButton.setAttribute('aria-haspopup', 'dialog');
+    expandButton.setAttribute('aria-expanded', 'false');
+    Object.assign(expandButton.style, {
+      position: 'absolute', top: '10px', right: '10px', zIndex: '2',
+      font: 'inherit', fontSize: '14px', fontWeight: '700', lineHeight: '1.3',
+      minHeight: '38px', padding: '8px 11px', border: '1px solid #b9d6d3',
+      borderRadius: '8px', background: '#ffffff', color: '#176e6b',
+      boxShadow: '0 2px 8px rgb(24 67 65 / 9%)', cursor: 'pointer',
+    });
+    expandButton.addEventListener('click', openExpanded);
+    viewport.append(expandButton);
+  }
+
+  function closeExpanded(restoreFocus = true) {
+    if (!expanded) return;
+    const current = expanded;
+    expanded = null;
+    if (closeExpandedViewer === closeExpanded) closeExpandedViewer = null;
+    current.viewer?.dispose();
+    if (current.dialog.open) current.dialog.close();
+    current.dialog.remove();
+    expandButton?.setAttribute('aria-expanded', 'false');
+    if (restoreFocus && !disposed && expandButton?.isConnected) expandButton.focus({preventScroll: true});
+  }
+
+  function openExpanded() {
+    if (disposed || expanded || !expandButton) return;
+    closeExpandedViewer?.(false);
+    installDialogStyles();
+    const dialog = element('dialog', 'lesson-viewer__dialog');
+    dialog.setAttribute('aria-labelledby', `${id}-expanded-title`);
+    Object.assign(dialog.style, {
+      width: '94vw', height: '92vh', maxWidth: 'none', maxHeight: 'none',
+      margin: 'auto', padding: '16px', boxSizing: 'border-box',
+      display: 'flex', flexDirection: 'column', gap: '12px', overflow: 'hidden',
+      border: '1px solid #d6e1e1', borderRadius: '18px', background: '#ffffff',
+      color: '#294e51', boxShadow: '0 18px 70px rgb(18 43 48 / 25%)', fontFamily: 'inherit',
+    });
+    const header = element('div', 'lesson-viewer__dialog-header');
+    Object.assign(header.style, {display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flex: '0 0 auto'});
+    const title = element('h2', 'lesson-viewer__dialog-title', `${label} 크게 보기`);
+    title.id = `${id}-expanded-title`;
+    Object.assign(title.style, {margin: '0', fontSize: '20px', lineHeight: '1.4', fontWeight: '700'});
+    const close = element('button', 'lesson-viewer__dialog-close', '닫기 ×');
+    close.type = 'button'; close.autofocus = true;
+    close.setAttribute('aria-label', '크게 보기 닫기');
+    Object.assign(close.style, {font: 'inherit', fontSize: '16px', fontWeight: '700', minHeight: '42px', padding: '9px 16px', border: '1px solid #c9d9da', borderRadius: '8px', background: '#f5f9f9', color: '#285f61', cursor: 'pointer', flexShrink: '0'});
+    close.addEventListener('click', () => closeExpanded());
+    header.append(title, close);
+    const host = element('div', 'lesson-viewer__expanded-host');
+    Object.assign(host.style, {display: 'flex', flexDirection: 'column', flex: '1 1 0', minHeight: '0', minWidth: '0'});
+    dialog.append(header, host);
+    dialog.addEventListener('cancel', event => {event.preventDefault(); closeExpanded();});
+    dialog.addEventListener('close', () => {if (expanded?.dialog === dialog) closeExpanded();});
+    dialog.addEventListener('click', event => {
+      if (event.target !== dialog) return;
+      const bounds = dialog.getBoundingClientRect();
+      if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) closeExpanded();
+    });
+    (document.fullscreenElement || document.body).append(dialog);
+    expanded = {dialog, viewer: null};
+    closeExpandedViewer = closeExpanded;
+    expandButton.setAttribute('aria-expanded', 'true');
+    dialog.showModal();
+    expanded.viewer = mountLessonViewer(host, artifact, {expand: false});
+    Object.assign(host.querySelector('.lesson-viewer__viewport').style, {flex: '1 1 0', height: 'auto', minHeight: '120px'});
+    expanded.viewer.resize();
+  }
 
   const toolbar = element('div', 'lesson-viewer__controls');
   toolbar.setAttribute('role', 'group');
@@ -162,6 +251,8 @@ export function mountLessonViewer(container, artifact) {
     dispose() {
       if (disposed) return;
       disposed = true; attempt++;
+      closeExpanded(false);
+      expandButton?.removeEventListener('click', openExpanded);
       observer.disconnect();
       document.removeEventListener('visibilitychange', invalidate);
       cleanResources();

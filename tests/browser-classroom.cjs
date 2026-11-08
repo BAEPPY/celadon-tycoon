@@ -65,6 +65,7 @@ async function capture(page, label) {
 
     await teacher.locator('[data-action=start][data-activity="1"]').click();
     await Promise.all([studentA.locator('#country-1').waitFor(),studentB.locator('#country-1').waitFor()]);
+    assert.match(await studentA.locator('.current-activity').innerText(),/활동 1 \/ 3/);
     assert.match(await studentA.getByTestId('lesson-timer').innerText(),/1:[0-5]\d/);
     await studentA.waitForFunction(()=>document.querySelectorAll('[data-viewer-status=ready]').length===3,{},{timeout:45000});
     assert.equal(await studentA.locator('.lesson-viewer__canvas').count(),3);
@@ -117,7 +118,15 @@ async function capture(page, label) {
     assert.doesNotMatch(await teacher.locator('.cloud-layout').innerText(),/봄샘|하늘/);
     assert.match(await teacher.locator('.word-cloud[data-kind=name] span').first().getAttribute('title'),/2명/);
     await studentA.waitForFunction(()=>document.querySelector('[data-viewer-status=ready]'),{},{timeout:45000});
+    await teacher.waitForFunction(()=>document.querySelector('[data-teacher-viewer]')?.dataset.viewerStatus==='ready'&&document.querySelector('.word-cloud')?.dataset.cloudLayout==='ready',{},{timeout:45000});
     await capture(studentA,'activity2-student');await capture(teacher,'activity2-teacher');
+    await teacher.locator('[data-action=cloud-kind][data-kind=use]').click();
+    await teacher.waitForFunction(()=>document.querySelector('.word-cloud[data-kind=use]')?.dataset.cloudLayout==='ready');
+    assert.match(await teacher.locator('.word-cloud[data-kind=use]').innerText(),/누워서 머리를 받쳐요/);
+    assert.match(await teacher.locator('.word-cloud[data-kind=use]').innerText(),/잠을 잘 때 써요/);
+    assert.doesNotMatch(await teacher.locator('.cloud-layout').innerText(),/봄샘|하늘/);
+    await capture(teacher,'activity2-teacher-use');
+    await teacher.locator('[data-action=cloud-kind][data-kind=name]').click();
     await teacher.locator('[data-action=pause]').click();await Promise.all([studentA.getByTestId('lock-screen').waitFor(),studentB.getByTestId('lock-screen').waitFor()]);
     console.log('Classroom: five-object carousel, persisted observations and anonymous repeated-word cloud passed.');
 
