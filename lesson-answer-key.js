@@ -18,11 +18,11 @@ export const COMPARISON_ANSWERS = freezeAnswers({
     license: 'CC BY-NC-SA 4.0', licenseUrl: 'https://creativecommons.org/licenses/by-nc-sa/4.0/',
   },
   '3': {
-    country: 'goryeo', countryLabel: '고려', name: '청자 상감 운학문 매병', date: '고려',
-    source: '사용자 제공 GLB · 사진 참고 재현 · 모델 내부 출처 firefoxcat',
-    sourceUrl: 'https://firefoxcat.booth.pm/items/6118090',
-    note: '학과 구름을 검고 흰 상감 무늬로 꾸민 매병입니다. 흙을 파낸 자리에 다른 색의 흙을 채워 무늬를 나타냈습니다.',
-    license: '원본 제공 자료의 이용 조건을 따릅니다.',
+    country: 'goryeo', countryLabel: '고려', name: '청자 상감 모란 국화무늬 참외모양 병', date: '고려',
+    source: '국립중앙박물관 · 덕수20 · 사용자 제공 OBJ 형상과 사진 질감',
+    sourceUrl: 'https://www.museum.go.kr/MUSEUM/contents/M0505000000.do?relicId=958&schM=view&searchId=search',
+    note: '참외를 닮은 몸통을 여덟 갈래로 나누고, 모란과 국화 무늬를 번갈아 상감한 병입니다. 꽃무늬를 파낸 자리에 검고 흰 흙을 채워 장식했습니다.',
+    license: '공공누리 제1유형(출처표시)',
   },
 });
 

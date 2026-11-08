@@ -22,7 +22,9 @@
     "test:classroom-manage": "node tests/browser-classroom-manage.cjs",
     "test:routing": "node tests/browser-routing.cjs",
     "test:classroom-exhibits": "node tests/browser-classroom-exhibits.cjs",
-    "test:classroom-reentry": "node tests/browser-classroom-reentry.cjs"
+    "test:classroom-reentry": "node tests/browser-classroom-reentry.cjs",
+    "test:classroom-drag": "node tests/browser-classroom-drag.cjs",
+    "test:classroom-comparison": "node tests/browser-classroom-comparison.cjs"
   },
   "dependencies": {
     "@vercel/blob": "2.8.2",

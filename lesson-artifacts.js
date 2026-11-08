@@ -18,7 +18,7 @@ export const COUNTRY_CHOICES = Object.freeze([
 export const COMPARISON_ARTIFACTS = Object.freeze([
   artifact('comparison', 1, {preservePhotoColors: true, note: '사진을 참고한 3D 재현입니다. 형상의 일부는 추정했습니다.'}),
   artifact('comparison', 2, {preservePhotoColors: true, note: '스캔 형상과 사진 질감을 사용한 경량 3D 자료입니다.'}),
-  artifact('comparison', 3, {note: '사진을 참고한 3D 재현입니다. 실측 스캔이 아닙니다.'}),
+  artifact('comparison', 3, {preservePhotoColors: true, note: '제공된 3D 형상과 사진 질감을 사용한 자료입니다.'}),
 ]);
 
 export const OBSERVATION_ARTIFACTS = Object.freeze([
