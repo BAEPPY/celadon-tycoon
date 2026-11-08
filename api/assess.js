@@ -3,6 +3,10 @@ import {assessmentInput, assessmentFingerprint, normalizeAssessment, rubricAsses
 import {getVercelOidcToken} from '@vercel/oidc';
 
 const GATEWAY = 'https://ai-gateway.vercel.sh/v1';
+const OPENAI = 'https://api.openai.com/v1';
+// Supports Chat Completions + Structured Outputs; reasoning defaults to none.
+// https://developers.openai.com/api/docs/models/gpt-5.4-mini
+export const DEFAULT_OPENAI_MODEL = 'gpt-5.4-mini';
 let modelCache;
 export async function resolveGatewayToken() {
   if (process.env.AI_GATEWAY_API_KEY) return process.env.AI_GATEWAY_API_KEY;
@@ -32,13 +36,15 @@ const PROVIDER_ERROR_CODES = new Set([
   'forbidden', 'unauthorized', 'authentication_error', 'invalid_api_key', 'invalid_token',
   'model_not_found', 'no_providers_available', 'rate_limit_exceeded', 'rate_limit_error',
   'invalid_request_error', 'provider_error', 'internal_server_error', 'service_unavailable',
+  'insufficient_quota', 'billing_hard_limit_reached', 'permission_denied',
+  'unsupported_parameter', 'invalid_value',
 ]);
 export function providerErrorCode(value) {
   // Never return arbitrary provider text: it can echo prompts or credentials.
   return [value?.error?.code, value?.code, value?.error?.type, value?.type]
     .find(code => typeof code === 'string' && PROVIDER_ERROR_CODES.has(code)) || 'unknown';
 }
-async function gatewayFailure(response, stage) {
+async function providerFailure(response, stage) {
   const error = new Error(`${stage}-${response.status}`);
   try {error.providerCode = providerErrorCode(await response.json());} catch {error.providerCode = 'unknown';}
   return error;
@@ -57,7 +63,7 @@ export function selectModel(catalog, preferred) {
 async function discoverModel(fetcher, token) {
   if (modelCache && modelCache.expires > Date.now()) return modelCache.id;
   const response = await fetcher(`${GATEWAY}/models`, {headers: {Authorization: `Bearer ${token}`}, signal: AbortSignal.timeout(5000)});
-  if (!response.ok) throw await gatewayFailure(response, 'models');
+  if (!response.ok) throw await providerFailure(response, 'models');
   const id = selectModel(await response.json(), process.env.AI_GATEWAY_MODEL);
   modelCache = {id, expires: Date.now() + 3600000};
   return id;
@@ -69,20 +75,38 @@ export function assessmentContext(input) {
     inlayClay: input.slip === 'dark' ? '자토: 어두운 무늬' : '백토: 밝은 무늬', title: input.title},
     studentExplanations: {use: input.explanationUse, beauty: input.explanationBeauty}};
 }
+function completionRequest(input, model) {
+  return {model, stream: false,
+    messages: [{role: 'system', content: ASSESSMENT_SYSTEM}, {role: 'user', content: JSON.stringify(assessmentContext(input))}],
+    response_format: {type: 'json_schema', json_schema: {name: 'celadon_explanation_assessment', strict: true, schema: gradeSchema}}};
+}
+function completionAssessment(result, input, model) {
+  const choice = result.choices?.[0];
+  if (choice?.message?.refusal || choice?.finish_reason === 'length') throw new Error('invalid-output');
+  const value = JSON.parse(choice?.message?.content);
+  const assessment = normalizeAssessment({...value, version: 1, source: 'ai', model, fingerprint: assessmentFingerprint(input), notice: 'AI 설명 평가 · 모양과 쓰임, 공들인 부분과 만드는 과정을 살폈어요.'}, input);
+  if (!assessment) throw new Error('invalid-output');
+  return assessment;
+}
+export async function assessWithOpenAI(work, {apiKey, model = process.env.OPENAI_MODEL || DEFAULT_OPENAI_MODEL, fetcher = fetch} = {}) {
+  if (!apiKey) throw new Error('auth-unavailable');
+  const input = assessmentInput(work);
+  const response = await fetcher(`${OPENAI}/chat/completions`, {
+    method: 'POST', headers: {Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json'}, signal: AbortSignal.timeout(23000),
+    body: JSON.stringify({...completionRequest(input, model), store: false, max_completion_tokens: 2000}),
+  });
+  if (!response.ok) throw await providerFailure(response, 'openai');
+  return completionAssessment(await response.json(), input, model);
+}
 export async function assessWithGateway(work, {token, fetcher = fetch} = {}) {
   if (!token) throw new Error('auth-unavailable');
   const input = assessmentInput(work), model = await discoverModel(fetcher, token);
   const response = await fetcher(`${GATEWAY}/chat/completions`, {
     method: 'POST', headers: {Authorization: `Bearer ${token}`, 'Content-Type': 'application/json'}, signal: AbortSignal.timeout(23000),
-    body: JSON.stringify({model, stream: false, messages: [{role: 'system', content: ASSESSMENT_SYSTEM}, {role: 'user', content: JSON.stringify(assessmentContext(input))}],
-      response_format: {type: 'json_schema', json_schema: {name: 'celadon_explanation_assessment', strict: true, schema: gradeSchema}}}),
+    body: JSON.stringify(completionRequest(input, model)),
   });
-  if (!response.ok) throw await gatewayFailure(response, 'gateway');
-  const result = await response.json(), content = result.choices?.[0]?.message?.content;
-  const value = JSON.parse(content);
-  const assessment = normalizeAssessment({...value, version: 1, source: 'ai', model, fingerprint: assessmentFingerprint(input), notice: 'AI 설명 평가 · 모양과 쓰임, 공들인 부분과 만드는 과정을 살폈어요.'}, input);
-  if (!assessment) throw new Error('invalid-output');
-  return assessment;
+  if (!response.ok) throw await providerFailure(response, 'gateway');
+  return completionAssessment(await response.json(), input, model);
 }
 function json(res, status, value) {res.statusCode = status;res.setHeader('Content-Type', 'application/json; charset=utf-8');res.setHeader('Cache-Control', 'no-store');res.end(JSON.stringify(value));}
 async function readBody(req) {
@@ -94,9 +118,11 @@ async function readBody(req) {
 }
 export default async function handler(req, res) {
   if (req.method === 'GET') {
-    let aiConfigured = false;
-    try {aiConfigured = Boolean(await resolveGatewayToken());} catch {}
-    return json(res, 200, {service: 'celadon-explanation',aiConfigured,check: 'authentication-only',fallback: 'rubric'});
+    let provider = process.env.OPENAI_API_KEY ? 'openai' : 'none';
+    if (provider === 'none') {
+      try {if (await resolveGatewayToken()) provider = 'gateway';} catch {}
+    }
+    return json(res, 200, {service: 'celadon-explanation',aiConfigured: provider !== 'none',provider,check: 'authentication-only',fallback: 'rubric'});
   }
   if (req.method !== 'POST') {res.setHeader('Allow', 'GET, POST');return json(res, 405, {error: 'method'});}
   let input;
@@ -107,10 +133,11 @@ export default async function handler(req, res) {
     if (!ORDERS.some(o => o.id === input.orderId) || !SHAPES.some(s => s.id === input.shape) || !TECHNIQUES.some(t => t.id === input.technique)) throw new Error('invalid-work');
   } catch {return json(res, 400, {error: '작품과 설명을 다시 확인해 주세요.'});}
   try {
+    if (process.env.OPENAI_API_KEY) return json(res, 200, await assessWithOpenAI(input, {apiKey: process.env.OPENAI_API_KEY}));
     return json(res, 200, await assessWithGateway(input, {token: await resolveGatewayToken()}));
   } catch (error) {
     // Do not log student writing, authorization, or raw provider responses.
-    const reason = error.name === 'TimeoutError' ? 'timeout' : /^(auth-unavailable|model-unavailable|models-\d+|gateway-\d+|invalid-output)$/.test(error.message) ? error.message : 'response-error';
+    const reason = error.name === 'TimeoutError' ? 'timeout' : /^(auth-unavailable|model-unavailable|models-\d+|gateway-\d+|openai-\d+|invalid-output)$/.test(error.message) ? error.message : 'response-error';
     console.warn('Explanation AI unavailable:', reason, PROVIDER_ERROR_CODES.has(error.providerCode) ? error.providerCode : 'unknown');
     return json(res, 200, rubricAssessment(input, '기본 기준으로 설명을 확인했어요.'));
   }
