@@ -11,6 +11,8 @@ PNG files preserve the generated originals unchanged. Equivalent WebP files use 
 | Carve the pattern | 03-carve | exec-5eefade9-0080-4c15-a7b2-d102004f0dbe.png |
 | Fill and wipe inlay | 04-inlay | exec-37d6a46a-69b8-43ef-92ad-1ff35d688f6f.png |
 | Dry, bisque, glaze, final-fire | 05-fire | exec-33c4760f-7068-42f1-b87f-c57c6c08cef5.png |
-| Inspect four vessels | 06-inspect | exec-fda8d469-353c-4f4a-9d79-5a16cadc9e24.png |
+| Inspect four vessels | 06-inspect | exec-212ca382-e242-4983-830f-5f9ec15e432d.png |
+
+The inspection scene was edited with image generation from `exec-fda8d469-353c-4f4a-9d79-5a16cadc9e24.png` to add the requested blue X marks over the three defective pots and a blue circle around the intact bottom-right pot. The four original pot depictions and layout are preserved. `celadon-making-scenes.zip` contains the current six PNG originals, including this marked inspection scene.
 
 The earlier standalone six-panel overview remains at `celadon-inlay-process.png` as a separate reference image; the carousel uses the individual scenes above.

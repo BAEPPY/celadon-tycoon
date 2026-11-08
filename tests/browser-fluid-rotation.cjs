@@ -1,0 +1,67 @@
+/* The 24 authored illustrations keep exact final decoration; only the gesture eases. */
+const assert=require('node:assert/strict');
+const path=require('node:path');
+const {build}=require('esbuild');
+const {chromium}=require('playwright');
+const base=process.env.BASE_URL||'http://127.0.0.1:4173';
+(async()=>{
+ assert.ok(['localhost','127.0.0.1'].includes(new URL(base).hostname));
+ const bundle=await build({stdin:{contents:"import {Craft2D} from './craft-2d.js';window.Craft2D=Craft2D;",resolveDir:path.resolve(__dirname,'..')},bundle:true,format:'iife',write:false,target:'es2022'});
+ const browser=await chromium.launch({headless:true,...(process.env.CHROMIUM_PATH?{executablePath:process.env.CHROMIUM_PATH}:{}),args:['--no-sandbox']});
+ try{
+  const page=await browser.newPage({viewport:{width:1000,height:700},reducedMotion:'no-preference'}),errors=[];page.on('pageerror',error=>errors.push(error.message));
+  await page.route('**/__fluid-rotation',route=>route.fulfill({contentType:'text/html',body:`<!doctype html><base href="${base}/"><style>body{margin:0}#host{width:700px;height:600px}.craft-viewport{position:relative;width:100%;height:100%}.craft-viewport canvas{width:100%;height:100%;display:block}.vessel-turns{display:none}</style><div id="host"></div>`}));
+  let releaseFrame,releaseInitial,releaseFirst;const held=new Promise(resolve=>{releaseFrame=resolve;}),initialHeld=new Promise(resolve=>{releaseInitial=resolve;}),firstHeld=new Promise(resolve=>{releaseFirst=resolve;});let frameHeld=false;
+  await page.route('**/assets/vessels/rotations/stool/00.webp',async route=>{await initialHeld;await route.continue();});
+  await page.route('**/assets/vessels/rotations/stool/01.webp',async route=>{await firstHeld;await route.continue();});
+  await page.route('**/assets/vessels/rotations/stool/02.webp',async route=>{frameHeld=true;await held;await route.continue();});
+  await page.goto(`${base}/__fluid-rotation`);await page.addScriptTag({content:bundle.outputFiles[0].text});
+  await page.evaluate(async()=>{
+   window.saved={shape:'stool',modelId:'stool',step:4,width:1,viewFrame:0,tool:'rotate',knead:3,technique:'inlay',pattern:'cloud',decorPhase:2,clay:{slip:'white'},placements:[{uv:[.5,.5],surfaceAngle:0,surfaceV:.44,surfaceRadius:.25,pattern:'cloud',stampSize:1.4},{uv:[.5,.5],surfaceAngle:Math.PI,surfaceV:.44,surfaceRadius:.25,pattern:'lotus',stampSize:.7}],strokes:[]};
+   window.original=JSON.stringify(saved);window.work=structuredClone(saved);window.rotationFailures=[];window.craft=new Craft2D(()=>{},()=>{},error=>rotationFailures.push(error.message),()=>{},{readOnly:true});window.mounting=craft.mount(document.querySelector('#host'),work,'finished');
+   craft.canvas.dispatchEvent(new KeyboardEvent('keydown',{code:'ArrowRight'}));
+  });
+  assert.equal(await page.evaluate(()=>craft.el.dataset.status),'loading');
+  releaseInitial();await page.evaluate(()=>mounting);
+  assert.equal(await page.evaluate(()=>craft.el.dataset.status),'ready','early rotation cannot cancel the first illustration load');
+  assert.equal(await page.evaluate(()=>work.viewFrame),0);
+  await page.evaluate(()=>{window.initial=craft.snapshot();window.turning=craft.setRotation(2);});
+  assert.ok(frameHeld);
+  assert.equal(await page.evaluate(()=>craft.el.dataset.status),'ready','a pending frame leaves the already painted image usable');
+  assert.equal(await page.evaluate(()=>work.viewFrame),0,'the stored angle changes together with its decoded illustration');
+  assert.equal(await page.evaluate(()=>craft.snapshot()),await page.evaluate(()=>initial),'pending network never blanks or reprojects the old artwork');
+  releaseFrame();await page.evaluate(()=>turning);
+  assert.equal(await page.evaluate(()=>work.viewFrame),2);
+  assert.equal(await page.evaluate(()=>Boolean(craft.rotationTransition)),true,'normal motion briefly eases between decorated poses');
+  const finalSnapshot=await page.evaluate(()=>craft.snapshot());
+  await page.waitForFunction(()=>craft.el.dataset.rotationSettled==='true');
+  assert.equal(await page.evaluate(()=>craft.snapshot()),finalSnapshot,'settled and exported artwork contain no blend or ghost');
+  await page.evaluate(()=>craft.setRotation(0));
+  await page.evaluate(()=>{craft.canvas.dispatchEvent(new KeyboardEvent('keydown',{code:'ArrowRight'}));craft.canvas.dispatchEvent(new KeyboardEvent('keydown',{code:'ArrowRight'}));window.repeated=craft.rotationPending?.promise;});
+  await page.evaluate(()=>repeated);
+  assert.equal(await page.evaluate(()=>work.viewFrame),2,'two rapid Right keys retain both 15-degree steps while the first is loading');
+  releaseFirst();await page.waitForTimeout(80);
+  assert.equal(await page.evaluate(()=>work.viewFrame),2,'a late first step cannot overwrite the newer requested pose');
+  const canvas=page.locator('#host canvas'),box=await canvas.boundingBox();
+  await page.mouse.move(box.x+box.width/2,box.y+box.height/2);await page.mouse.down();
+  await page.evaluate(()=>{window.followSamples=[];window.sampling=setInterval(()=>{if(craft.rotationMotion)followSamples.push(craft.rotationMotion.position);},10);});
+  await page.mouse.move(box.x+box.width/2+150,box.y+box.height/2,{steps:15});
+  await page.mouse.up();await page.waitForFunction(()=>craft.el.dataset.rotationSettled==='true');
+  const result=await page.evaluate(()=>{clearInterval(sampling);return {samples:followSamples,frame:work.viewFrame,unchanged:JSON.stringify(saved)===original,ready:craft.el.dataset.status};});
+  assert.ok(new Set(result.samples.map(value=>value.toFixed(2))).size>4,'pointer movement follows in small continuous increments');
+  assert.ok(result.samples.some(value=>Math.abs(value-Math.round(value))>.01));
+  assert.ok(Number.isInteger(result.frame)&&result.frame>=0&&result.frame<24,'saved pose remains a bounded integer');
+  assert.equal(result.unchanged,true);assert.equal(result.ready,'ready');
+  await page.screenshot({path:'/tmp/fluid-student-work-rotation.png'});
+  let failedRequests=0,failFrame=true;
+  await page.route('**/assets/vessels/rotations/cloudCraneMaebyeong/06.webp',async route=>{if(failFrame){failedRequests++;await route.fulfill({status:404,body:'not found'});}else await route.continue();});
+  await page.evaluate(async()=>{work.modelId='cloudCraneMaebyeong';work.viewFrame=0;await craft.update(work,'finished');craft.rotationMotion={position:0,target:6,velocity:0,lastTime:performance.now()};});
+  await page.waitForFunction(()=>rotationFailures.length===1&&!craft.rotationPending&&!craft.rotationMotion);
+  const failures=failedRequests;await page.waitForTimeout(300);assert.equal(failedRequests,failures,'a missing final frame stops the gesture instead of retrying each animation frame');
+  assert.equal(await page.evaluate(()=>craft.el.dataset.status),'ready','a failed turn keeps the previous image');
+  failFrame=false;await page.evaluate(()=>craft.setRotation(6));assert.equal(await page.evaluate(()=>work.viewFrame),6,'a later deliberate request can retry a failed frame');
+  await page.evaluate(()=>craft.dispose());
+  assert.deepEqual(errors,[]);
+  console.log('Fluid rotation: continuous drag and bounded settle, no blank loading frame, exact saved snapshots, unchanged original design and cleanup passed.');
+ }finally{await browser.close();}
+})().catch(error=>{console.error(error);process.exitCode=1;});

@@ -1,5 +1,5 @@
 /* Four real pottery copies sit directly on the shop counter, without a board. */
-.four-inspection{background-image:url('./assets/scenes/counter.webp')}
+.four-inspection{background-image:url('./assets/scenes/counter.webp');background-position:center bottom}
 .four-inspection::before{content:'';position:absolute;inset:0;background:#fff3d429;pointer-events:none}
 .four-inspection .station-heading>span{font-size:18px}
 .inspection-intro{position:absolute;top:62px;left:5%;right:5%;display:flex;justify-content:space-between;align-items:center;gap:24px;z-index:2;pointer-events:none}
@@ -8,8 +8,8 @@
 .inspection-intro p{font-size:18px;line-height:1.55;margin:0;color:#856451;word-break:keep-all}
 .inspection-tool-note{display:flex;align-items:center;gap:10px;font-size:17px;line-height:1.5;padding:9px 18px;background:#f9e6c6ec;border:2px solid #b7977e;border-radius:15px;color:#835d4e}
 .inspection-tool-note>svg{width:40px;height:62px;rotate:12deg}
-.inspection-lineup{position:absolute;left:4%;right:4%;top:calc(var(--inspection-baseline,86%) - min(330px,48vh));height:min(330px,48vh);display:grid;grid-template-columns:repeat(4,minmax(0,1fr));align-items:end;gap:16px;z-index:3}
-.inspection-pot{position:relative;display:block;justify-self:center;width:100%;height:auto;aspect-ratio:1;max-height:100%;max-width:330px;border:0;padding:0;background:transparent;box-shadow:none;border-radius:24px;cursor:crosshair;color:#805c4e;touch-action:manipulation}
+.inspection-lineup{position:absolute;left:4%;right:4%;top:calc(var(--inspection-baseline,76%) - var(--inspection-pot-size,220px));height:var(--inspection-pot-size,220px);display:grid;grid-template-columns:repeat(4,minmax(0,1fr));align-items:end;gap:16px;z-index:3}
+.inspection-pot{position:relative;display:block;justify-self:center;width:var(--inspection-pot-size,220px);height:var(--inspection-pot-size,220px);min-height:0;aspect-ratio:1;max-height:100%;max-width:100%;border:0;padding:0;background:transparent;box-shadow:none;border-radius:24px;cursor:crosshair;color:#805c4e;touch-action:manipulation}
 .inspection-pot:disabled{opacity:1;cursor:default}
 .inspection-pot:not(:disabled):hover .inspection-pot-art{filter:drop-shadow(0 0 8px #fff1ab)}
 .inspection-pot:focus-visible{outline:3px dashed #a47f55;outline-offset:6px}
@@ -36,7 +36,7 @@
 .inspection-navigation .primary{font-size:20px;min-height:46px}
 .inspection-navigation>span{font-size:15px;color:#886757}
 .inspection-kept-seal{position:absolute;top:2%;left:50%;translate:-50% -100%;padding:7px 18px;background:#eff3ce;border:2px solid #8b9e71;border-radius:24px;white-space:nowrap;color:#668254;font-size:20px}
-.is-complete .inspection-lineup .inspection-pot.is-kept{position:absolute;width:min(300px,31vw);height:min(300px,31vw);left:50%;bottom:0;translate:-50% 0;filter:drop-shadow(0 0 20px #fff4b8)}
+.is-complete .inspection-lineup .inspection-pot.is-kept{position:absolute;width:var(--inspection-pot-size,220px);height:var(--inspection-pot-size,220px);left:50%;bottom:0;translate:-50% 0;filter:drop-shadow(0 0 20px #fff4b8)}
 .is-complete .inspection-pot.is-broken{opacity:.48}
 .is-complete .inspection-note{display:none}
 .inspection-outcome{position:absolute;left:50%;top:44%;translate:-50% -50%;z-index:20;display:flex;flex-direction:column;align-items:center;gap:12px;width:min(480px,70%);padding:24px 30px;background:#fff2ddf5;border:3px solid #b7826d;border-radius:28px;box-shadow:0 8px 0 #aa795a35,0 0 0 100vmax #674e3e35;text-align:center;animation:inspection-result .35s ease-out}
@@ -52,7 +52,7 @@
  .inspection-intro p{font-size:16px;line-height:1.4}
  .inspection-tool-note{font-size:15px;padding:8px 12px}
  .inspection-tool-note>svg{height:48px;width:32px}
- .inspection-lineup{left:3%;right:3%;gap:10px;top:calc(var(--inspection-baseline,86%) - min(285px,45vh));height:min(285px,45vh)}
+ .inspection-lineup{left:4%;right:4%;gap:10px}
  .inspection-pot-number{font-size:15px;bottom:-27px;padding:2px 12px}
  .inspection-note{top:calc(var(--inspection-baseline,86%) + 31px);font-size:14px;left:25%;right:25%}
  .inspection-navigation .primary{font-size:18px;min-height:40px}
