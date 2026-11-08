@@ -67,6 +67,7 @@ export class FileClassroomStore {
     await visit(base); return found;
   }
   async delete(key) { await rm(this.filename(key), {force: true}); }
+  async deleteMany(keys) { await Promise.all(keys.map(key => this.delete(key))); }
 }
 
 export class BlobClassroomStore {
@@ -127,6 +128,13 @@ export class BlobClassroomStore {
     if (!validKey(key)) throw new Error('invalid-store-key');
     const {del} = await this.sdk(); await del(key, this.options);
     this.generation++; this.cache.delete(key);
+  }
+  // One request per 100 files keeps a whole class's deletion well inside the function time limit.
+  async deleteMany(keys) {
+    if (!keys.every(validKey)) throw new Error('invalid-store-key');
+    const {del} = await this.sdk();
+    for (let start = 0; start < keys.length; start += 100) await del(keys.slice(start, start + 100), this.options);
+    this.generation++; for (const key of keys) this.cache.delete(key);
   }
 }
 

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {mkdtemp, rm} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import {ClassroomService, finishedWork} from './classroom-domain.js';
+import {ClassroomService, WORK_UPLOAD_GRACE_MS, finishedWork} from './classroom-domain.js';
 import {BlobClassroomStore, FileClassroomStore, StoreConflict, classroomPrefix, classroomStorageStatus} from './classroom-store.js';
 import {createClassroomHandler} from './api/classroom.js';
 import {assessmentFingerprint} from './assessment-rules.js';
@@ -115,18 +115,28 @@ test('server deadlines and teacher pause close writes; a restart has a new run i
   await f.control('pause');
   await rejectsCode(f.service.answer({...payload, runId: restarted.state.runId, clientRevision: 2}, student.participantToken), 'activity-closed');
   assert.equal((await f.service.overview({code: f.room.code}, f.room.teacherToken)).comparison[0].respondents, 1);
-  const game = await f.control('start', 3); f.advance(5000);
-  assert.equal((await f.service.state(payload, student.participantToken)).state.status, 'paused');
-  await rejectsCode(f.service.submitWork({...payload, runId: game.state.runId, work: rawWork(), preview: png}, student.participantToken), 'activity-closed');
+  // Activity 3 has no time limit: it stays open until the teacher ends it.
+  const game = await f.control('start', 3); assert.equal(game.state.endsAt, null); f.advance(60 * 60 * 1000);
+  assert.equal((await f.service.state(payload, student.participantToken)).state.status, 'active');
+  // Once the teacher ends it, a work finished just before may still be uploading: accepted for a short while, rejected later.
+  await f.control('pause'); f.advance(WORK_UPLOAD_GRACE_MS - 1000);
+  assert.equal((await f.service.submitWork({...payload, runId: game.state.runId, work: rawWork(), preview: png}, student.participantToken)).work.id, 'finished-1');
+  f.advance(1000);
+  await rejectsCode(f.service.submitWork({...payload, runId: game.state.runId, work: rawWork({id: 'finished-2'}), preview: png}, student.participantToken), 'activity-closed');
+  // Starting another activity closes uploads for the earlier run at once.
+  const stopped = await f.control('start', 3); f.advance(1000); await f.control('pause'); await f.control('start', 1);
+  await rejectsCode(f.service.submitWork({...payload, runId: stopped.state.runId, work: rawWork({id: 'finished-3'}), preview: png}, student.participantToken), 'activity-closed');
 });
 
-test('manual transition mode never admits late answers, and game expiry always pauses', async () => {
+test('manual transition mode never admits late answers, and the game runs until the teacher ends it', async () => {
   const f = await fixture({autoPause: false, durations: {1: 5, 3: 5}}), student = await f.join(1);
   const first = await f.control('start', 1); f.advance(5000);
   const payload = {code: f.room.code, participantId: student.participantId};
   assert.equal((await f.service.state(payload, student.participantToken)).state.status, 'active');
   await rejectsCode(f.service.answer({...payload, activity: 1, runId: first.state.runId, clientRevision: 1, answers: {}}, student.participantToken), 'activity-closed');
   await f.control('pause'); await f.control('start', 3); f.advance(5000);
+  assert.equal((await f.service.state(payload, student.participantToken)).state.status, 'active');
+  await f.control('pause');
   assert.equal((await f.service.state(payload, student.participantToken)).state.status, 'paused');
 });
 
@@ -143,6 +153,9 @@ test('optional submit button locks only complete final answers; autosaves remain
 
 test('comparison percentages use each pot’s respondents; observation responses are anonymous and frequency counted', async () => {
   const f = await fixture(), students = await Promise.all([f.join(1, '실명하나'), f.join(2, '실명둘'), f.join(3, '실명셋')]);
+  // Answers must not be revealable before an activity has run (the teacher screen is usually projected).
+  await rejectsCode(f.control('reveal', 1), 'reveal-after-activity');
+  await rejectsCode(f.control('reveal', 2), 'reveal-after-activity');
   const first = await f.control('start', 1);
   for (const [index, answers] of [{'1': 'yuan', '2': 'japan'}, {'1': 'goryeo'}].entries()) await f.service.answer({code: f.room.code,
     participantId: students[index].participantId, activity: 1, runId: first.state.runId, clientRevision: 1, answers}, students[index].participantToken);
@@ -201,6 +214,69 @@ test('explicit teacher deletion removes student answers and private images, reta
   assert.equal(f.store.records.size, 1); const remaining = [...f.store.records.values()][0].data;
   assert.deepEqual(Object.keys(remaining).sort(), ['code', 'deletedAt']);
   await rejectsCode(f.service.state({code: f.room.code, participantId: student.participantId}, student.participantToken), 'room-not-found');
+});
+
+test('the teacher can release a number, remove a student and lock new entries', async () => {
+  const f = await fixture(), a = await f.join(1, '봄샘'), b = await f.join(2, '하늘'), code = f.room.code;
+  const first = await f.control('start', 1);
+  await f.service.answer({code, participantId: a.participantId, activity: 1, runId: first.state.runId, clientRevision: 1, answers: {'1': 'yuan'}}, a.participantToken);
+  await rejectsCode(f.service.control({code, command: 'release-student', participantId: a.participantId}, a.participantToken), 'teacher-auth');
+  // Released: the old key stops working and the same number can be taken again on another device, keeping its answers.
+  assert.deepEqual(await f.control('release-student', undefined, {participantId: a.participantId}), {released: true});
+  await rejectsCode(f.service.state({code, participantId: a.participantId}, a.participantToken), 'student-auth');
+  assert.equal((await f.service.overview({code}, f.room.teacherToken)).participants.find(p => p.id === '1').released, true);
+  const again = await f.join(1, '봄샘');
+  assert.notEqual(again.participantToken, a.participantToken); assert.equal(again.answers[1].answers['1'], 'yuan');
+  await rejectsCode(f.join(1, '다른 사람'), 'number-in-use');
+  // Removed: the student's record and artworks are deleted.
+  await f.control('pause'); const game = await f.control('start', 3);
+  await f.service.submitWork({code, participantId: b.participantId, runId: game.state.runId, work: rawWork(), preview: png}, b.participantToken);
+  assert.deepEqual(await f.control('remove-student', undefined, {participantId: b.participantId}), {removed: true});
+  assert.ok(![...f.store.records.keys()].some(key => key.includes('/participants/2.json') || key.includes('/artworks/2/')));
+  const overview = await f.service.overview({code}, f.room.teacherToken);
+  assert.deepEqual(overview.participants.map(p => p.id), ['1']); assert.equal(overview.works.length, 0);
+  await rejectsCode(f.control('remove-student', undefined, {participantId: b.participantId}).then(() => f.control('release-student', undefined, {participantId: b.participantId})), 'student-not-found');
+  // Locked: new numbers are refused, but a released student can still come back.
+  assert.equal((await f.control('lock-room', undefined, {locked: true})).state.locked, true);
+  await rejectsCode(f.join(3, '모르는 사람'), 'room-locked');
+  await f.control('release-student', undefined, {participantId: again.participantId});
+  assert.equal((await f.join(1, '봄샘')).participantId, '1');
+  assert.equal((await f.control('lock-room', undefined, {locked: false})).state.locked, false);
+  assert.equal((await f.join(3, '새 학생')).participantId, '3');
+});
+
+test('an observer link shows class results without student names and cannot control the class', async () => {
+  const f = await fixture(), a = await f.join(1, '실명하나'), code = f.room.code;
+  const link = await f.control('observer-link'); assert.match(link.observerToken, /^[A-Za-z0-9_-]{30,}$/);
+  const game = await f.control('start', 3);
+  await f.service.submitWork({code, participantId: a.participantId, runId: game.state.runId, work: rawWork(), preview: png}, a.participantToken);
+  const view = await f.service.observe({code}, link.observerToken);
+  assert.equal(view.state.activity, 3); assert.equal(view.works.length, 1); assert.equal(view.participants.length, 1);
+  assert.ok(!JSON.stringify(view).includes('실명하나'));
+  assert.ok(!('name' in view.works[0]) && !('number' in view.works[0]));
+  assert.deepEqual(Object.keys(view.participants[0]).sort(), ['activity1Complete', 'activity2Complete', 'completedWorkCount']);
+  assert.equal((await f.service.artwork({code, participantId: a.participantId, workId: 'finished-1'}, link.observerToken)).preview, png);
+  await rejectsCode(f.service.control({code, command: 'pause'}, link.observerToken), 'teacher-auth');
+  await rejectsCode(f.service.overview({code}, link.observerToken), 'teacher-auth');
+  await rejectsCode(f.service.observe({code}, a.participantToken), 'observer-auth');
+  await rejectsCode(f.service.observe({code}, f.room.teacherToken), 'observer-auth');
+  const replaced = await f.control('observer-link');
+  await rejectsCode(f.service.observe({code}, link.observerToken), 'observer-auth');
+  assert.equal((await f.service.observe({code}, replaced.observerToken)).works.length, 1);
+});
+
+test('a teacher deletion interrupted part-way can be run again and still removes every student record', async () => {
+  const f = await fixture(), students = await Promise.all([f.join(1), f.join(2), f.join(3)]), originalDelete = f.store.delete.bind(f.store);
+  let deletes = 0;
+  f.store.delete = async key => { if (++deletes === 2) throw new Error('network'); return originalDelete(key); };
+  await assert.rejects(f.control('delete'), /network/);
+  assert.ok(f.store.records.size > 1, 'the interrupted sweep left records behind');
+  await rejectsCode(f.service.state({code: f.room.code, participantId: students[0].participantId}, students[0].participantToken), 'room-not-found');
+  await rejectsCode(f.service.control({code: f.room.code, command: 'delete'}, students[0].participantToken), 'teacher-auth');
+  assert.deepEqual(await f.control('delete'), {deleted: true});
+  assert.equal(f.store.records.size, 1);
+  assert.deepEqual(Object.keys([...f.store.records.values()][0].data).sort(), ['code', 'deletedAt']);
+  await rejectsCode(f.control('delete'), 'room-not-found');
 });
 
 test('a join created after the teacher deletion sweep is rejected and removes the late personal record', async () => {

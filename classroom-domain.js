@@ -40,14 +40,24 @@ function settingsFrom(raw = {}, previous = DEFAULT_CLASSROOM_SETTINGS) {
   return settings;
 }
 export function classroomState(room, now = Date.now()) {
-  const timedOut = room.status === 'active' && now >= room.endsAt && (room.activity === 3 || room.settings.autoPause);
+  // endsAt is null for activity 3, which runs until the teacher ends it.
+  const timedOut = room.status === 'active' && Number.isFinite(room.endsAt) && now >= room.endsAt && (room.activity === 3 || room.settings.autoPause);
   return {code: room.code, activity: room.activity, status: timedOut ? 'paused' : room.status,
-    runId: room.runId, runs: {...room.runs}, startedAt: room.startedAt, endsAt: room.endsAt,
-    serverNow: now, settings: structuredClone(room.settings), revealed: {...room.revealed}, revision: room.revision};
+    runId: room.runId, runs: {...room.runs}, startedAt: room.startedAt, endsAt: room.endsAt ?? null, pausedAt: room.pausedAt ?? null,
+    serverNow: now, settings: structuredClone(room.settings), revealed: {...room.revealed}, locked: room.locked === true, revision: room.revision};
+}
+// The game stops as soon as the activity closes, but a work finished just before may still be uploading its picture.
+// Accept it for a short while after the close of that same run (the teacher's "활동 마치기", or a deadline left over
+// from an older room), unless another activity has started or the class has ended.
+export const WORK_UPLOAD_GRACE_MS = 20000;
+function workRoom(room, runId, now) {
+  const closedAt = room.status === 'paused' ? room.pausedAt : room.endsAt;
+  if (room.activity === 3 && room.runId === runId && room.status !== 'ended' && Number.isFinite(closedAt) && now >= closedAt && now < closedAt + WORK_UPLOAD_GRACE_MS) return;
+  activeRoom(room, 3, runId, now);
 }
 function activeRoom(room, activity, runId, now) {
   const state = classroomState(room, now);
-  if (state.status !== 'active' || now >= room.endsAt || state.activity !== activity || state.runId !== runId) fail(409, 'activity-closed', '지금 활동이 마무리되었어요. 선생님을 봐 주세요.');
+  if (state.status !== 'active' || (Number.isFinite(room.endsAt) && now >= room.endsAt) || state.activity !== activity || state.runId !== runId) fail(409, 'activity-closed', '지금 활동이 마무리되었어요. 선생님을 봐 주세요.');
 }
 function publicStudent(student) { return {id: student.id, number: student.number, name: student.name, joinedAt: student.joinedAt}; }
 function answersFor(student) { return structuredClone(student.answers); }
@@ -85,7 +95,7 @@ export function classroomSummary(room, students) {
     activity2Complete: completeAnswers(2, currentAnswer(student, room, 2).answers),
     activity1Submitted: currentAnswer(student, room, 1).submitted,
     activity2Submitted: currentAnswer(student, room, 2).submitted,
-    completedWorkCount: student.works.filter(work => work.runId === room.runs[3]).length,
+    completedWorkCount: student.works.filter(work => work.runId === room.runs[3]).length, released: !student.tokenHash,
   })).sort((a, b) => a.number - b.number);
   const comparison = comparisonIds.map(id => {
     const answers = students.map(student => currentAnswer(student, room, 1).answers[id]).filter(value => countries.includes(value));
@@ -128,14 +138,15 @@ export function finishedWork(raw) {
   return {work, score: evaluateWork(work)};
 }
 
+const TEACHER_ROOM_GONE = '이미 삭제했거나 찾을 수 없는 수업이에요. 새 수업을 열어 주세요.';
 export class ClassroomService {
   constructor(store, {now = () => Date.now(), makeToken = token, makeCode} = {}) {
     this.store = store; this.now = now; this.makeToken = makeToken;
     this.makeCode = makeCode || (() => [...randomBytes(6)].map(value => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[value % 32]).join(''));
   }
-  async room(code, options) {
+  async room(code, options, message = '수업 코드를 찾지 못했어요. 선생님께 확인해 주세요.') {
     const result = await this.store.read(roomKey(validateCode(code)), options);
-    if (!result || result.data.deletedAt !== undefined) fail(404, 'room-not-found', '수업 코드를 찾지 못했어요. 선생님께 확인해 주세요.');
+    if (!result || result.data.deletedAt !== undefined) fail(404, 'room-not-found', message);
     return result;
   }
   async student(code, id, bearer, options) {
@@ -159,10 +170,12 @@ export class ClassroomService {
     if (room.status === 'ended') fail(409, 'room-ended', '이 수업은 모두 마무리되었어요.');
     if (!name || name.length > 20) fail(400, 'invalid-name', '이름을 20자 이내로 적어 주세요.');
     const existing = await this.store.read(studentKey(code, id));
+    if (existing && !existing.data.tokenHash) return this.rejoinReleased(code, id, name, existing, room);
     if (existing) {
-      if (!authorized(raw.participantToken, existing.data.tokenHash)) fail(409, 'number-in-use', '이미 입장한 번호예요. 처음 입장한 기기에서 이어 주세요.');
+      if (!authorized(raw.participantToken, existing.data.tokenHash)) fail(409, 'number-in-use', '이미 입장한 번호예요. 처음 입장한 기기에서 이어서 참여하거나 선생님께 알려 주세요.');
       return {code, participantId: id, participantToken: raw.participantToken, state: classroomState(room, this.now()), student: publicStudent(existing.data), answers: answersFor(existing.data)};
     }
+    if (room.locked) fail(403, 'room-locked', '지금은 새로 입장할 수 없어요. 선생님께 알려 주세요.');
     const participantToken = this.makeToken(), student = {id, number: Number(id), name, tokenHash: hash(participantToken), joinedAt: this.now(), answers: {1: emptyAnswer(), 2: emptyAnswer()}, works: []};
     try { await this.store.create(studentKey(code, id), student); }
     catch (error) { if (error instanceof StoreConflict) fail(409, 'number-in-use', '이미 입장한 번호예요. 번호를 확인해 주세요.'); throw error; }
@@ -175,28 +188,69 @@ export class ClassroomService {
     } catch (error) { await this.store.delete(studentKey(code, id)); throw error; }
     return {code, participantId: id, participantToken, state: classroomState(latestRoom, this.now()), student: publicStudent(student), answers: answersFor(student)};
   }
-  async state(raw, bearer) {
-    // Only polling may reuse short-lived reads. Every mutation re-reads durable state.
-    const code = validateCode(raw.code), {data: room} = await this.room(code, {maxAge: 500}), {data: student} = await this.student(code, raw.participantId, bearer, {maxAge: 5000});
-    return {state: classroomState(room, this.now()), student: publicStudent(student), answers: answersFor(student), completedWorks: student.works.filter(work => work.runId === room.runs[3])};
+  // A number the teacher released (e.g. the student's browser data was cleared) can be taken again on any device;
+  // the student keeps the answers and works saved under that number.
+  async rejoinReleased(code, id, name, existing, room) {
+    const participantToken = this.makeToken(), {releasedAt, ...kept} = existing.data, student = {...kept, name, tokenHash: hash(participantToken)};
+    try { await this.store.update(studentKey(code, id), student, existing.etag); }
+    catch (error) { if (error instanceof StoreConflict) fail(409, 'number-in-use', '이미 입장한 번호예요. 번호를 확인해 주세요.'); throw error; }
+    return {code, participantId: id, participantToken, state: classroomState(room, this.now()), student: publicStudent(student), answers: answersFor(student)};
   }
-  async overview(raw, bearer) {
-    const code = validateCode(raw.code), {data: room} = await this.room(code, {maxAge: 500}); this.teacher(room, bearer);
+  async manageStudent(code, raw, bearer) {
+    const {data: room} = await this.room(code, undefined, TEACHER_ROOM_GONE); this.teacher(room, bearer);
+    const id = validateNumber(raw.participantId), key = studentKey(code, id);
+    if (raw.command === 'remove-student') {
+      const artworks = (await this.store.list(`${ROOM_ROOT(code)}artworks/`)).filter(item => item.startsWith(`${ROOM_ROOT(code)}artworks/${id}/`)), keys = [...artworks, key];
+      if (this.store.deleteMany) await this.store.deleteMany(keys); else for (const item of keys) await this.store.delete(item);
+      return {removed: true};
+    }
+    for (let retry = 0; retry < 6; retry++) {
+      const current = await this.store.read(key);
+      if (!current) fail(404, 'student-not-found', '이미 내보낸 학생이에요.');
+      if (!current.data.tokenHash) return {released: true};
+      try { await this.store.update(key, {...current.data, tokenHash: null, releasedAt: this.now()}, current.etag); return {released: true}; }
+      catch (error) { if (!(error instanceof StoreConflict)) throw error; }
+    }
+    fail(409, 'try-again', '다른 화면에서 학생 정보가 바뀌었어요. 다시 눌러 주세요.');
+  }
+  async students(code) {
     const keys = await this.store.list(`${ROOM_ROOT(code)}participants/`);
-    const students = (await Promise.all(keys.map(key => this.store.read(key, {maxAge: 5000})))).filter(Boolean).map(result => result.data);
+    return (await Promise.all(keys.map(key => this.store.read(key, {maxAge: 5000})))).filter(Boolean).map(result => result.data);
+  }
+  async revealedAnswers(room) {
     const reveal = {};
     if (room.revealed[1] || room.revealed[2]) {
       const answers = await import('./lesson-answer-key.js');
       if (room.revealed[1]) reveal.comparison = answers.COMPARISON_ANSWERS;
       if (room.revealed[2]) reveal.observations = answers.OBSERVATION_ANSWERS;
     }
-    return {state: classroomState(room, this.now()), ...classroomSummary(room, students), reveal};
+    return reveal;
+  }
+  // Read-only view for visitors at an open class: results and works without student names or numbers.
+  async observe(raw, bearer) {
+    const code = validateCode(raw.code), {data: room} = await this.room(code, {maxAge: 500}, '참관할 수업을 찾지 못했어요. 선생님께 확인해 주세요.');
+    if (!authorized(bearer, room.observerHash)) fail(403, 'observer-auth', '참관 주소가 바뀌었어요. 선생님께 새 참관 주소를 받아 주세요.');
+    const summary = classroomSummary(room, await this.students(code));
+    return {state: classroomState(room, this.now()), comparison: summary.comparison, observations: summary.observations,
+      participants: summary.participants.map(({activity1Complete, activity2Complete, completedWorkCount}) => ({activity1Complete, activity2Complete, completedWorkCount})),
+      works: summary.works.map(({name, number, ...work}) => work), reveal: await this.revealedAnswers(room)};
+  }
+  async state(raw, bearer) {
+    // Only polling may reuse short-lived reads. Every mutation re-reads durable state.
+    const code = validateCode(raw.code), {data: room} = await this.room(code, {maxAge: 500}), {data: student} = await this.student(code, raw.participantId, bearer, {maxAge: 5000});
+    return {state: classroomState(room, this.now()), student: publicStudent(student), answers: answersFor(student), completedWorks: student.works.filter(work => work.runId === room.runs[3])};
+  }
+  async overview(raw, bearer) {
+    const code = validateCode(raw.code), {data: room} = await this.room(code, {maxAge: 500}, TEACHER_ROOM_GONE); this.teacher(room, bearer);
+    return {state: classroomState(room, this.now()), ...classroomSummary(room, await this.students(code)), reveal: await this.revealedAnswers(room)};
   }
   async control(raw, bearer) {
     const code = validateCode(raw.code);
+    if (raw.command === 'delete') return this.removeRoom(code, bearer);
+    if (raw.command === 'release-student' || raw.command === 'remove-student') return this.manageStudent(code, raw, bearer);
+    let observerToken;
     for (let retry = 0; retry < 6; retry++) {
-      const current = await this.room(code), room = structuredClone(current.data); this.teacher(room, bearer);
-      if (raw.command === 'delete') return this.removeRoom(code, bearer);
+      const current = await this.room(code, undefined, TEACHER_ROOM_GONE), room = structuredClone(current.data); this.teacher(room, bearer);
       const state = classroomState(room, this.now());
       if (raw.command === 'start') {
         const activity = Number(raw.activity);
@@ -204,19 +258,24 @@ export class ClassroomService {
         if (state.status === 'active') fail(409, 'already-active', '진행 중인 활동을 먼저 마무리해 주세요.');
         if (room.status === 'ended') fail(409, 'room-ended', '새 수업을 만들어 주세요.');
         room.activity = activity; room.status = 'active'; room.runId = this.makeToken(); room.runs[activity] = room.runId;
-        room.startedAt = this.now(); room.endsAt = room.startedAt + room.settings.durations[activity] * 1000; room.revealed[activity] = false;
-      } else if (raw.command === 'pause') room.status = 'paused';
+        room.startedAt = this.now(); room.endsAt = activity === 3 ? null : room.startedAt + room.settings.durations[activity] * 1000; room.pausedAt = null; room.revealed[activity] = false;
+      } else if (raw.command === 'pause') { if (room.status === 'active') room.pausedAt = this.now(); room.status = 'paused'; }
       else if (raw.command === 'end') room.status = 'ended';
       else if (raw.command === 'settings') {
-        if (state.status === 'active') fail(409, 'already-active', '활동을 시작하기 전에 설정해 주세요.');
+        if (state.status === 'active') fail(409, 'already-active', '진행 중인 활동을 마친 뒤 설정해 주세요.');
         room.settings = settingsFrom(raw.settings, room.settings);
       } else if (raw.command === 'reveal') {
         const activity = Number(raw.activity || room.activity);
-        if (![1, 2].includes(activity) || state.status === 'active') fail(409, 'reveal-after-activity', '활동을 마무리한 뒤 정답을 공개해 주세요.');
+        // Only after this activity has actually run; revealing before the start would spoil the answers on the projected teacher screen.
+        if (![1, 2].includes(activity) || !room.runs?.[activity] || state.status === 'active') fail(409, 'reveal-after-activity', '활동을 마무리한 뒤 정답을 공개해 주세요.');
         room.revealed[activity] = true;
+      } else if (raw.command === 'lock-room') room.locked = raw.locked === true;
+      else if (raw.command === 'observer-link') {
+        // A new link replaces the previous one; only its hash is stored, like the teacher and student keys.
+        observerToken = this.makeToken(); room.observerHash = hash(observerToken);
       } else fail(400, 'invalid-control', '진행 버튼을 다시 확인해 주세요.');
       room.revision++;
-      try { await this.store.update(roomKey(code), room, current.etag); return {state: classroomState(room, this.now())}; }
+      try { await this.store.update(roomKey(code), room, current.etag); return {state: classroomState(room, this.now()), ...(observerToken ? {observerToken} : {})}; }
       catch (error) { if (!(error instanceof StoreConflict)) throw error; }
     }
     fail(409, 'try-again', '다른 화면에서 수업이 바뀌었어요. 다시 눌러 주세요.');
@@ -243,11 +302,11 @@ export class ClassroomService {
   }
   async submitWork(raw, bearer) {
     const code = validateCode(raw.code), id = validateNumber(raw.participantId), {data: room} = await this.room(code);
-    activeRoom(room, 3, raw.runId, this.now()); const {data: initialStudent} = await this.student(code, id, bearer);
+    workRoom(room, raw.runId, this.now()); const {data: initialStudent} = await this.student(code, id, bearer);
     const {work, score} = finishedWork(raw.work), preview = previewImage(raw.preview || raw.work.preview);
     const existingWork = initialStudent.works.find(item => item.id === work.id && item.runId === room.runId);
     if (existingWork) return {state: classroomState(room, this.now()), work: existingWork, duplicate: true};
-    if (initialStudent.works.filter(item => item.runId === room.runId).length >= 10) fail(409, 'work-limit', '이번 활동의 작품을 모두 보냈어요.');
+    if (initialStudent.works.filter(item => item.runId === room.runId).length >= 10) fail(409, 'work-limit', '이번 활동에는 작품을 10점까지 보낼 수 있어요.');
     const key = artworkKey(code, id, work.id), summary = {id: work.id, runId: room.runId, title: work.title, shape: work.shape, score: score.total,
       objectiveScore: score.objective, explanationScore: score.explanation, explanationUse: work.explanationUse, explanationBeauty: work.explanationBeauty, submittedAt: this.now()};
     const priorArt = await this.store.read(key);
@@ -258,8 +317,8 @@ export class ClassroomService {
     for (let retry = 0; retry < 6; retry++) {
       const current = await this.student(code, id, bearer), student = structuredClone(current.data);
       if (student.works.some(item => item.id === work.id && item.runId === room.runId)) return {state: classroomState(room, this.now()), work: student.works.find(item => item.id === work.id && item.runId === room.runId), duplicate: true};
-      if (student.works.filter(item => item.runId === room.runId).length >= 10) fail(409, 'work-limit', '이번 활동의 작품을 모두 보냈어요.');
-      const {data: latestRoom} = await this.room(code); activeRoom(latestRoom, 3, raw.runId, this.now());
+      if (student.works.filter(item => item.runId === room.runId).length >= 10) fail(409, 'work-limit', '이번 활동에는 작품을 10점까지 보낼 수 있어요.');
+      const {data: latestRoom} = await this.room(code); workRoom(latestRoom, raw.runId, this.now());
       student.works.push(summary);
       try { await this.store.update(studentKey(code, id), student, current.etag); return {state: classroomState(latestRoom, this.now()), work: summary}; }
       catch (error) { if (!(error instanceof StoreConflict)) throw error; }
@@ -268,7 +327,7 @@ export class ClassroomService {
   }
   async artwork(raw, bearer) {
     const code = validateCode(raw.code), id = validateNumber(raw.participantId), workId = validateWorkId(raw.workId), {data: room} = await this.room(code);
-    if (!authorized(bearer, room.teacherHash)) await this.student(code, id, bearer);
+    if (!authorized(bearer, room.teacherHash) && !authorized(bearer, room.observerHash)) await this.student(code, id, bearer);
     const student = await this.store.read(studentKey(code, id));
     if (!student?.data.works.some(work => work.id === workId)) fail(404, 'work-not-found', '완성작을 찾지 못했어요.');
     const result = await this.store.read(artworkKey(code, id, workId));
@@ -276,10 +335,17 @@ export class ClassroomService {
     return {preview: result.data.preview};
   }
   async removeRoom(code, bearer) {
-    const current = await this.room(code); this.teacher(current.data, bearer);
-    await this.store.update(roomKey(code), {...current.data, deletedAt: this.now(), status: 'ended'}, current.etag);
-    const keys = await this.store.list(ROOM_ROOT(code));
-    for (const key of keys.filter(key => key !== roomKey(code))) await this.store.delete(key);
+    // Marking the room deleted first stops new joins and answers. The teacher hash stays until the sweep has
+    // finished, so a deletion interrupted by a timeout or network error can be run again by the same teacher.
+    const current = await this.store.read(roomKey(code));
+    if (!current || !current.data.teacherHash) fail(404, 'room-not-found', TEACHER_ROOM_GONE);
+    this.teacher(current.data, bearer);
+    if (current.data.deletedAt === undefined) {
+      await this.store.update(roomKey(code), {...current.data, deletedAt: this.now(), status: 'ended'}, current.etag);
+    }
+    const keys = (await this.store.list(ROOM_ROOT(code))).filter(key => key !== roomKey(code));
+    if (this.store.deleteMany) await this.store.deleteMany(keys);
+    else for (const key of keys) await this.store.delete(key);
     // Keep only a tombstone so a stale client cannot recreate data under a recycled code.
     const tombstone = await this.store.read(roomKey(code));
     if (tombstone) await this.store.update(roomKey(code), {code, deletedAt: this.now()}, tombstone.etag);

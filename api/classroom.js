@@ -38,6 +38,7 @@ export function createClassroomHandler({store, now, makeCode, makeToken} = {}) {
       if (req.method === 'GET' && raw.action === 'teacher') result = await service.overview(raw, auth);
       else if (req.method === 'GET' && raw.action === 'artwork') result = await service.artwork(raw, auth);
       else if (req.method === 'GET' && raw.action === 'state') result = await service.state(raw, auth);
+      else if (req.method === 'GET' && raw.action === 'observe') result = await service.observe(raw, auth);
       else if (req.method === 'POST' && raw.action === 'create') result = await service.create(raw);
       else if (req.method === 'POST' && raw.action === 'join') result = await service.join(raw);
       else if (req.method === 'POST' && raw.action === 'control') result = await service.control(raw, auth);

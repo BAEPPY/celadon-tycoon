@@ -53,10 +53,23 @@ test('teacher controls require the teacher route and capability; object browsing
     assert.equal(canUseClassroomAction(action, student), true, action);
     assert.equal(canUseClassroomAction(action, teacher), false, action);
   }
-  for (const action of ['fullscreen', 'retry-connection']) {
+  for (const action of ['fullscreen', 'retry-connection', 'retry-boot']) {
     assert.equal(canUseClassroomAction(action, student), true);
     assert.equal(canUseClassroomAction(action, teacher), true);
   }
   assert.equal(canUseClassroomAction('unknown-action', student), false);
   assert.equal(canUseClassroomAction('unknown-action', teacher), false);
+});
+
+test('an observer board can only change its own view, never control the class or manage students', () => {
+  const observer = {teacherMode: false, observerMode: true};
+  for (const action of ['teacher-activity', 'teacher-object', 'cloud-kind', 'fullscreen', 'retry-connection', 'retry-boot']) assert.equal(canUseClassroomAction(action, observer), true, action);
+  for (const action of ['create', 'start', 'pause', 'reveal', 'settings', 'end', 'new-room', 'delete-room', 'copy-code', 'copy-invite',
+    'manage-students', 'lock-room', 'release-student', 'remove-student', 'copy-observer', 'observer-link', 'join', 'submit-answers']) {
+    assert.equal(canUseClassroomAction(action, {...observer, teacherToken: 'a'.repeat(43)}), false, action);
+  }
+  for (const action of ['manage-students', 'lock-room', 'release-student', 'remove-student', 'copy-observer']) {
+    assert.equal(isTeacherAction(action), true, action);
+    assert.equal(canUseClassroomAction(action, {teacherMode: false}), false, action);
+  }
 });
