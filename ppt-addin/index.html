@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>청자 교실 실시간 화면</title>
+<style>
+:root{font-family:'Noto Sans KR','Malgun Gothic',Arial,sans-serif;color:#25313b;background:#f3f5f7;--jade:#078e91;--jade-dark:#067477;--line:#d9e3e6;--muted:#687783}
+*{box-sizing:border-box}html,body{margin:0;height:100%}body{word-break:keep-all;overflow-wrap:anywhere}
+#board{position:fixed;inset:0;width:100%;height:100%;border:0;background:#f3f5f7}
+#setup{min-height:100%;display:grid;place-items:center;padding:14px}
+.card{width:min(560px,100%);background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 20px;display:grid;gap:12px}
+h1{margin:0;font-size:19px}p{margin:0;font-size:14px;line-height:1.6;color:var(--muted)}
+fieldset{border:0;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:7px}
+legend{font-size:14px;font-weight:700;margin-bottom:7px;padding:0}
+label.choice{display:flex;align-items:center;gap:7px;font-size:14px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;cursor:pointer}
+label.choice:has(input:checked){border-color:var(--jade);background:#e8f7f5}
+.field{display:grid;gap:5px;font-size:14px;font-weight:700}
+input[type=url]{font:inherit;font-weight:400;font-size:14px;padding:9px 10px;border:1px solid var(--line);border-radius:8px;width:100%}
+button{font:inherit;font-size:15px;font-weight:700;border-radius:8px;border:1px solid var(--jade);background:var(--jade);color:#fff;padding:10px 14px;cursor:pointer}
+#error{color:#c35448;font-size:13px;min-height:1em}
+#change{position:fixed;right:8px;top:8px;z-index:2;font-size:12px;padding:5px 9px;background:#fff;color:var(--jade-dark);border-color:var(--line);opacity:.92}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<main id="setup" hidden>
+  <form class="card" id="form">
+    <h1>이 자리에 띄울 실시간 화면</h1>
+    <fieldset>
+      <legend>보여 줄 화면</legend>
+      <label class="choice"><input type="radio" name="panel" value="follow" checked> 지금 활동 따라가기</label>
+      <label class="choice"><input type="radio" name="panel" value="comparison"> 세 나라 비교 결과</label>
+      <label class="choice"><input type="radio" name="panel" value="beauty"> 매병 3D·아름다움</label>
+      <label class="choice"><input type="radio" name="panel" value="uses"> 이름·쓰임 짐작</label>
+      <label class="choice"><input type="radio" name="panel" value="works"> 완성작 모음</label>
+      <label class="choice"><input type="radio" name="panel" value="game"> 청자 만들기 게임</label>
+    </fieldset>
+    <label class="field" id="link-field">참관 주소
+      <input type="url" id="link" autocomplete="off" spellcheck="false" placeholder="선생님 화면 → 참관 QR → 참관 주소 복사">
+    </label>
+    <p>참관 주소는 이 컴퓨터에 한 번만 넣으면 다른 슬라이드에도 저절로 채워져요. 학생 이름은 보이지 않아요.</p>
+    <p id="error" role="alert"></p>
+    <button type="submit">이 화면 띄우기</button>
+  </form>
+</main>
+<iframe id="board" title="실시간 수업 화면" hidden allow="fullscreen"></iframe>
+<button id="change" type="button" hidden>화면 바꾸기</button>
+<script>
+'use strict';
+// Each inserted add-in keeps its own choice in the presentation (Office settings); the observer link is also kept
+// on this computer so the next slide's add-in fills it in. Outside PowerPoint the page works with local storage only.
+const LOCAL_KEY = 'celadon-ppt-addin-v1', PANELS = ['follow', 'comparison', 'beauty', 'uses', 'works', 'game'];
+const $ = id => document.getElementById(id);
+let office = null, editing = true;
+const local = {
+  read() { try { return JSON.parse(localStorage.getItem(LOCAL_KEY) || 'null') || {}; } catch { return {}; } },
+  write(value) { try { localStorage.setItem(LOCAL_KEY, JSON.stringify({...local.read(), ...value})); } catch {} },
+};
+function parseLink(text) {
+  try {
+    const url = new URL(String(text || '').trim()), key = new URLSearchParams(url.hash.slice(1)).get('key') || url.searchParams.get('key') || '';
+    const code = (url.searchParams.get('code') || '').normalize('NFKC').trim().toUpperCase();
+    if (url.origin !== location.origin || url.pathname !== '/observe' || !/^(?:탑텐반|[A-Z2-9]{6})$/.test(code) || !/^[A-Za-z0-9_-]{30,100}$/.test(key)) return null;
+    return {code, key};
+  } catch { return null; }
+}
+function boardUrl(panel, link) {
+  if (panel === 'game') return '/game';
+  const params = new URLSearchParams({code: link.code});
+  if (panel === 'follow') params.set('board', '1'); else params.set('show', panel);
+  return `/observe?${params}#${new URLSearchParams({key: link.key})}`;
+}
+function saved() {
+  const doc = office ? Office.context.document.settings : null, mine = local.read();
+  const panel = (doc ? doc.get('panel') : mine.panel) || null, link = (doc && doc.get('link')) || mine.link || null;
+  return {panel: PANELS.includes(panel) ? panel : null, link: parseLink(link) ? link : null, panelSaved: Boolean(doc ? doc.get('panel') : mine.panel)};
+}
+function save(panel, link) {
+  local.write({...(link ? {link} : {}), ...(office ? {} : {panel})});
+  if (!office) return Promise.resolve();
+  const settings = Office.context.document.settings;
+  settings.set('panel', panel); if (link) settings.set('link', link);
+  return new Promise(resolve => settings.saveAsync(() => resolve()));
+}
+function showBoard() {
+  const {panel, link} = saved(), parsed = link && parseLink(link);
+  if (!panel || (panel !== 'game' && !parsed)) return showSetup();
+  $('setup').hidden = true;
+  const src = boardUrl(panel, parsed || {});
+  if ($('board').getAttribute('src') !== src) $('board').setAttribute('src', src);
+  $('board').hidden = false; $('change').hidden = !editing;
+}
+function showSetup(message = '') {
+  const {panel, link} = saved();
+  $('board').hidden = true; $('change').hidden = true; $('setup').hidden = false; $('error').textContent = message;
+  const choice = document.querySelector(`input[name=panel][value="${panel || 'follow'}"]`); if (choice) choice.checked = true;
+  $('link').value = link || local.read().link || '';
+  syncLinkField();
+}
+function syncLinkField() { $('link-field').hidden = document.querySelector('input[name=panel]:checked')?.value === 'game'; }
+$('form').addEventListener('change', syncLinkField);
+$('form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const panel = document.querySelector('input[name=panel]:checked')?.value, text = $('link').value.trim();
+  if (!PANELS.includes(panel)) return;
+  if (panel !== 'game' && !parseLink(text)) { $('error').textContent = '참관 주소를 확인해 주세요. 선생님 화면의 참관 QR 창에서 “참관 주소 복사”로 복사한 주소를 붙여 넣어 주세요.'; return; }
+  await save(panel, panel === 'game' && !parseLink(text) ? saved().link : text);
+  showBoard();
+});
+$('change').addEventListener('click', () => showSetup());
+// In a slide show (PowerPoint "read" view) only the board shows; in the editor a small button changes it.
+function watchView() {
+  const apply = view => { editing = view !== 'read'; if (!$('board').hidden) $('change').hidden = !editing; };
+  try {
+    Office.context.document.getActiveViewAsync(result => apply(result.value));
+    Office.context.document.addHandlerAsync(Office.EventType.ActiveViewChanged, event => apply(event.activeView));
+  } catch {}
+}
+function start(inOffice) {
+  office = inOffice;
+  if (office) watchView();
+  saved().panelSaved ? showBoard() : showSetup();
+}
+// Office.js only matters inside PowerPoint; elsewhere (or if it cannot load) the page runs on its own.
+(function boot() {
+  let done = false; const finish = inOffice => { if (!done) { done = true; start(inOffice); } };
+  const script = document.createElement('script');
+  script.src = 'https://appsforoffice.microsoft.com/lib/1/hosted/office.js';
+  script.onload = () => { try { Office.onReady(info => finish(Boolean(info && info.host))); } catch { finish(false); } };
+  script.onerror = () => finish(false);
+  document.head.append(script);
+  setTimeout(() => finish(false), 8000);
+})();
+</script>
+</body>
+</html>
