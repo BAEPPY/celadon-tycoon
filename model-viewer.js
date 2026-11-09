@@ -4,6 +4,7 @@ import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {RoomEnvironment} from 'three/addons/environments/RoomEnvironment.js';
 import {getModelArtifact} from './models-manifest.js';
 import {createArtifactOpening} from './artifact-opening.js';
+import {applyArtifactTextureQuality, resizeArtifactRenderer, createArtifactShadow} from './artifact-render-quality.js';
 
 const viewers = new WeakMap();
 const create = (tag, className, text) => {
@@ -55,6 +56,30 @@ export async function openArtifact(container, shape) {
   let disposed = false, renderer, controls, object, scene, camera, observer, environment;
   let frame = 0, modelRoot, floor, homePosition, homeTarget, initialRadius = 4;
   let opening, openingButton, openingFitDistance = 0;
+  const motionPreference = matchMedia('(prefers-reduced-motion: reduce)');
+  // OrbitControls emits change while damping settles. Stop drawing as soon as
+  // the view is still, so a detailed model does not keep using the Chromebook GPU.
+  function invalidate() {
+    if (disposed || frame || !renderer || !scene || !camera || document.hidden) return;
+    frame = requestAnimationFrame(() => {
+      frame = 0;
+      if (disposed || document.hidden) return;
+      if (!container.isConnected) {controller.dispose(); return;}
+      controls?.update();
+      renderer.render(scene, camera);
+    });
+  }
+  function updateMotionPreference() {
+    if (!controls || disposed) return;
+    controls.enableDamping = !motionPreference.matches;
+    controls.update();
+    invalidate();
+  }
+  function removeRenderListeners() {
+    document.removeEventListener('visibilitychange', invalidate);
+    motionPreference.removeEventListener('change', updateMotionPreference);
+    controls?.removeEventListener('change', invalidate);
+  }
   function fitOpeningView() {
     if (!opening || !camera || !controls) return;
     const bounds = opening.getBounds(), radius = bounds.getSize(new THREE.Vector3()).length() / 2;
@@ -80,9 +105,10 @@ export async function openArtifact(container, shape) {
       if (disposed) return;
       disposed = true;
       abort.abort();
-      cancelAnimationFrame(frame);
+      cancelAnimationFrame(frame); frame = 0;
       opening?.dispose();
       observer?.disconnect();
+      removeRenderListeners();
       controls?.dispose();
       releaseModel(object);
       releaseModel(floor);
@@ -117,6 +143,8 @@ export async function openArtifact(container, shape) {
     },
     setLidOpen(open, options) {if (!disposed && opening) opening.setOpen(open, options);},
   };
+  document.addEventListener('visibilitychange', invalidate);
+  motionPreference.addEventListener('change', updateMotionPreference);
   viewers.set(container, controller);
   container.replaceChildren();
   container.dataset.status = 'loading';
@@ -184,7 +212,6 @@ export async function openArtifact(container, shape) {
 
   try {
     renderer = new THREE.WebGLRenderer({antialias:true, alpha:true, powerPreference:'low-power'});
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 0.95;
@@ -198,11 +225,12 @@ export async function openArtifact(container, shape) {
     scene = new THREE.Scene();
     camera = new THREE.PerspectiveCamera(38, 1, 0.01, 100);
     controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
+    controls.enableDamping = !motionPreference.matches;
     controls.dampingFactor = 0.085;
     controls.enablePan = false;
     controls.maxPolarAngle = Math.PI * 0.94;
     controls.minPolarAngle = Math.PI * 0.04;
+    controls.addEventListener('change', invalidate);
     const pmrem = new THREE.PMREMGenerator(renderer);
     const room = new RoomEnvironment();
     environment = pmrem.fromScene(room, 0.04);
@@ -215,18 +243,17 @@ export async function openArtifact(container, shape) {
     key.position.set(4, 6, 5); scene.add(key);
     const fill = new THREE.DirectionalLight(0xd4e0db, 0.35);
     fill.position.set(-4, 2, 0); scene.add(fill);
-    floor = new THREE.Mesh(new THREE.CircleGeometry(1.65, 64), new THREE.MeshBasicMaterial({color:0xb7c9a2, transparent:true, opacity:0.38, side:THREE.DoubleSide}));
-    floor.rotation.x = -Math.PI / 2;
-    floor.position.y = -0.02;
+    floor = createArtifactShadow(THREE);
     scene.add(floor);
 
     observer = new ResizeObserver(() => {
       if (disposed) return;
       const width = Math.max(1, viewport.clientWidth), height = Math.max(1, viewport.clientHeight);
-      renderer.setSize(width, height, false);
+      resizeArtifactRenderer(renderer, width, height, {expanded: true});
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
       fitOpeningView();
+      invalidate();
     });
     observer.observe(viewport);
 
@@ -246,6 +273,7 @@ export async function openArtifact(container, shape) {
         if (material.isMeshBasicMaterial && material.map) material.toneMapped = false;
       }
     });
+    applyArtifactTextureQuality(object, renderer);
     const box = new THREE.Box3().setFromObject(object);
     const size = box.getSize(new THREE.Vector3());
     if (!meshCount || !size.toArray().every(Number.isFinite) || Math.max(size.x,size.y,size.z) <= 0) throw new Error('유물의 형상을 확인하지 못했어요.');
@@ -270,7 +298,7 @@ export async function openArtifact(container, shape) {
     controls.maxDistance = 9;
     controls.update();
     homePosition = camera.position.clone(); homeTarget = controls.target.clone();
-    renderer.setSize(viewportWidth, viewportHeight, false);
+    resizeArtifactRenderer(renderer, viewportWidth, viewportHeight, {expanded: true});
     camera.aspect = aspect;
     camera.updateProjectionMatrix();
     opening = createArtifactOpening(gltf, artifact.opening, {THREE, onChange: state => {
@@ -280,6 +308,7 @@ export async function openArtifact(container, shape) {
         openingButton.setAttribute('aria-pressed', String(state.open));
       }
       fitOpeningView();
+      invalidate();
     }});
     if (opening) opening.setOpen(false, {animate: false});
     else {openingButton?.remove(); openingButton = null; delete container.dataset.opening;}
@@ -287,19 +316,14 @@ export async function openArtifact(container, shape) {
     toolbar.querySelectorAll('button').forEach(b => {b.disabled = false;});
     container.dataset.status = 'ready';
     container.dataset.meshes = String(meshCount);
-    const render = () => {
-      if (disposed) return;
-      if (!container.isConnected) {controller.dispose(); return;}
-      if (!document.hidden) {controls.update(); renderer.render(scene,camera);}
-      frame = requestAnimationFrame(render);
-    };
-    render();
+    invalidate();
     return controller;
   } catch (error) {
     if (disposed || error.name === 'AbortError') return controller;
-    cancelAnimationFrame(frame);
+    cancelAnimationFrame(frame); frame = 0;
     opening?.dispose(); opening = null;
     observer?.disconnect();
+    removeRenderListeners();
     controls?.dispose();
     releaseModel(object); object = null;
     releaseModel(floor); floor = null;

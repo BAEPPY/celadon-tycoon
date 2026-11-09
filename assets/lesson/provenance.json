@@ -1,32 +1,8 @@
 {
   "museumCommit": "1af26e11f21928b7935a5432de3d178997558c7e",
   "gameSourceCommit": "7b5ea0acb9462ca806d21815e1b12192362462af",
-  "method": "Per-file provenance: six byte-identical copies of existing lightweight GLBs and two converted user-supplied OBJ artifacts with original UVs and photographic textures. See each asset record.",
+  "method": "Per-file provenance: original or converted museum models, with matching original photographic atlases and optional detailed-source meshes. See each asset record; no synthesized detail.",
   "assets": [
-    {
-      "id": "comparison-1",
-      "file": "comparison-1.glb",
-      "bytes": 365424,
-      "sha256": "48b3f3c13412a4ea901da4b5bf1449e0a9ec6f014fb5e83a189e07a19ad3939f",
-      "source": "BAEPPY/minichungjamuseum/public/models/map/japan-peony-reconstruction.glb",
-      "copiedWithoutModification": true,
-      "meshes": 1,
-      "extensionsUsed": [
-        "KHR_materials_unlit"
-      ]
-    },
-    {
-      "id": "comparison-2",
-      "file": "comparison-2.glb",
-      "bytes": 906684,
-      "sha256": "6faba64f6776d67b71470dbd984074759eac35150544ee5c2c1cd2d8847788d9",
-      "source": "BAEPPY/minichungjamuseum/public/models/map/yuan-celadon-vase.glb",
-      "copiedWithoutModification": true,
-      "meshes": 1,
-      "extensionsUsed": [
-        "KHR_materials_unlit"
-      ]
-    },
     {
       "id": "comparison-3",
       "file": "comparison-3.glb",
@@ -61,16 +37,6 @@
       }
     },
     {
-      "id": "observation-1",
-      "file": "observation-1.glb",
-      "bytes": 2481304,
-      "sha256": "e1df500c2a3a2b4d8d4a6936b544eb1b8cbfdf112b217c346b03e48fe2b860fe",
-      "source": "BAEPPY/celadon-tycoon/assets/models/celadon-pillow-reconstruction.glb",
-      "copiedWithoutModification": true,
-      "meshes": 1,
-      "extensionsUsed": []
-    },
-    {
       "id": "observation-2",
       "file": "observation-2.glb",
       "bytes": 765144,
@@ -90,16 +56,6 @@
       "source": "BAEPPY/celadon-tycoon/assets/models/celadon-duck-waterdropper.glb",
       "copiedWithoutModification": true,
       "meshes": 1,
-      "extensionsUsed": []
-    },
-    {
-      "id": "observation-4",
-      "file": "observation-4.glb",
-      "bytes": 715768,
-      "sha256": "713f4453480758c425cf0eea18b1031934ea8a773f5d4d03d613818a1ba092bd",
-      "source": "BAEPPY/celadon-tycoon/assets/models/celadon-ewer.glb",
-      "copiedWithoutModification": true,
-      "meshes": 2,
       "extensionsUsed": []
     },
     {
@@ -215,6 +171,349 @@
       ],
       "source": "BAEPPY/celadon-tycoon/assets/models/celadon-incense.glb",
       "copiedWithoutModification": true
+    },
+    {
+      "id": "observation-1",
+      "file": "observation-1.glb",
+      "source": "assets/models/celadon-pillow-reconstruction.glb",
+      "sourceSha256": "e1df500c2a3a2b4d8d4a6936b544eb1b8cbfdf112b217c346b03e48fe2b860fe",
+      "atlasSource": "assets/models/detail/celadon-pillow-reconstruction.glb",
+      "atlasSourceSha256": "e90be13ff411c8ad4e30c9636351abf33f06c2f9c1ceb7b30efb1fef5f00d1f4",
+      "copiedWithoutModification": false,
+      "bytes": 3349148,
+      "sha256": "a382b862878686e89894b9560207480e1b997dcd6dfce9e84a1fb9ff6050184d",
+      "triangles": 18000,
+      "photographs": [
+        {
+          "image": 0,
+          "sourceResolution": [
+            4096,
+            4096
+          ],
+          "resolution": [
+            2048,
+            2048
+          ],
+          "bytes": 763395,
+          "sha256": "775e2ab74caed617688f097ab7c2d4d7a0de02155c3f9d6725ecdeca850b4cd6"
+        },
+        {
+          "image": 1,
+          "sourceResolution": [
+            1535,
+            1183
+          ],
+          "resolution": [
+            1535,
+            1183
+          ],
+          "bytes": 150115,
+          "sha256": "da93fee91d2c5964130d7306a2daa2860ae51408c4f000af63d1c9fcbf40cca6"
+        }
+      ],
+      "conversion": "tools/prepare-lesson-detail.py; source mesh, UVs, vertex colors, normal and roughness maps retained. Source photographic atlases only; no synthesized detail.",
+      "quality": "card"
+    },
+    {
+      "id": "observation-1",
+      "file": "detail/observation-1.glb",
+      "source": "assets/models/detail/celadon-pillow-reconstruction.glb",
+      "sourceSha256": "e90be13ff411c8ad4e30c9636351abf33f06c2f9c1ceb7b30efb1fef5f00d1f4",
+      "atlasSource": "assets/models/detail/celadon-pillow-reconstruction.glb",
+      "atlasSourceSha256": "e90be13ff411c8ad4e30c9636351abf33f06c2f9c1ceb7b30efb1fef5f00d1f4",
+      "copiedWithoutModification": false,
+      "bytes": 7594316,
+      "sha256": "6f6287dffa5df0ce7228d820162fa8e45227cd404a94e49d6892dea528ef3b7b",
+      "triangles": 74333,
+      "photographs": [
+        {
+          "image": 0,
+          "sourceResolution": [
+            4096,
+            4096
+          ],
+          "resolution": [
+            4096,
+            4096
+          ],
+          "bytes": 1758227,
+          "sha256": "3da1ef46ab782274207f0a029d1d96dbc3f21b0ae767d8ff1bf942e17870e656"
+        },
+        {
+          "image": 1,
+          "sourceResolution": [
+            1535,
+            1183
+          ],
+          "resolution": [
+            1535,
+            1183
+          ],
+          "bytes": 150115,
+          "sha256": "da93fee91d2c5964130d7306a2daa2860ae51408c4f000af63d1c9fcbf40cca6"
+        }
+      ],
+      "conversion": "tools/prepare-lesson-detail.py; source mesh, UVs, vertex colors, normal and roughness maps retained. Source photographic atlases only; no synthesized detail.",
+      "quality": "detail"
+    },
+    {
+      "id": "observation-4",
+      "file": "observation-4.glb",
+      "source": "assets/models/celadon-ewer.glb",
+      "sourceSha256": "713f4453480758c425cf0eea18b1031934ea8a773f5d4d03d613818a1ba092bd",
+      "atlasSource": "assets/models/detail/celadon-ewer.glb",
+      "atlasSourceSha256": "b1f0d72d42bec9f955a0f67a5370a839c3cf3c206900bebe3edcd258e60948de",
+      "copiedWithoutModification": false,
+      "bytes": 1801068,
+      "sha256": "8818c86eee803fffbaabcdf98045e55b2217d78aaff60f7e9fd7cb934cf45f08",
+      "triangles": 25998,
+      "photographs": [
+        {
+          "image": 0,
+          "sourceResolution": [
+            4096,
+            4096
+          ],
+          "resolution": [
+            2048,
+            2048
+          ],
+          "bytes": 624394,
+          "sha256": "f9dc9f6f9ccca776772a33e7421138265ce795e48bf0415b54588cf59ec8e0fe"
+        },
+        {
+          "image": 1,
+          "sourceResolution": [
+            4096,
+            4096
+          ],
+          "resolution": [
+            2048,
+            2048
+          ],
+          "bytes": 516947,
+          "sha256": "7c0f0fe69d66332b446bfdcb36fa09014ec94edae42b598bf0b9633c1349f0ce"
+        }
+      ],
+      "conversion": "tools/prepare-lesson-detail.py; source mesh, UVs, vertex colors, normal and roughness maps retained. Source photographic atlases only; no synthesized detail.",
+      "quality": "card"
+    },
+    {
+      "id": "observation-4",
+      "file": "detail/observation-4.glb",
+      "source": "assets/models/detail/celadon-ewer.glb",
+      "sourceSha256": "b1f0d72d42bec9f955a0f67a5370a839c3cf3c206900bebe3edcd258e60948de",
+      "atlasSource": "assets/models/detail/celadon-ewer.glb",
+      "atlasSourceSha256": "b1f0d72d42bec9f955a0f67a5370a839c3cf3c206900bebe3edcd258e60948de",
+      "copiedWithoutModification": false,
+      "bytes": 10127884,
+      "sha256": "576b16a87562275d29f649def1cbf798e9271e9e6c9168b4a69f77f42f72f9cf",
+      "triangles": 298240,
+      "photographs": [
+        {
+          "image": 0,
+          "sourceResolution": [
+            4096,
+            4096
+          ],
+          "resolution": [
+            4096,
+            4096
+          ],
+          "bytes": 1147460,
+          "sha256": "58991c5d03c11113daa5e95745b3755dfb9aea75bb493235b7ab82bce92ec807"
+        },
+        {
+          "image": 1,
+          "sourceResolution": [
+            4096,
+            4096
+          ],
+          "resolution": [
+            4096,
+            4096
+          ],
+          "bytes": 1001170,
+          "sha256": "a1a692a09f19bc02e29778f25f960a81289a00745c81c4e903b50bdbe2f438e1"
+        }
+      ],
+      "conversion": "tools/prepare-lesson-detail.py; source mesh, UVs, vertex colors, normal and roughness maps retained. Source photographic atlases only; no synthesized detail.",
+      "quality": "detail"
+    },
+    {
+      "id": "beauty",
+      "file": "beauty.glb",
+      "source": "assets/models/celadon-maebyeong-v2.glb",
+      "sourceSha256": "074fabc021d3f3ffbf395310ea18e3415e563ad768532f03247b8ad9d943b7f4",
+      "atlasSource": "assets/models/detail/celadon-maebyeong-v2.glb",
+      "atlasSourceSha256": "4768ba35afa68b811c1d4aad759948e60ab0e4d5ba26526a73db64210bb42965",
+      "copiedWithoutModification": false,
+      "bytes": 1678728,
+      "sha256": "137a7584b7ab35071f6deb1a1710948c8e0050d24f186182b84d874a9b7609d6",
+      "triangles": 13999,
+      "photographs": [
+        {
+          "image": 1,
+          "sourceResolution": [
+            4096,
+            4096
+          ],
+          "resolution": [
+            2048,
+            2048
+          ],
+          "bytes": 1319585,
+          "sha256": "b852d95b3b7637b3a8d60d8a7fa20d21680c4ed53831f7876aa1485df553be7b"
+        }
+      ],
+      "conversion": "tools/prepare-lesson-detail.py; source mesh, UVs, vertex colors, normal and roughness maps retained. Source photographic atlases only; no synthesized detail.",
+      "quality": "card"
+    },
+    {
+      "id": "beauty",
+      "file": "detail/beauty.glb",
+      "source": "assets/models/detail/celadon-maebyeong-v2.glb",
+      "sourceSha256": "4768ba35afa68b811c1d4aad759948e60ab0e4d5ba26526a73db64210bb42965",
+      "atlasSource": "assets/models/detail/celadon-maebyeong-v2.glb",
+      "atlasSourceSha256": "4768ba35afa68b811c1d4aad759948e60ab0e4d5ba26526a73db64210bb42965",
+      "copiedWithoutModification": false,
+      "bytes": 7960700,
+      "sha256": "152616686ce6bf8a5b3e01c80a717b1628d8721f78cb602e0fa6421d82d3c9be",
+      "triangles": 131072,
+      "photographs": [
+        {
+          "image": 1,
+          "sourceResolution": [
+            4096,
+            4096
+          ],
+          "resolution": [
+            4096,
+            4096
+          ],
+          "bytes": 3814722,
+          "sha256": "bd9434f5361767c5a31955f9328c90ae6fea03717829a7d4a65939c92ec3ac37"
+        }
+      ],
+      "conversion": "tools/prepare-lesson-detail.py; source mesh, UVs, vertex colors, normal and roughness maps retained. Source photographic atlases only; no synthesized detail.",
+      "quality": "detail"
+    },
+    {
+      "id": "comparison-1",
+      "file": "comparison-1.glb",
+      "source": "https://github.com/BAEPPY/minichungjamuseum/blob/1af26e11f21928b7935a5432de3d178997558c7e/public/models/map/japan-peony-reconstruction.glb",
+      "sourceSha256": "48b3f3c13412a4ea901da4b5bf1449e0a9ec6f014fb5e83a189e07a19ad3939f",
+      "atlasSource": "https://github.com/BAEPPY/minichungjamuseum/blob/1af26e11f21928b7935a5432de3d178997558c7e/public/models/japan-peony-reconstruction.glb",
+      "atlasSourceSha256": "4d8d63367411f6a1cca4cf51c58140d98f11244943f8e5f5e670b29b2bb3010f",
+      "copiedWithoutModification": false,
+      "bytes": 1719888,
+      "sha256": "01bf46ce9a027714cfbdcca62fc5bc780f442723cbf115c5cdfbd00decebb537",
+      "triangles": 13999,
+      "photographs": [
+        {
+          "image": 0,
+          "sourceResolution": [
+            4096,
+            3072
+          ],
+          "resolution": [
+            2048,
+            1536
+          ],
+          "bytes": 1392388,
+          "sha256": "5c1688d0c7dcff5cca7eeda27ef452721e2cbccb4d93c0286e07d3e676fdcae3"
+        }
+      ],
+      "conversion": "tools/prepare-lesson-detail.py; source mesh, UVs, vertex colors, normal and roughness maps retained. Source photographic atlases only; no synthesized detail.",
+      "quality": "card"
+    },
+    {
+      "id": "comparison-1",
+      "file": "detail/comparison-1.glb",
+      "source": "https://github.com/BAEPPY/minichungjamuseum/blob/1af26e11f21928b7935a5432de3d178997558c7e/public/models/japan-peony-reconstruction.glb",
+      "sourceSha256": "4d8d63367411f6a1cca4cf51c58140d98f11244943f8e5f5e670b29b2bb3010f",
+      "atlasSource": "https://github.com/BAEPPY/minichungjamuseum/blob/1af26e11f21928b7935a5432de3d178997558c7e/public/models/japan-peony-reconstruction.glb",
+      "atlasSourceSha256": "4d8d63367411f6a1cca4cf51c58140d98f11244943f8e5f5e670b29b2bb3010f",
+      "copiedWithoutModification": false,
+      "bytes": 7356692,
+      "sha256": "20d64415a4caa7d4a30a43fbed8ad45b68264a02f664f8b005c7fdc05277b67a",
+      "triangles": 129792,
+      "photographs": [
+        {
+          "image": 0,
+          "sourceResolution": [
+            4096,
+            3072
+          ],
+          "resolution": [
+            4096,
+            3072
+          ],
+          "bytes": 3691217,
+          "sha256": "0a5d87e5c3d8eeed4be93c6ed478275f6ac156a013f276ffe97a905f08b9cbbb"
+        }
+      ],
+      "conversion": "tools/prepare-lesson-detail.py; source mesh, UVs, vertex colors, normal and roughness maps retained. Source photographic atlases only; no synthesized detail.",
+      "quality": "detail"
+    },
+    {
+      "id": "comparison-2",
+      "file": "comparison-2.glb",
+      "source": "https://github.com/BAEPPY/minichungjamuseum/blob/1af26e11f21928b7935a5432de3d178997558c7e/public/models/map/yuan-celadon-vase.glb",
+      "sourceSha256": "6faba64f6776d67b71470dbd984074759eac35150544ee5c2c1cd2d8847788d9",
+      "atlasSource": "https://github.com/BAEPPY/minichungjamuseum/blob/1af26e11f21928b7935a5432de3d178997558c7e/public/models/yuan-celadon-vase.glb",
+      "atlasSourceSha256": "2eba8fec554a358f7d63e6cbc51fe7681bd14e9043e2787e38da77427788ba92",
+      "copiedWithoutModification": false,
+      "bytes": 2169500,
+      "sha256": "0674fcc579d7159ed1bb9ff5f377975fd5bfca9f0e3d4b9d48516f0243f40237",
+      "triangles": 16000,
+      "photographs": [
+        {
+          "image": 0,
+          "sourceResolution": [
+            4096,
+            4096
+          ],
+          "resolution": [
+            2048,
+            2048
+          ],
+          "bytes": 1300038,
+          "sha256": "1d397c873318ffa84e825443876e67d87873d3973e92ed89697032c3cfa09f87"
+        }
+      ],
+      "conversion": "tools/prepare-lesson-detail.py; source mesh, UVs, vertex colors, normal and roughness maps retained. Source photographic atlases only; no synthesized detail.",
+      "quality": "card"
+    },
+    {
+      "id": "comparison-2",
+      "file": "detail/comparison-2.glb",
+      "source": "https://github.com/BAEPPY/minichungjamuseum/blob/1af26e11f21928b7935a5432de3d178997558c7e/public/models/yuan-celadon-vase.glb",
+      "sourceSha256": "2eba8fec554a358f7d63e6cbc51fe7681bd14e9043e2787e38da77427788ba92",
+      "atlasSource": "https://github.com/BAEPPY/minichungjamuseum/blob/1af26e11f21928b7935a5432de3d178997558c7e/public/models/yuan-celadon-vase.glb",
+      "atlasSourceSha256": "2eba8fec554a358f7d63e6cbc51fe7681bd14e9043e2787e38da77427788ba92",
+      "copiedWithoutModification": false,
+      "bytes": 7026048,
+      "sha256": "6ca3abf985bec4d91dc89189853e448728c9c9d2e858fa12765e2ba7213ad9ad",
+      "triangles": 82779,
+      "photographs": [
+        {
+          "image": 0,
+          "sourceResolution": [
+            4096,
+            4096
+          ],
+          "resolution": [
+            4096,
+            4096
+          ],
+          "bytes": 3096687,
+          "sha256": "758896ee2d60ef8ac325220888557873e71cc49cd512ba71ecfb47f6737e5f35"
+        }
+      ],
+      "conversion": "tools/prepare-lesson-detail.py; source mesh, UVs, vertex colors, normal and roughness maps retained. Source photographic atlases only; no synthesized detail.",
+      "quality": "detail"
     }
-  ]
+  ],
+  "qualityUpdate": "Original high-resolution photographic atlases for cards, with detailed source geometry loaded only in enlarged views. Existing incense/photo colors are unchanged."
 }

@@ -16,23 +16,23 @@ export const COUNTRY_CHOICES = Object.freeze([
 ]);
 
 export const COMPARISON_ARTIFACTS = Object.freeze([
-  artifact('comparison', 1, {preservePhotoColors: true, note: '사진을 참고한 3D 재현입니다. 형상의 일부는 추정했습니다.'}),
-  artifact('comparison', 2, {preservePhotoColors: true, note: '스캔 형상과 사진 질감을 사용한 경량 3D 자료입니다.'}),
+  artifact('comparison', 1, {detailedSrc: '/assets/lesson/detail/comparison-1.glb', preservePhotoColors: true, note: '사진을 참고한 3D 재현입니다. 형상의 일부는 추정했습니다.'}),
+  artifact('comparison', 2, {detailedSrc: '/assets/lesson/detail/comparison-2.glb', preservePhotoColors: true, note: '스캔 형상과 사진 질감을 사용한 경량 3D 자료입니다.'}),
   artifact('comparison', 3, {preservePhotoColors: true, note: '제공된 3D 형상과 사진 질감을 사용한 자료입니다.'}),
 ]);
 
 export const OBSERVATION_ARTIFACTS = Object.freeze([
-  artifact('observation', 1, {note: '사진을 참고한 3D 재현입니다. 형상의 일부는 추정했습니다.'}),
+  artifact('observation', 1, {detailedSrc: '/assets/lesson/detail/observation-1.glb', note: '사진을 참고한 3D 재현입니다. 형상의 일부는 추정했습니다.'}),
   artifact('observation', 2),
   artifact('observation', 3, {note: '스캔 형상과 사진 질감을 사용한 경량 3D 자료입니다.'}),
-  artifact('observation', 4, {note: '스캔 형상과 사진 질감을 사용한 경량 3D 자료입니다.'}),
+  artifact('observation', 4, {detailedSrc: '/assets/lesson/detail/observation-4.glb', note: '스캔 형상과 사진 질감을 사용한 경량 3D 자료입니다.'}),
   artifact('observation', 5, {referenceTint: false, preservePhotoColors: true, opening: {lidMesh: 1}, note: '제공된 3D 형상과 원본 사진 질감으로 투각과 표면을 관찰하는 자료입니다.'}),
 ]);
 
 // Named appreciation follows the blinded comparison; it does not supply an answer to the reflection.
 export const BEAUTY_ARTIFACT = Object.freeze({
   id: 'beauty', label: '청자 상감 운학문 매병', namedObservation: true,
-  src: '/assets/models/celadon-maebyeong-v2.glb',
+  src: '/assets/lesson/beauty.glb', detailedSrc: '/assets/lesson/detail/beauty.glb',
   referenceTint: false, preservePhotoColors: true,
   sourceUrl: 'https://firefoxcat.booth.pm/items/6118090',
   note: '빛깔은 어떤가요? 무늬는 어떤가요? 천천히 돌려 보며 아름다움을 찾아보세요.',
