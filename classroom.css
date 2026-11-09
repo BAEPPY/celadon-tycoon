@@ -395,3 +395,8 @@ body.board-mode{border-top-width:0}
 .board-refresh{flex:none;width:36px;height:36px;padding:0;border:1px solid var(--line);border-radius:50%;background:var(--paper);color:var(--jade-dark);font-size:18px;line-height:1;cursor:pointer}
 .board-refresh:hover{background:var(--mint)}
 .result-tab-note{margin-left:6px;font-size:13px;color:var(--muted)}
+/* One lesson model filling the page (PowerPoint add-in "3D 모델", projector). */
+body.model-mode{border-top-width:0;background:#f6f8f8}
+.model-shell{height:100dvh;display:flex;flex-direction:column;gap:6px;padding:8px}
+.model-stage{flex:1;min-height:0;padding:6px;border-radius:10px;background:#fff;border:1px solid var(--line);--lesson-viewer-height:calc(100dvh - 118px)}
+.model-caption{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:center;gap:4px 10px;margin:0;font-size:14px;color:var(--muted)}.model-caption strong{color:var(--ink);font-size:16px}

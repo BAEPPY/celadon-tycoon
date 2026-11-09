@@ -58,6 +58,27 @@ const officeStub=view=>`window.__settings=window.__settings||{};window.__saved=0
     await plain.locator('#form button[type=submit]').click();
     assert.equal(await plain.locator('#board').getAttribute('src'),'/game');
 
+    // 3D 청자 돌려 보기: one lesson model, large and interactive, with no class link and only the blind label.
+    await plain.locator('#change').click();
+    await plain.locator('input[name=panel][value=model]').check();
+    assert.equal(await plain.locator('#model-field').isVisible(),true);assert.equal(await plain.locator('#link-field').isHidden(),true);
+    await plain.locator('#model').selectOption('observation-2');
+    await plain.locator('#form button[type=submit]').click();
+    assert.equal(await plain.locator('#board').getAttribute('src'),'/model?id=observation-2');
+    const model=plain.frameLocator('#board');
+    await model.locator('[data-testid=model-page][data-model-id=observation-2]').waitFor({timeout:15000});
+    assert.match(await model.locator('.model-caption').innerText(),/쓰임 짐작 · 청자 2/);
+    await model.locator('[data-model-viewer][data-viewer-status=ready]').waitFor({timeout:60000});
+    assert.ok(!(await model.locator('body').innerText()).includes('의자'),'activity 2 models keep their blind label');
+    const box=await plain.locator('#board').boundingBox(),before=await model.locator('[data-model-viewer] canvas').screenshot();
+    await plain.mouse.move(box.x+box.width/2,box.y+box.height/2);await plain.mouse.down();await plain.mouse.move(box.x+box.width/2+160,box.y+box.height/2,{steps:8});await plain.mouse.up();
+    await plain.waitForTimeout(500);
+    assert.ok(!before.equals(await model.locator('[data-model-viewer] canvas').screenshot()),'dragging turns the model');
+    await plain.reload();
+    assert.equal(await plain.locator('#board').getAttribute('src'),'/model?id=observation-2','the model choice is remembered');
+    const missing=await plainContext.newPage();watch(missing,'missing model');
+    await missing.goto(`${base}/model?id=nope`);await missing.getByTestId('model-missing').waitFor({timeout:15000});
+
     // Inside PowerPoint: each add-in keeps its own panel in the presentation; the link is filled in from this
     // computer; in a slide show (read view) there is no button over the board.
     const officeContext=await browser.newContext({viewport:{width:900,height:560}});
@@ -85,7 +106,7 @@ const officeStub=view=>`window.__settings=window.__settings||{};window.__saved=0
     await show.frameLocator('#board').locator('[data-testid=live-board] [data-comparison-result="1"]').waitFor({timeout:20000});
     assert.equal(await show.locator('#setup').isHidden(),true);assert.equal(await show.locator('#change').isHidden(),true);
     assert.deepEqual(errors,[]);
-    console.log('PowerPoint add-in: manifest and icons served, link validation, remembered choice outside Office, per-instance Office settings, shared link on the next slide, slide-show view without controls and direct board on open passed.');
+    console.log('PowerPoint add-in: manifest and icons served, link validation, remembered choice outside Office, draggable 3D model page, per-instance Office settings, shared link on the next slide, slide-show view without controls and direct board on open passed.');
   }finally{
     if(room&&teacher)await control('delete').catch(()=>{});
     await browser.close();

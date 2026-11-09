@@ -16,7 +16,7 @@ legend{font-size:14px;font-weight:700;margin-bottom:7px;padding:0}
 label.choice{display:flex;align-items:center;gap:7px;font-size:14px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;cursor:pointer}
 label.choice:has(input:checked){border-color:var(--jade);background:#e8f7f5}
 .field{display:grid;gap:5px;font-size:14px;font-weight:700}
-input[type=url]{font:inherit;font-weight:400;font-size:14px;padding:9px 10px;border:1px solid var(--line);border-radius:8px;width:100%}
+select,input[type=url]{font:inherit;font-weight:400;font-size:14px;padding:9px 10px;border:1px solid var(--line);border-radius:8px;width:100%}
 button{font:inherit;font-size:15px;font-weight:700;border-radius:8px;border:1px solid var(--jade);background:var(--jade);color:#fff;padding:10px 14px;cursor:pointer}
 #error{color:#c35448;font-size:13px;min-height:1em}
 .tip{font-size:12.5px;padding:8px 10px;border-radius:8px;background:#f3f7f6}
@@ -36,7 +36,21 @@ button{font:inherit;font-size:15px;font-weight:700;border-radius:8px;border:1px 
       <label class="choice"><input type="radio" name="panel" value="uses"> 이름·쓰임 짐작</label>
       <label class="choice"><input type="radio" name="panel" value="works"> 완성작 모음</label>
       <label class="choice"><input type="radio" name="panel" value="game"> 청자 만들기 게임</label>
+      <label class="choice"><input type="radio" name="panel" value="model"> 3D 청자 돌려 보기</label>
     </fieldset>
+    <label class="field" id="model-field" hidden>돌려 볼 3D 청자
+      <select id="model">
+        <option value="beauty">청자 상감 운학문 매병 (아름다움 찾기)</option>
+        <option value="comparison-1">세 나라 비교 · 청자 1</option>
+        <option value="comparison-2">세 나라 비교 · 청자 2</option>
+        <option value="comparison-3">세 나라 비교 · 청자 3</option>
+        <option value="observation-1">쓰임 짐작 · 청자 1</option>
+        <option value="observation-2">쓰임 짐작 · 청자 2</option>
+        <option value="observation-3">쓰임 짐작 · 청자 3</option>
+        <option value="observation-4">쓰임 짐작 · 청자 4</option>
+        <option value="observation-5">쓰임 짐작 · 청자 5</option>
+      </select>
+    </label>
     <label class="field" id="link-field">PPT용 주소
       <input type="url" id="link" autocomplete="off" spellcheck="false" placeholder="선생님 화면 → 수업 관리 → PPT용 주소 복사">
     </label>
@@ -52,7 +66,10 @@ button{font:inherit;font-size:15px;font-weight:700;border-radius:8px;border:1px 
 'use strict';
 // Each inserted add-in keeps its own choice in the presentation (Office settings); the observer link is also kept
 // on this computer so the next slide's add-in fills it in. Outside PowerPoint the page works with local storage only.
-const LOCAL_KEY = 'celadon-ppt-addin-v1', PANELS = ['follow', 'comparison', 'beauty', 'uses', 'works', 'game'];
+const LOCAL_KEY = 'celadon-ppt-addin-v1', PANELS = ['follow', 'comparison', 'beauty', 'uses', 'works', 'game', 'model'];
+// 3D models need no class link: they are the lesson's public models, activity 2 ones under their blind labels.
+const MODELS = ['beauty', 'comparison-1', 'comparison-2', 'comparison-3', 'observation-1', 'observation-2', 'observation-3', 'observation-4', 'observation-5'];
+const needsLink = panel => panel !== 'game' && panel !== 'model';
 const $ = id => document.getElementById(id);
 let office = null, editing = true;
 const local = {
@@ -67,47 +84,53 @@ function parseLink(text) {
     return {code, key};
   } catch { return null; }
 }
-function boardUrl(panel, link) {
+function boardUrl(panel, link, model) {
   if (panel === 'game') return '/game';
+  if (panel === 'model') return `/model?${new URLSearchParams({id: model})}`;
   const params = new URLSearchParams({code: link.code});
   if (panel === 'follow') params.set('board', '1'); else params.set('show', panel);
   return `/observe?${params}#${new URLSearchParams({key: link.key})}`;
 }
 function saved() {
   const doc = office ? Office.context.document.settings : null, mine = local.read();
-  const panel = (doc ? doc.get('panel') : mine.panel) || null, link = (doc && doc.get('link')) || mine.link || null;
-  return {panel: PANELS.includes(panel) ? panel : null, link: parseLink(link) ? link : null, panelSaved: Boolean(doc ? doc.get('panel') : mine.panel)};
+  const panel = (doc ? doc.get('panel') : mine.panel) || null, link = (doc && doc.get('link')) || mine.link || null, model = (doc ? doc.get('model') : mine.model) || 'beauty';
+  return {panel: PANELS.includes(panel) ? panel : null, link: parseLink(link) ? link : null, model: MODELS.includes(model) ? model : 'beauty', panelSaved: Boolean(doc ? doc.get('panel') : mine.panel)};
 }
-function save(panel, link) {
-  local.write({...(link ? {link} : {}), ...(office ? {} : {panel})});
+function save(panel, link, model) {
+  local.write({...(link ? {link} : {}), ...(office ? {} : {panel, model})});
   if (!office) return Promise.resolve();
   const settings = Office.context.document.settings;
-  settings.set('panel', panel); if (link) settings.set('link', link);
+  settings.set('panel', panel); settings.set('model', model); if (link) settings.set('link', link);
   return new Promise(resolve => settings.saveAsync(() => resolve()));
 }
 function showBoard() {
-  const {panel, link} = saved(), parsed = link && parseLink(link);
-  if (!panel || (panel !== 'game' && !parsed)) return showSetup();
+  const {panel, link, model} = saved(), parsed = link && parseLink(link);
+  if (!panel || (needsLink(panel) && !parsed)) return showSetup();
   $('setup').hidden = true;
-  const src = boardUrl(panel, parsed || {});
+  const src = boardUrl(panel, parsed || {}, model);
   if ($('board').getAttribute('src') !== src) $('board').setAttribute('src', src);
   $('board').hidden = false; $('change').hidden = !editing;
 }
 function showSetup(message = '') {
-  const {panel, link} = saved();
+  const {panel, link, model} = saved();
+  $('model').value = model;
   $('board').hidden = true; $('change').hidden = true; $('setup').hidden = false; $('error').textContent = message;
   const choice = document.querySelector(`input[name=panel][value="${panel || 'follow'}"]`); if (choice) choice.checked = true;
   $('link').value = link || local.read().link || '';
   syncLinkField();
 }
-function syncLinkField() { $('link-field').hidden = document.querySelector('input[name=panel]:checked')?.value === 'game'; }
+function syncLinkField() {
+  const panel = document.querySelector('input[name=panel]:checked')?.value;
+  $('link-field').hidden = !needsLink(panel); $('model-field').hidden = panel !== 'model';
+}
 $('form').addEventListener('change', syncLinkField);
 $('form').addEventListener('submit', async event => {
   event.preventDefault();
   const panel = document.querySelector('input[name=panel]:checked')?.value, text = $('link').value.trim();
   if (!PANELS.includes(panel)) return;
-  if (panel !== 'game' && !parseLink(text)) { $('error').textContent = 'PPT용 주소를 확인해 주세요. 선생님 화면 → 수업 관리 → “PPT용 주소 복사”로 복사한 주소를 붙여 넣어 주세요.'; return; }
-  await save(panel, panel === 'game' && !parseLink(text) ? saved().link : text);
+  if (needsLink(panel) && !parseLink(text)) { $('error').textContent = 'PPT용 주소를 확인해 주세요. 선생님 화면 → 수업 관리 → “PPT용 주소 복사”로 복사한 주소를 붙여 넣어 주세요.'; return; }
+  const model = MODELS.includes($('model').value) ? $('model').value : 'beauty';
+  await save(panel, parseLink(text) ? text : saved().link, model);
   showBoard();
 });
 $('change').addEventListener('click', () => showSetup());

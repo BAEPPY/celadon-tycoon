@@ -16,6 +16,10 @@
       "destination": "/observe/index.html"
     },
     {
+      "source": "/model",
+      "destination": "/model/index.html"
+    },
+    {
       "source": "/game",
       "destination": "/game/index.html"
     }
