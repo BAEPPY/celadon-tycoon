@@ -43,7 +43,8 @@
     "test:game-mobile-layout": "node tests/browser-game-mobile.cjs",
     "test:drying-fan": "node tests/browser-drying-fan.cjs",
     "test:drying-mask": "node tests/browser-drying-mask.cjs",
-    "test:observer-qr": "node tests/browser-observer-qr.cjs"
+    "test:observer-qr": "node tests/browser-observer-qr.cjs",
+    "test:observer-board": "node tests/browser-observer-board.cjs"
   },
   "dependencies": {
     "@vercel/blob": "2.8.2",

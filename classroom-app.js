@@ -25,7 +25,30 @@ const copy=value=>JSON.parse(JSON.stringify(value));
 function stored(key){try{return JSON.parse(localStorage.getItem(key)||'null');}catch{return null;}}
 function store(key,value){try{if(value===null)localStorage.removeItem(key);else localStorage.setItem(key,JSON.stringify(value));}catch{}}
 // An observer opens /observe?code=XXXXXX#key=… ; the key stays in the fragment so it is never sent to the server in the URL.
-function observerSession(){const code=extractClassroomCode(new URLSearchParams(location.search).get('code')||''),key=new URLSearchParams(location.hash.slice(1)).get('key')||'';if(code&&/^[A-Za-z0-9_-]{30,100}$/.test(key)){const value={code,observerToken:key};store(SESSION_KEY,value);return value;}return stored(SESSION_KEY);}
+// Some embedders drop the fragment, so ?key= also works; it is moved back into the fragment straight away.
+let observerKeyFromUrl=false;
+function observerSession(){
+  const params=new URLSearchParams(location.search),code=extractClassroomCode(params.get('code')||''),key=new URLSearchParams(location.hash.slice(1)).get('key')||params.get('key')||'';
+  if(params.has('key')){params.delete('key');try{history.replaceState(null,'',`${location.pathname}?${params}#${new URLSearchParams({key})}`);}catch{}}
+  if(code&&/^[A-Za-z0-9_-]{30,100}$/.test(key)){observerKeyFromUrl=true;const value={code,observerToken:key};store(SESSION_KEY,value);return value;}
+  return stored(SESSION_KEY);
+}
+// On the teacher's own computer a board link needs no key: the teacher session there fetches the class's observer link.
+async function observerFromTeacher(){
+  const teacher=stored('celadon-classroom-teacher-v1');if(!teacher?.code||!teacher?.teacherToken)return null;
+  try{
+    const response=await fetch('/api/classroom',{method:'POST',cache:'no-store',headers:{'Content-Type':'application/json',Authorization:`Bearer ${teacher.teacherToken}`},body:JSON.stringify({action:'control',code:teacher.code,command:'observer-link'})});
+    if(!response.ok)return null;const value=await response.json();
+    if(!/^[A-Za-z0-9_-]{30,100}$/.test(value.observerToken||''))return null;
+    const next={code:value.observerCode===CLASSROOM_JOIN_CODE?CLASSROOM_JOIN_CODE:teacher.code,observerToken:value.observerToken};store(SESSION_KEY,next);return next;
+  }catch{return null;}
+}
+// A slide-sized live board for projectors and PowerPoint (Web Viewer): pages shown inside another page, ?board=1 or
+// ?show=… use it. ?show= pins one board; otherwise the board follows the activity the teacher is running.
+function framedPage(){try{return window.self!==window.top;}catch{return true;}}
+const BOARD_PANELS={comparison:{activity:1,view:'comparison'},beauty:{activity:1,view:'beauty'},uses:{activity:2},works:{activity:3}};
+const boardQuery=new URLSearchParams(location.search),boardPin=observerMode?BOARD_PANELS[boardQuery.get('show')]||null:null;
+const boardMode=observerMode&&(Boolean(boardPin)||boardQuery.get('board')==='1'||framedPage());
 let session=observerMode?observerSession():teacherMode?stored(SESSION_KEY):loadStudentEntryState(),room=null,teacherData=null,student=null,answers={},offset=0,offsetSamples=[];
 let currentObject='1',teacherActivity=1,teacherObject='1',teacherA1View='comparison',selectedCountry=null,cloudKind='name';
 let teacherResultViews={1:'responses',2:'responses'},exhibitObjects={1:'1',2:'1'},completionDialog=null;
@@ -251,6 +274,7 @@ function receive(payload,{initial=false}={}){
   if(teacherMode){
     teacherData={...(teacherData||{}),...payload};pruneTeacherWorks();if(initial)teacherActivity=room.activity||1;else if(observerMode&&room.activity&&room.activity!==previous?.activity)teacherActivity=room.activity;
     if(initial||room.activity1Stage!==previous?.activity1Stage)teacherA1View=room.activity1Stage==='beauty'?'beauty':'comparison';
+    if(boardPin){teacherActivity=boardPin.activity;if(boardPin.view)teacherA1View=boardPin.view;}
     for(const activity of [1,2]){
       if(room.revealed?.[activity]&&!previous?.revealed?.[activity]){teacherResultViews[activity]='exhibit';exhibitObjects[activity]='1';}
       else if(!room.revealed?.[activity])teacherResultViews[activity]='responses';
@@ -289,7 +313,9 @@ function welcomeArtwork(){return `<div class="welcome-art" aria-hidden="true"><i
 function renderWelcome(message=''){
   observerInviteVerified=null;
   closeObserverInvite({restoreFocus:false});
-  closeCompletionDialog();disposeViewers();disposeTeacherBoard();viewKey='welcome';const identity={},queryCode=extractClassroomCode(new URLSearchParams(location.search).get('code')||'');
+  closeCompletionDialog();disposeViewers();disposeTeacherBoard();viewKey='welcome';
+  if(boardMode){app.innerHTML=`<section class="waiting board-empty" data-testid="board-empty"><div class="waiting-inner"><h1>실시간 화면을 열지 못했어요</h1><p>${esc(message||'이 컴퓨터에서 선생님 화면을 먼저 열어 두거나, 참관 주소로 열어 주세요.')}</p></div></section>`;return;}
+  const identity={},queryCode=extractClassroomCode(new URLSearchParams(location.search).get('code')||'');
   app.innerHTML=`<section class="welcome"><div class="welcome-copy"><span class="eyebrow">우리 반 청자 교실 · 고려의 문화</span><h1><em>고려청자의 우수성</em>과<br> 다양한 쓰임 알아보기</h1><p>빛깔과 모양을 살펴보고,<br>청자에 담긴 사람들의 생활을 찾아봐요.</p>${welcomeArtwork()}</div><div><section class="panel welcome-form"><h2>${observerMode?'수업 참관':teacherMode?'함께 시작하는 청자 수업':'수업에 들어가요'}</h2><p class="muted">${observerMode?'선생님이 보낸 참관 주소로 열면 수업 진행과 학생들의 생각을 함께 볼 수 있어요. 학생 이름은 보이지 않아요.':teacherMode?'우리 반 수업 코드는 ‘탑텐반’입니다.':'번호와 이름은 세 활동 동안 계속 사용해요.'}</p>${observerMode?'':teacherMode?`<form data-form="create"><label class="passcode-field" hidden>선생님 확인 번호<input name="passcode" type="password" autocomplete="current-password" maxlength="100" placeholder="선생님만 아는 확인 번호"></label><button class="button" type="submit">새 수업 열기 <span aria-hidden="true">→</span></button></form><p class="welcome-note">활동 1 · 세 나라 비교 1분 30초<br>아름다움 찾기 1분 30초<br>활동 2 · 4분<br>활동 3 · 선생님이 마칠 때까지<br><br>선생님이 활동을 시작하고 마칠 때마다<br>학생 화면도 함께 바뀝니다.</p><a class="teacher-link" href="/lesson">학생 참여 화면 보기 →</a>`:`<form data-form="join"><label>수업 코드<input class="code-input" name="code" autocomplete="off" spellcheck="false" minlength="3" maxlength="6" pattern="(탑텐반|[A-Za-z2-9]{6})" required value="${esc(queryCode)}" placeholder="탑텐반"></label><div class="identity-fields"><label>번호<input name="number" type="number" autocomplete="off" min="1" max="99" inputmode="numeric" required value="${esc(identity.number||'')}" placeholder="번호"></label><label>이름<input name="name" autocomplete="off" maxlength="20" required value="${esc(identity.name||'')}" placeholder="이름을 적어 주세요"></label></div><button class="button" type="submit">수업 들어가기 <span aria-hidden="true">→</span></button></form><p class="welcome-note">입력한 번호와 이름, 수업 답변은 선생님께 전달돼요.</p>`}<p class="error-message" data-form-error>${esc(message)}</p></section></div></section>`;
   if(teacherMode&&!observerMode)revealTeacherPasscode();
 }
@@ -519,6 +545,11 @@ function renderTeacher(){
   teacherSignature=dataSignature;viewKey='teacher';disposeViewers();cloudView?.dispose();cloudView=null;
   const live=teacherViewActive()&&status==='active',participantCount=observerMode?Number(teacherData?.participantCount)||0:teacherData?.participants?.length||0;
   const completed=teacherBeautyView()?Number(teacherData?.beauty?.respondents)||0:teacherActivity===3?(teacherData?.works||[]).length:observerMode?Number(teacherData?.completionCounts?.[teacherActivity])||0:(teacherData?.participants||[]).filter(p=>p[`activity${teacherActivity}Complete`]).length;
+  if(boardMode){
+    const name=teacherBeautyView()?BEAUTY_NAME:ACTIVITY_NAMES[teacherActivity],state=live?'진행 중':status==='ended'?'수업 끝':room.activity===teacherActivity&&status==='paused'?'활동을 마쳤어요':'준비 중';
+    app.innerHTML=`<div class="board-shell" data-testid="live-board"><header class="board-status"><div class="board-title"><span>활동 ${teacherActivity} · ${state}</span><strong>${esc(name)}</strong></div><div class="board-metrics"><span>참여 <strong>${participantCount}</strong>명</span><span>${teacherActivity===3?'완성작':'모두 작성'} <strong>${completed}</strong>${teacherActivity===3?'점':'명'}</span></div>${timerMarkup()}<span class="pill" data-connection>연결됨</span></header><div class="teacher-content">${teacherContent()}</div></div>`;
+    updateTimer();updateConnection();mountTeacherBoard();if(teacherActivity===3)loadWorkImages();return;
+  }
   app.innerHTML=`<div class="lesson-shell teacher-shell">${header()}<div class="teacher-workspace"><section class="teacher-main"><div class="teacher-overview"><div><span class="activity-label">고려의 문화 · 함께 생각하는 시간</span><h1>${TITLE}</h1></div></div><nav class="teacher-stage-nav" aria-label="교사용 활동 선택">${[1,2,3].map(n=>`<button class="${teacherActivity===n?'active':''}" data-action="teacher-activity" data-activity="${n}">${room.activity===n&&status==='active'?'<i class="live-dot"></i>':''}<span><b>${n}</b> ${ACTIVITY_NAMES[n]}</span></button>`).join('')}</nav><div class="teacher-content">${teacherContent()}</div></section><aside class="teacher-sidebar" aria-label="교사용 수업 진행"><section class="teacher-control-bar"><span class="activity-label">수업 진행</span><div class="stage-caption">${teacherBeautyView()?BEAUTY_NAME:ACTIVITY_NAMES[teacherActivity]}<small>${observerMode?(live?'학생들이 활동하고 있어요.':status==='active'?`지금은 활동 ${room.activity}${room.activity===2?'가':'이'} 진행 중이에요.`:status==='ended'?'수업을 마쳤어요.':room.activity===teacherActivity&&status==='paused'?'학생들이 선생님을 보고 있어요.':'아직 진행하지 않은 활동이에요.'):live?(timeExpired()?'입력이 마감됐어요. 활동을 마쳐 주세요.':'학생들이 활동하고 있어요.'):status==='active'?`지금은 활동 ${room.activity}${room.activity===2?'가':'이'} 진행 중이에요. 먼저 활동을 마쳐 주세요.`:room.activity===teacherActivity&&status==='paused'?'학생들이 선생님을 보고 있어요.':status==='ended'?'수업을 마쳤어요.':'시작하면 학생 화면이 함께 열립니다.'}</small></div>${timerMarkup()}<div class="teacher-metrics"><span>참여 <strong>${participantCount}</strong>명</span><span>${teacherActivity===3?'완성작':'모두 작성'} <strong>${completed}</strong>${teacherActivity===3?'점':'명'}</span></div>${teacherActionMarkup(live,status)}</section>${status==='paused'?'<div class="teacher-pause-note">학생 화면은 지금<br>“크롬북을 닫고 선생님을 보세요”</div>':''}${observerMode?'':participantsMarkup()+teacherSettings()+'<section class="panel teacher-data-actions"><button class="button danger small" data-action="delete-room">수업 데이터 삭제</button><p>학생 정보 · 답변 · 작품을 삭제합니다.</p></section>'}</aside></div></div>`;
   updateTimer();updateConnection();mountTeacherBoard();refreshStudentManager();if(teacherActivity===3)loadWorkImages();
 }
@@ -791,6 +822,7 @@ window.addEventListener('pagehide',event=>{observerInviteVerified=null;closeObse
 
 async function boot(){
   pruneLocalGameData();
+  if(boardMode)document.body.classList.add('board-mode');
   document.title=observerMode?`참관 · ${TITLE}`:teacherMode?`교사용 · ${TITLE}`:TITLE;
   const queryCode=(new URLSearchParams(location.search).get('code')||'').toUpperCase();
   if(session&&queryCode&&session.code!==queryCode&&session.joinCode!==queryCode&&!teacherMode){session=null;clearActiveStudentSession();}
@@ -798,6 +830,7 @@ async function boot(){
     const pending=stored(PENDING_CLASSROOM_KEY);
     if(pending&&pending.previousCode===(session?.code||null)){try{await createTeacherClassroom();return;}catch(error){toast(error.message);}}
   }
+  if(observerMode&&!observerKeyFromUrl){const fromTeacher=await observerFromTeacher();if(fromTeacher)session=fromTeacher;}
   if(!session){renderWelcome();return;}
   app.innerHTML='<section class="waiting"><div class="waiting-inner"><div class="waiting-status"><i></i>우리 반 수업에 다시 연결하고 있어요.</div></div></section>';
   try{
