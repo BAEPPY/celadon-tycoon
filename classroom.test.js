@@ -478,6 +478,68 @@ test('static files are cached only where a stale copy cannot hurt', async () => 
   }
 });
 
+test('수업 전 점검 proves the class can save, read and delete, for its teacher only, and leaves nothing behind', async () => {
+  const f = await fixture(), student = await f.join(1), code = f.room.code, before = [...f.store.records.keys()].sort();
+  const result = await f.service.preflight({code}, f.room.teacherToken);
+  assert.deepEqual({storage: result.storage, joinCode: result.joinCode, teacherPasscode: result.teacherPasscode}, {storage: true, joinCode: false, teacherPasscode: false});
+  assert.deepEqual([...f.store.records.keys()].sort(), before, 'the check file is removed');
+  await f.control('claim-join-code');
+  assert.equal((await f.service.preflight({code}, f.room.teacherToken)).joinCode, true);
+  assert.equal((await new ClassroomService(f.store, {teacherPasscode: '청자1234'}).preflight({code}, f.room.teacherToken)).teacherPasscode, true);
+  await rejectsCode(f.service.preflight({code}, student.participantToken), 'teacher-auth');
+  await rejectsCode(f.service.preflight({code}, undefined), 'teacher-auth');
+  // A storage problem is reported as a failed check, not as a crash, and still leaves no file.
+  for (const method of ['create', 'read', 'delete']) {
+    const original = f.store[method].bind(f.store);
+    f.store[method] = async (key, ...rest) => { if (key.includes('/checks/')) { if (method === 'delete') await original(key, ...rest); throw new Error('storage down'); } return original(key, ...rest); };
+    assert.equal((await f.service.preflight({code}, f.room.teacherToken)).storage, false, `${method} failure`);
+    f.store[method] = original;
+    assert.ok(![...f.store.records.keys()].some(key => key.includes('/checks/')));
+  }
+  // Through the API the cleanup check is a yes/no; the secret itself never leaves the server.
+  const handler = createClassroomHandler({store: f.store}), secret = process.env.CRON_SECRET;
+  try {
+    process.env.CRON_SECRET = 'c'.repeat(40);
+    const ok = await request(handler, {method: 'POST', payload: {action: 'preflight', code}, auth: f.room.teacherToken});
+    assert.equal(ok.statusCode, 200); assert.equal(ok.body.cleanup, true); assert.ok(!JSON.stringify(ok.body).includes('cccc'));
+    process.env.CRON_SECRET = 'too-short';
+    assert.equal((await request(handler, {method: 'POST', payload: {action: 'preflight', code}, auth: f.room.teacherToken})).body.cleanup, false);
+    assert.equal((await request(handler, {method: 'POST', payload: {action: 'preflight', code}, auth: student.participantToken})).statusCode, 403);
+  } finally { if (secret === undefined) delete process.env.CRON_SECRET; else process.env.CRON_SECRET = secret; }
+});
+
+test('수업 결과 내려받기 gives the teacher one row per student with their own answers, and nobody else', async () => {
+  const f = await fixture(), code = f.room.code, first = await f.join(2, '둘째'), second = await f.join(1, '첫째');
+  const say = (student, extra) => ({code, participantId: student.participantId, clientRevision: 1, ...extra});
+  const a1 = await f.control('start', 1);
+  await f.service.answer(say(first, {activity: 1, runId: a1.state.runId, final: true, answers: {1: 'japan', 2: 'yuan', 3: 'goryeo'}}), first.participantToken);
+  await f.service.answer(say(second, {activity: 1, runId: a1.state.runId, answers: {1: 'goryeo'}}), second.participantToken);
+  await f.control('pause'); const beauty = await f.control('start-beauty');
+  await f.service.beautyAnswer(say(first, {runId: beauty.state.runId, text: '맑고 은은한 푸른빛', final: true}), first.participantToken);
+  await f.control('pause'); const a2 = await f.control('start', 2);
+  await f.service.answer(say(first, {activity: 2, runId: a2.state.runId, answers: {1: {name: '베개', use: '머리를 받쳐요'}, 3: {name: '=오리', use: '물을 담아요'}}}), first.participantToken);
+  await f.control('pause'); const a3 = await f.control('start', 3);
+  await f.service.submitWork({code, participantId: first.participantId, runId: a3.state.runId, work: rawWork(), preview: png}, first.participantToken);
+  const {observerToken} = await f.control('observer-link'), ppt = await f.control('observer-link', undefined, {role: 'presenter'});
+  for (const bearer of [first.participantToken, observerToken, ppt.observerToken, undefined]) await rejectsCode(f.service.results({code}, bearer), 'teacher-auth');
+  const result = await f.service.results({code}, f.room.teacherToken);
+  assert.deepEqual(result.rows.map(row => [row.number, row.name]), [[1, '첫째'], [2, '둘째']], 'sorted by class number');
+  const [late, full] = result.rows;
+  assert.deepEqual(full.comparison, {1: 'japan', 2: 'yuan', 3: 'goryeo'}); assert.equal(full.comparisonCorrect, 3);
+  assert.equal(full.beauty, '맑고 은은한 푸른빛');
+  assert.deepEqual(full.observations[1], {name: '베개', use: '머리를 받쳐요'}); assert.deepEqual(full.observations[2], {name: '', use: ''});
+  assert.equal(full.observations[3].name, '=오리', 'kept as written; the spreadsheet file escapes it');
+  assert.equal(full.workCount, 1); assert.equal(full.work.title, '쉬어 가는 베개'); assert.ok(full.work.score > 0);
+  assert.equal(full.work.explanationUse, rawWork().explanationUse);
+  assert.deepEqual(late.comparison, {1: 'goryeo', 2: '', 3: ''}); assert.equal(late.comparisonCorrect, 0);
+  assert.equal(late.beauty, ''); assert.equal(late.workCount, 0); assert.equal(late.work, null);
+  assert.deepEqual(result.answers.comparison, {1: 'japan', 2: 'yuan', 3: 'goryeo'});
+  assert.equal(result.answers.observations[2].name, '청자 투각 의자');
+  const handler = createClassroomHandler({store: f.store});
+  assert.equal((await request(handler, {query: {action: 'results', code}, auth: f.room.teacherToken})).body.rows.length, 2);
+  assert.equal((await request(handler, {query: {action: 'results', code}, auth: observerToken})).statusCode, 403);
+});
+
 test('activity 1 done works with the default settings and persists until a new run', async () => {
   const f = await fixture(), student = await f.join(1), {state} = await f.control('start', 1);
   assert.equal(state.settings.submitButton, false);
