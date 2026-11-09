@@ -24,7 +24,7 @@ export const TEACHER_ONLY_ACTIONS = Object.freeze([
   'create', 'settings', 'teacher-activity', 'teacher-object', 'copy-code',
   'copy-invite', 'claim-join-code', 'cloud-kind', 'teacher-result-view', 'teacher-a1-view', 'start-beauty', 'exhibit-object', 'exhibit-previous', 'exhibit-next', 'works-sort', 'view-work', 'start', 'pause', 'reveal', 'end', 'new-room', 'delete-room',
   'manage-students', 'lock-room', 'release-student', 'remove-student', 'copy-observer', 'observer-link',
-  'game-timer', 'game-timer-add', 'game-timer-cancel', 'refresh-boards', 'copy-ppt-link',
+  'game-timer', 'game-timer-add', 'game-timer-cancel', 'refresh-boards', 'copy-ppt-link', 'preflight', 'download-results',
 ]);
 const teacherActions = new Set(TEACHER_ONLY_ACTIONS);
 const studentActions = new Set(['join', 'submit-answers', 'next-object', 'previous-object', 'select-object']);

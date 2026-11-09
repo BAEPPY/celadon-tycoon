@@ -456,8 +456,9 @@ export class ClassroomService {
     }
     fail(409, 'try-again', '다른 화면에서 학생 정보가 바뀌었어요. 다시 눌러 주세요.');
   }
+  // Used by the polling views only (teacher, observers, boards): they may share a listing for two seconds.
   async students(code) {
-    const keys = await this.store.list(`${ROOM_ROOT(code)}participants/`);
+    const keys = await this.store.list(`${ROOM_ROOT(code)}participants/`, {maxAge: 2000});
     return (await Promise.all(keys.map(async key => {
       const result = await this.store.read(key, {maxAge: 5000});
       return result && this.expireStudentWorks(code, result.data.id, result);
@@ -507,6 +508,43 @@ export class ClassroomService {
     // Only polling may reuse short-lived reads. Every mutation re-reads durable state.
     const code = validateCode(raw.code), {data: room} = await this.room(code, {maxAge: 500}), {data: student} = await this.student(code, raw.participantId, bearer, {maxAge: 5000});
     return {state: classroomState(room, this.now()), student: publicStudent(student), answers: answersFor(student), beautyAnswer: currentBeautyAnswer(student, room), completedWorks: visibleWorks(student, this.now()).filter(work => work.runId === room.runs[3])};
+  }
+  // 수업 결과 내려받기: one row per student for the teacher's own records. Names and individual answers are included,
+  // so only the class's teacher may read it; the boards and observers keep seeing anonymous summaries.
+  async results(raw, bearer) {
+    const code = validateCode(raw.code), {data: room} = await this.room(code, undefined, TEACHER_ROOM_GONE); this.teacher(room, bearer);
+    const keys = await this.store.list(`${ROOM_ROOT(code)}participants/`), now = this.now();
+    const students = (await Promise.all(keys.map(key => this.store.read(key)))).filter(Boolean).map(result => result.data);
+    const key = await import('./lesson-answer-key.js');
+    const rows = students.sort((a, b) => a.number - b.number).map(student => {
+      const comparison = currentAnswer(student, room, 1).answers, observations = currentAnswer(student, room, 2).answers;
+      const works = visibleWorks(student, now).filter(work => work.runId === room.runs[3]).sort((a, b) => b.score - a.score || b.submittedAt - a.submittedAt);
+      const best = works[0];
+      return {number: student.number, name: student.name,
+        comparison: Object.fromEntries(comparisonIds.map(id => [id, countries.includes(comparison[id]) ? comparison[id] : ''])),
+        comparisonCorrect: comparisonIds.filter(id => comparison[id] && comparison[id] === key.COMPARISON_ANSWERS[id].country).length,
+        beauty: currentBeautyAnswer(student, room).text || '',
+        observations: Object.fromEntries(observationIds.map(id => [id, {name: observations[id]?.name || '', use: observations[id]?.use || ''}])),
+        workCount: works.length,
+        work: best ? {title: best.title, score: best.score, objectiveScore: best.objectiveScore, explanationScore: best.explanationScore, explanationUse: best.explanationUse, explanationBeauty: best.explanationBeauty} : null};
+    });
+    return {state: classroomState(room, now), rows,
+      answers: {comparison: Object.fromEntries(comparisonIds.map(id => [id, key.COMPARISON_ANSWERS[id].country])),
+        observations: Object.fromEntries(observationIds.map(id => [id, {name: key.OBSERVATION_ANSWERS[id].name, use: key.OBSERVATION_ANSWERS[id].use}]))}};
+  }
+  // 수업 전 점검: proves that this class can save, read back and delete a file, and reports what the class depends on.
+  async preflight(raw, bearer) {
+    const code = validateCode(raw.code), {data: room} = await this.room(code, undefined, TEACHER_ROOM_GONE); this.teacher(room, bearer);
+    const key = `${ROOM_ROOT(code)}checks/${hash(this.makeToken()).slice(0, 24)}.json`;
+    let storage = false;
+    try {
+      const {etag} = await this.store.create(key, {check: true});
+      const saved = await this.store.read(key);
+      storage = saved?.data.check === true && saved.etag === etag;
+    } catch { storage = false; }
+    try { await this.store.delete(key); } catch { storage = false; }
+    const alias = await this.store.read(joinAliasKey());
+    return {storage, joinCode: alias?.data.code === code, teacherPasscode: Boolean(this.teacherPasscode), state: classroomState(room, this.now())};
   }
   async overview(raw, bearer) {
     const code = validateCode(raw.code), {data: room} = await this.room(code, {maxAge: 500}, TEACHER_ROOM_GONE); this.teacher(room, bearer);

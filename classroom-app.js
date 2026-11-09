@@ -225,7 +225,7 @@ function stages(activity=room?.activity||0){
   return `<div class="current-activity" aria-label="현재 수업 활동"><span>${activity?`활동 ${activity} / 3`:'수업 준비'}</span><strong>${activity?(beautyStage()?BEAUTY_NAME:STAGE_NAMES[activity]):'선생님의 시작을 기다려요'}</strong><small>선생님이 진행해요</small></div>`;
 }
 // Kept in the header so it stays reachable on 1024×600, where the side panel has to scroll.
-function manageMenu(){const status=room?effectiveStatus():'waiting';return `<details class="manage-menu" data-details="manage" ${manageOpen?'open':''}><summary class="button secondary small">수업 관리 <span aria-hidden="true">▾</span></summary><div class="manage-menu-list"><button class="button secondary small" data-action="copy-observer">참관 주소 복사</button><button class="button secondary small" data-action="copy-ppt-link">PPT용 주소 복사</button><button class="button secondary small" data-action="refresh-boards" ${controlBusy?'disabled':''}>PPT 화면 새로고침</button>${room&&!room.joinCode?'<button class="button secondary small" data-action="claim-join-code">탑텐반 코드 연결</button>':''}<button class="button secondary small" data-action="end" ${status==='ended'||controlBusy?'disabled':''}>수업 종료</button><button class="button quiet small" data-action="new-room">새 수업</button></div></details>`;}
+function manageMenu(){const status=room?effectiveStatus():'waiting';return `<details class="manage-menu" data-details="manage" ${manageOpen?'open':''}><summary class="button secondary small">수업 관리 <span aria-hidden="true">▾</span></summary><div class="manage-menu-list"><button class="button secondary small" data-action="copy-observer">참관 주소 복사</button><button class="button secondary small" data-action="copy-ppt-link">PPT용 주소 복사</button><button class="button secondary small" data-action="refresh-boards" ${controlBusy?'disabled':''}>PPT 화면 새로고침</button><button class="button secondary small" data-action="preflight">수업 전 점검</button><button class="button secondary small" data-action="download-results">수업 결과 내려받기</button>${room&&!room.joinCode?'<button class="button secondary small" data-action="claim-join-code">탑텐반 코드 연결</button>':''}<button class="button secondary small" data-action="end" ${status==='ended'||controlBusy?'disabled':''}>수업 종료</button><button class="button quiet small" data-action="new-room">새 수업</button></div></details>`;}
 function header(){
   const studentGame=!teacherMode&&active(3);
   return `<header class="lesson-header ${teacherMode?'teacher-header':''}"><div class="brand"><span class="brand-mark">${logo}</span><div><div class="brand-title">우리 반 청자 교실</div><small>${observerMode?'참관 화면 · 읽기 전용':teacherMode?'선생님 진행 화면':'관찰하고 · 생각하고 · 만들어요'}</small></div></div>${teacherMode?`${observerMode?'<div class="observer-badge">참관 중 · 학생 이름은 보이지 않아요</div>':`<div class="teacher-room-code"><span>수업 코드</span><strong>${esc(publicJoinCode())}</strong><div class="code-actions"><button class="button secondary small" data-action="copy-code">수업 코드 복사</button><button class="button quiet small" data-action="copy-invite">참여 주소 복사</button></div></div>`}<div class="teacher-tools"><span class="pill" data-connection>연결됨</span><button class="button quiet small" data-action="fullscreen">전체 화면</button>${observerMode?'':`<button class="button secondary small observer-invite-open" type="button" data-action="observer-link" aria-haspopup="dialog" aria-controls="observer-invite-dialog" aria-expanded="${Boolean(observerInviteDialog)}">참관 QR</button>${manageMenu()}`}</div>`:`${studentGame?'':stages()}<div class="student-badge"><strong>${esc(student?.number||'')}번 ${esc(student?.name||'')}</strong><span class="pill" data-connection>연결됨</span></div>${studentGame?timerMarkup():''}`}</header><div class="connection-banner" data-connection-banner hidden><span></span><button class="button secondary small" data-action="retry-connection">다시 연결</button></div>`;
@@ -257,6 +257,31 @@ function renderObserverWaiting(){
   if(room)clearObserverRoom();pollFailures=0;connectionError='';lastSuccessfulPoll=Date.now();
   if(viewKey==='observer-waiting')return;viewKey='observer-waiting';
   app.innerHTML=`<section class="waiting" data-testid="observer-waiting"><div class="waiting-inner"><div class="waiting-illustration">${laptopIcon}</div><h1>탑텐반 수업을<br>기다리고 있어요.</h1><p>지금은 열린 탑텐반 수업이 없어요.<br>선생님이 수업을 열면 바로 보여요.</p><div class="waiting-status"><i></i>화면을 그대로 두면 자동으로 이어져요</div></div></section>`;
+}
+// While a student waits, the next activity's 3D models are fetched into the browser cache one at a time, so the
+// activity opens at once even when thirty Chromebooks share the classroom Wi-Fi. Paths are the blind lesson names.
+const prefetchedModels=new Set();let prefetchTimer=null,prefetchRunning=false;
+function upcomingModels(){
+  if(teacherMode||!room||room.status==='ended')return [];
+  if(!room.activity)return [...COMPARISON_ARTIFACTS.map(a=>a.src),BEAUTY_ARTIFACT.src];
+  if(room.activity===1)return [BEAUTY_ARTIFACT.src,...OBSERVATION_ARTIFACTS.map(a=>a.src)];
+  return [];
+}
+function scheduleModelPrefetch(){
+  if(prefetchTimer||prefetchRunning||disposed||navigator.connection?.saveData)return;
+  if(!upcomingModels().some(src=>!prefetchedModels.has(src)))return;
+  // Start a little later so the models of the activity on screen load first.
+  prefetchTimer=setTimeout(async()=>{
+    prefetchTimer=null;prefetchRunning=true;
+    try{
+      for(const src of upcomingModels()){
+        if(disposed||prefetchedModels.has(src))continue;
+        prefetchedModels.add(src);
+        try{const response=await fetch(src,{priority:'low'});if(response.ok)await response.arrayBuffer();else prefetchedModels.delete(src);}
+        catch{prefetchedModels.delete(src);return;}
+      }
+    }finally{prefetchRunning=false;}
+  },4000);
 }
 function announceGameTimer(previous){
   if(!previous||previous.code!==room?.code||previous.runId!==room.runId||room.activity!==3||room.status!=='active'||previous.endsAt===room.endsAt)return;
@@ -302,6 +327,7 @@ function receive(payload,{initial=false}={}){
       if(run&&record?.runId===run){submitted[n]=Boolean(record.submitted);if(record.submitted){dirty[n]=false;drafts[n]=recordDraft(n,record);revisions[n]=Math.max(revisions[n],record.clientRevision||0);}if(!dirty[n]&&!saving&&(record.clientRevision||0)>=revisions[n]){drafts[n]=recordDraft(n,record);revisions[n]=record.clientRevision||0;}}
     }
     persistDrafts();
+    scheduleModelPrefetch();
   }
   render();updateConnection();heartbeatGame();return true;
 }
@@ -530,6 +556,78 @@ function entryTools(inManager=false){return `<div class="participant-tools"><but
 function studentManagerMarkup(){const list=teacherData?.participants||[];return `<div class="manager-head"><h2>학생 관리</h2><button class="button quiet small" type="button" data-close-manager>닫기</button></div><p class="muted">브라우저 기록이 지워져 다시 들어오지 못하는 학생은 <b>번호 풀기</b>를 누른 뒤 같은 번호로 입장하게 해 주세요. 쓰던 답과 작품은 그대로 이어져요.</p>${entryTools(true)}<div class="manager-scroll"><table class="manager-table"><thead><tr><th>번호</th><th>이름</th><th>상태</th><th>관리</th></tr></thead><tbody>${list.length?list.map(p=>`<tr><td>${esc(p.number)}</td><td>${esc(p.name)}</td><td>${p.released?'다시 입장 대기':'참여 중'}</td><td class="manager-actions"><button class="button secondary small" data-action="release-student" data-id="${esc(p.id)}" ${p.released||controlBusy?'disabled':''}>번호 풀기</button><button class="button danger small" data-action="remove-student" data-id="${esc(p.id)}" data-name="${esc(p.name)}" ${controlBusy?'disabled':''}>내보내기</button></td></tr>`).join(''):'<tr><td colspan="4" class="empty-cell">아직 들어온 학생이 없어요.</td></tr>'}</tbody></table></div>`;}
 function refreshStudentManager(){const dialog=document.querySelector('dialog.student-manager');if(dialog?.open)dialog.innerHTML=studentManagerMarkup();}
 function openStudentManager(){let dialog=document.querySelector('dialog.student-manager');if(!dialog){dialog=document.createElement('dialog');dialog.className='student-manager';dialog.setAttribute('aria-label','학생 관리');dialog.addEventListener('click',event=>{if(event.target.closest('[data-close-manager]')){dialog.close();return;}handleClick(event);});document.body.append(dialog);}dialog.innerHTML=studentManagerMarkup();if(!dialog.open)dialog.showModal();}
+// 수업 전 점검: one press before the lesson checks what the lesson depends on and says so in plain words.
+const PREFLIGHT_CHECKS=[['storage','자료 저장'],['code','수업 코드'],['models','3D 자료'],['ai','AI 평가'],['cleanup','작품 자동 정리'],['passcode','선생님 확인 번호']];
+const PREFLIGHT_SAMPLE={orderId:'royal-rest',shape:'pillow',modelId:'pillow',technique:'inlay',pattern:'crane',patterns:['crane'],slip:'white',title:'점검용 청자 베개',explanationUse:'머리를 받치는 베개예요. 누워서 쉴 때 쓰면 좋아요.',explanationBeauty:'학 무늬를 파고 흰 흙을 채워 또렷하게 만들었어요.'};
+function openPreflight(){
+  if(!actionAllowed('preflight')||!room)return;
+  document.querySelector('dialog.preflight')?.remove();
+  const dialog=document.createElement('dialog');dialog.className='preflight';dialog.setAttribute('aria-labelledby','preflight-title');
+  dialog.innerHTML=`<header class="preflight-header"><h2 id="preflight-title">수업 전 점검</h2><button class="button secondary small" type="button" data-close-preflight aria-label="수업 전 점검 닫기">닫기 ×</button></header><p class="preflight-summary" data-preflight-summary role="status"></p><ul class="preflight-list">${PREFLIGHT_CHECKS.map(([id,label])=>`<li data-check="${id}" data-state="running"><span class="preflight-mark" aria-hidden="true"></span><div><strong>${label}</strong><p></p></div></li>`).join('')}</ul><footer class="preflight-footer"><button class="button secondary" type="button" data-rerun-preflight>다시 점검</button></footer>`;
+  dialog.addEventListener('click',event=>{if(event.target.closest('[data-close-preflight]'))dialog.close();else if(event.target.closest('[data-rerun-preflight]'))void runPreflight(dialog);});
+  dialog.addEventListener('close',()=>dialog.remove());
+  document.body.append(dialog);dialog.showModal();void runPreflight(dialog);
+}
+async function runPreflight(dialog){
+  if(dialog.dataset.running==='true')return;dialog.dataset.running='true';
+  const summary=dialog.querySelector('[data-preflight-summary]'),rerun=dialog.querySelector('[data-rerun-preflight]');
+  const set=(id,state,text)=>{const row=dialog.querySelector(`[data-check="${id}"]`);if(row){row.dataset.state=state;row.querySelector('p').textContent=text;}};
+  for(const [id] of PREFLIGHT_CHECKS)set(id,'running','확인하고 있어요…');
+  summary.dataset.state='running';summary.textContent='확인하고 있어요…';rerun.disabled=true;
+  const seconds=started=>((performance.now()-started)/1000).toFixed(1);
+  const server=(async()=>{
+    const started=performance.now();
+    try{
+      const result=await api('preflight',{method:'POST'});
+      set('storage',result.storage?'ok':'fail',result.storage?`자료를 저장하고 지울 수 있어요. (${seconds(started)}초)`:'자료를 저장하지 못했어요. 잠시 뒤 다시 점검해 주세요.');
+      set('code',result.joinCode?'ok':'warn',result.joinCode?'학생들이 ‘탑텐반’으로 들어올 수 있어요.':'탑텐반이 이 수업에 연결되어 있지 않아요. 수업 관리 → 탑텐반 코드 연결을 눌러 주세요.');
+      set('cleanup',result.cleanup?'ok':'warn',result.cleanup?'24시간이 지난 작품을 자동으로 지워요.':'자동 정리 설정을 확인해 주세요. 수업 진행에는 문제없어요.');
+      set('passcode',result.teacherPasscode?'ok':'warn',result.teacherPasscode?'확인 번호를 아는 사람만 새 수업을 열 수 있어요.':'확인 번호가 없어 누구나 새 수업을 열 수 있어요.');
+    }catch(error){
+      set('storage','fail',error.message||'서버에 연결하지 못했어요.');
+      for(const id of ['code','cleanup','passcode'])set(id,'warn','서버에 연결되면 다시 점검해 주세요.');
+    }
+  })();
+  const models=(async()=>{
+    const started=performance.now();let bytes=0,failed=0;
+    for(const artifact of [...COMPARISON_ARTIFACTS,BEAUTY_ARTIFACT,...OBSERVATION_ARTIFACTS]){
+      try{const response=await fetch(artifact.src,{cache:'reload'});if(!response.ok)throw new Error('missing');bytes+=(await response.arrayBuffer()).byteLength;}
+      catch{failed++;}
+    }
+    const took=Number(seconds(started)),size=`${(bytes/1048576).toFixed(1)}MB`;
+    if(failed)set('models','fail',`3D 청자 ${failed}점을 받지 못했어요. 인터넷 연결을 확인해 주세요.`);
+    else if(took>30)set('models','warn',`3D 청자 9점(${size})을 받는 데 ${took}초 걸렸어요. 인터넷이 느려 학생 화면이 늦게 뜰 수 있어요.`);
+    else set('models','ok',`3D 청자 9점(${size})을 ${took}초에 받았어요.`);
+  })();
+  const ai=(async()=>{
+    try{
+      const response=await fetch('/api/assess',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(PREFLIGHT_SAMPLE)});
+      const result=response.ok?await response.json():null;
+      if(result?.source==='ai')set('ai','ok','AI가 작품 설명을 평가하고 있어요.');
+      else set('ai','warn','AI에 연결되지 않아 기본 기준으로 평가해요. 수업은 그대로 진행할 수 있어요.');
+    }catch{set('ai','warn','AI에 연결되지 않아 기본 기준으로 평가해요. 수업은 그대로 진행할 수 있어요.');}
+  })();
+  await Promise.allSettled([server,models,ai]);
+  if(!dialog.isConnected)return;
+  const states=[...dialog.querySelectorAll('[data-check]')].map(row=>row.dataset.state),fails=states.filter(state=>state==='fail').length,warns=states.filter(state=>state==='warn').length;
+  summary.dataset.state=fails?'fail':warns?'warn':'ok';
+  summary.textContent=fails?`확인이 필요한 항목이 ${fails}개 있어요.`:warns?`수업은 할 수 있어요. 참고할 항목이 ${warns}개 있어요.`:'모두 정상이에요. 수업을 시작해도 좋아요.';
+  rerun.disabled=false;dialog.dataset.running='false';
+}
+// 수업 결과 내려받기: one row per student, saved on the teacher's computer only (it holds names).
+const csvCell=value=>{let text=String(value??'');if(/^[=+\-@\t\r]/.test(text))text=`'${text}`;return `"${text.replace(/"/g,'""')}"`;};
+async function downloadResults(){
+  const payload=await api('results'),country=id=>COUNTRY_CHOICES.find(choice=>choice.id===id)?.label||'';
+  const header=['번호','이름',...COMPARISON_ARTIFACTS.map(a=>`활동1 청자${a.id}`),'활동1 맞힌 수','고려청자의 아름다움',...OBSERVATION_ARTIFACTS.flatMap(a=>[`활동2 청자${a.id} 이름`,`활동2 청자${a.id} 쓰임`]),'활동3 완성작 수','작품 이름','점수','쓰임 설명','공들인 점'];
+  const key=['','(정답)',...COMPARISON_ARTIFACTS.map(a=>country(payload.answers.comparison[a.id])),'','',...OBSERVATION_ARTIFACTS.flatMap(a=>[payload.answers.observations[a.id].name,payload.answers.observations[a.id].use]),'','','','',''];
+  const rows=payload.rows.map(row=>[row.number,row.name,...COMPARISON_ARTIFACTS.map(a=>country(row.comparison[a.id])),row.comparisonCorrect,row.beauty,
+    ...OBSERVATION_ARTIFACTS.flatMap(a=>[row.observations[a.id].name,row.observations[a.id].use]),row.workCount,row.work?.title||'',row.work?row.work.score:'',row.work?.explanationUse||'',row.work?.explanationBeauty||'']);
+  const csv='\uFEFF'+[header,key,...rows].map(cells=>cells.map(csvCell).join(',')).join('\r\n')+'\r\n';
+  const day=new Date(now()),stamp=`${day.getFullYear()}-${String(day.getMonth()+1).padStart(2,'0')}-${String(day.getDate()).padStart(2,'0')}`;
+  const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'})),link=document.createElement('a');
+  link.href=url;link.download=`청자수업_결과_${stamp}.csv`;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),10000);
+  toast(rows.length?`${rows.length}명의 결과를 내려받았어요. 학생 이름이 들어 있으니 조심해서 보관해 주세요.`:'아직 입장한 학생이 없어 빈 표를 내려받았어요.');
+}
 function gameTimerMarkup(){
   const off=controlBusy?'disabled':'';
   return gameTimerSet()
@@ -600,7 +698,7 @@ async function loadWorkImages(){
 function resetRoom({keepTeacherKey=false}={}){
   observerInviteVerified=null;
   closeObserverInvite({restoreFocus:false});closeWorkDialog({restoreFocus:false});closeCompletionDialog();teacherResultViews={1:'responses',2:'responses'};exhibitObjects={1:'1',2:'1'};
-  heartbeatGame();disposeViewers();disposeTeacherBoard();clearTimeout(pollTimer);clearTimeout(saveTimer);session=null;room=null;teacherData=null;student=null;answers={};
+  heartbeatGame();disposeViewers();disposeTeacherBoard();clearTimeout(pollTimer);clearTimeout(saveTimer);clearTimeout(prefetchTimer);prefetchTimer=null;session=null;room=null;teacherData=null;student=null;answers={};
   drafts={1:{},2:{},beauty:{}};revisions={1:0,2:0,beauty:0};dirty={1:false,2:false,beauty:false};draftChanges={1:0,2:0,beauty:0};submitted={1:false,2:false,beauty:false};teacherA1View='comparison';
   viewKey='';teacherSignature='';currentObject='1';teacherActivity=1;teacherObject='1';selectedCountry=null;cloudKind='name';settingsDirty=false;connectionError='';
   uploadedWorks.clear();clearPendingWorks();terminalWorks.clear();workImages.clear();workDesigns.clear();workImagePending.clear();if(teacherMode){if(!keepTeacherKey)store(SESSION_KEY,null);}else clearActiveStudentSession();
@@ -739,7 +837,7 @@ async function handleClick(event){
   const chip=event.target.closest('[data-country-chip]');if(chip){if(answerLocked(1))return;selectCountry(selectedCountry===chip.dataset.countryChip?null:chip.dataset.countryChip);if(selectedCountry)toast(`${countryName(selectedCountry)} 이름표를 놓을 도자기의 칸을 눌러 주세요.`);return;}
   const drop=event.target.closest('[data-country-drop]');if(drop&&selectedCountry&&!answerLocked(1)&&!event.target.closest('[data-viewer] button,[data-viewer] a')){event.preventDefault();if(setCountry(drop.dataset.countryDrop,selectedCountry))selectCountry(null);return;}
   const button=event.target.closest('[data-action]');if(!button||button.disabled)return;const action=button.dataset.action;if(!actionAllowed(action))return;
-  if(['copy-observer','copy-ppt-link','refresh-boards','end','new-room','delete-room'].includes(action)){manageOpen=false;button.closest('details')?.removeAttribute('open');}
+  if(['copy-observer','copy-ppt-link','refresh-boards','preflight','download-results','end','new-room','delete-room'].includes(action)){manageOpen=false;button.closest('details')?.removeAttribute('open');}
   try{
     if(action==='retry-connection'){saveState='pending';await poll();if(!teacherMode)queueSave();return;}
     if(action==='submit-answers'){queueSave(true);return;}
@@ -769,6 +867,8 @@ async function handleClick(event){
     if(action==='claim-join-code'){await control('claim-join-code');return;}
     if(action==='refresh-boards'){await control('refresh-boards');toast('PPT와 실시간 화면을 몇 초 안에 새로고침해요.');return;}
     if(action==='board-reload'){location.reload();return;}
+    if(action==='preflight'){openPreflight();return;}
+    if(action==='download-results'){await downloadResults();return;}
     if(action==='copy-ppt-link'){
       // For the PowerPoint add-in: like the observer link, but its board can also open the explanations.
       const payload=await api('control',{method:'POST',body:{command:'observer-link',role:'presenter'}});
@@ -793,8 +893,8 @@ async function handleClick(event){
     if(action==='remove-student'){if(confirm(`${button.dataset.id}번 ${button.dataset.name||''} 학생을 내보낼까요?\n\n이 학생의 답과 완성작이 서버에서 삭제되고 되돌릴 수 없어요.`))await control('remove-student',{participantId:button.dataset.id});return;}
     if(action==='observer-link'){await openObserverInvite();return;}
     if(action==='copy-observer'){await copyObserverAddress();return;}
-    if(action==='new-room'){if(!confirm('탑텐반 코드를 새 수업에 연결할까요?\n\n지금 수업은 끝나고, 이 수업의 학생 정보·답변·작품이 서버에서 모두 지워집니다. 되돌릴 수 없어요.'))return;button.disabled=true;try{await createTeacherClassroom();}finally{if(button.isConnected)button.disabled=false;}return;}
-    if(action==='delete-room'){if(!confirm('이 수업의 학생 정보, 답변, 작품을 모두 삭제할까요? 삭제한 자료는 되돌릴 수 없습니다.'))return;await api('control',{method:'POST',body:{command:'delete'}});resetRoom();renderWelcome();toast('수업 자료를 삭제했어요.');return;}
+    if(action==='new-room'){if(!confirm('탑텐반 코드를 새 수업에 연결할까요?\n\n지금 수업은 끝나고, 이 수업의 학생 정보·답변·작품이 서버에서 모두 지워집니다. 되돌릴 수 없어요.\n\n결과가 필요하면 먼저 ‘수업 관리 → 수업 결과 내려받기’를 눌러 주세요.'))return;button.disabled=true;try{await createTeacherClassroom();}finally{if(button.isConnected)button.disabled=false;}return;}
+    if(action==='delete-room'){if(!confirm('이 수업의 학생 정보, 답변, 작품을 모두 삭제할까요? 삭제한 자료는 되돌릴 수 없습니다.\n\n결과가 필요하면 먼저 ‘수업 관리 → 수업 결과 내려받기’를 눌러 주세요.'))return;await api('control',{method:'POST',body:{command:'delete'}});resetRoom();renderWelcome();toast('수업 자료를 삭제했어요.');return;}
   }catch(error){toast(error.message);}
 }
 app.addEventListener('click',handleClick);

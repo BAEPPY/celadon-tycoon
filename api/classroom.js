@@ -42,9 +42,12 @@ export function createClassroomHandler({store, now, makeCode, makeToken} = {}) {
       else if (req.method === 'GET' && raw.action === 'artwork') result = await service.artwork(raw, auth);
       else if (req.method === 'GET' && raw.action === 'state') result = await service.state(raw, auth);
       else if (req.method === 'GET' && raw.action === 'observe') result = await service.observe(raw, auth);
+      else if (req.method === 'GET' && raw.action === 'results') result = await service.results(raw, auth);
       else if (req.method === 'POST' && raw.action === 'create') result = await service.create(raw, auth);
       else if (req.method === 'POST' && raw.action === 'join') result = await service.join(raw);
       else if (req.method === 'POST' && raw.action === 'control') result = await service.control(raw, auth);
+      // The cron secret itself never leaves the server; the check only says whether cleanup can authenticate.
+      else if (req.method === 'POST' && raw.action === 'preflight') result = {...await service.preflight(raw, auth), cleanup: typeof process.env.CRON_SECRET === 'string' && process.env.CRON_SECRET.length >= 32};
       else if (req.method === 'POST' && raw.action === 'answer') result = await service.answer(raw, auth);
       else if (req.method === 'POST' && raw.action === 'beauty-answer') result = await service.beautyAnswer(raw, auth);
       else if (req.method === 'POST' && raw.action === 'work') result = await service.submitWork(raw, auth);

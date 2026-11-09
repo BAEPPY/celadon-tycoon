@@ -91,7 +91,7 @@ export class FileClassroomStore {
 }
 
 export class BlobClassroomStore {
-  constructor(options = {}) { this.options = options; this.cache = new Map(); this.pending = new Map(); this.generation = 0; }
+  constructor(options = {}) { this.options = options; this.cache = new Map(); this.pending = new Map(); this.lists = new Map(); this.generation = 0; }
   async sdk() { return import('@vercel/blob'); }
   remember(key, value) {
     this.cache.delete(key);
@@ -124,6 +124,7 @@ export class BlobClassroomStore {
       const result = await put(key, JSON.stringify(data), {access: 'private', addRandomSuffix: false,
         allowOverwrite: !create, ...(create ? {} : {ifMatch: etag}), contentType: 'application/json', ...this.options});
       this.generation++; this.remember(key, {data, etag: result.etag});
+      if (create) this.lists.clear();
       return {etag: result.etag};
     } catch (error) {
       if ((BlobPreconditionFailedError && error instanceof BlobPreconditionFailedError) || /BlobPreconditionFailedError|BlobAlreadyExistsError/.test(error.name) || error.status === 412 || error.statusCode === 412 || (create && /already exists/i.test(error.message))) {
@@ -134,8 +135,22 @@ export class BlobClassroomStore {
   }
   create(key, data) { return this.write(key, data, undefined, true); }
   update(key, data, etag) { return this.write(key, data, etag, false); }
-  async list(prefix) {
+  // Polling screens (teacher, observers, PPT boards) may share one listing for a moment; anything that changes the
+  // set of files in this instance (create, delete) drops the shared listings.
+  async list(prefix, {maxAge = 0} = {}) {
     if (!validPrefix(prefix)) throw new Error('invalid-store-prefix');
+    const cached = this.lists.get(prefix);
+    if (maxAge > 0 && cached && Date.now() - cached.time < maxAge) return [...await cached.keys];
+    const listing = this.listNow(prefix);
+    if (maxAge > 0) {
+      const entry = {time: Date.now(), keys: listing};
+      this.lists.set(prefix, entry);
+      listing.catch(() => { if (this.lists.get(prefix) === entry) this.lists.delete(prefix); });
+      if (this.lists.size > 200) this.lists.delete(this.lists.keys().next().value);
+    }
+    return [...await listing];
+  }
+  async listNow(prefix) {
     const {list} = await this.sdk(), keys = []; let cursor;
     do {
       const result = await list({prefix, limit: 1000, ...(cursor ? {cursor} : {}), ...this.options});
@@ -166,14 +181,14 @@ export class BlobClassroomStore {
       }
       throw error;
     }
-    this.generation++; this.cache.delete(key);
+    this.generation++; this.cache.delete(key); this.lists.clear();
   }
   // One request per 100 files keeps a whole class's deletion well inside the function time limit.
   async deleteMany(keys) {
     if (!keys.every(validKey)) throw new Error('invalid-store-key');
     const {del} = await this.sdk();
     for (let start = 0; start < keys.length; start += 100) await del(keys.slice(start, start + 100), this.options);
-    this.generation++; for (const key of keys) this.cache.delete(key);
+    this.generation++; for (const key of keys) this.cache.delete(key); this.lists.clear();
   }
 }
 
