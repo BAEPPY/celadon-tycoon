@@ -9,6 +9,8 @@ import {GAME_DATA_TTL_MS, pruneGameSaves} from './game-retention.js';
 const TITLE='고려청자의 우수성과 다양한 쓰임 알아보기';
 // /observe is a read-only copy of the teacher board for visitors at an open class: no controls, no student names.
 const observerMode=location.pathname.startsWith('/observe');
+// /model?id=… shows one lesson 3D model filling the page (PowerPoint add-in, projector).
+const modelMode=location.pathname.startsWith('/model');
 const teacherMode=location.pathname.startsWith('/teacher')||observerMode;
 const app=document.querySelector('#classroom-app'),toastElement=document.querySelector('#classroom-toast');
 const SESSION_KEY=observerMode?'celadon-classroom-observer-v1':teacherMode?'celadon-classroom-teacher-v1':'celadon-classroom-student-v1';
@@ -52,6 +54,8 @@ const boardMode=observerMode&&(Boolean(boardPin)||boardQuery.get('board')==='1'|
 let session=observerMode?observerSession():teacherMode?stored(SESSION_KEY):loadStudentEntryState(),room=null,teacherData=null,student=null,answers={},offset=0,offsetSamples=[];
 let currentObject='1',teacherActivity=1,teacherObject='1',teacherA1View='comparison',selectedCountry=null,cloudKind='name';
 let teacherResultViews={1:'responses',2:'responses'},exhibitObjects={1:'1',2:'1'},completionDialog=null;
+// A board opened with the PPT link ("PPT용 주소") may reveal answers from the slide itself.
+let boardPresenter=false;
 let worksSort=observerMode?'score':'number',workDialog=null;
 let observerInviteDialog=null,observerInviteRequest=null,observerInviteVerified=null,observerInviteModule;
 let drafts={1:{},2:{},beauty:{}},revisions={1:0,2:0,beauty:0},dirty={1:false,2:false,beauty:false},draftChanges={1:0,2:0,beauty:0},submitted={1:false,2:false,beauty:false};
@@ -221,7 +225,7 @@ function stages(activity=room?.activity||0){
   return `<div class="current-activity" aria-label="현재 수업 활동"><span>${activity?`활동 ${activity} / 3`:'수업 준비'}</span><strong>${activity?(beautyStage()?BEAUTY_NAME:STAGE_NAMES[activity]):'선생님의 시작을 기다려요'}</strong><small>선생님이 진행해요</small></div>`;
 }
 // Kept in the header so it stays reachable on 1024×600, where the side panel has to scroll.
-function manageMenu(){const status=room?effectiveStatus():'waiting';return `<details class="manage-menu" data-details="manage" ${manageOpen?'open':''}><summary class="button secondary small">수업 관리 <span aria-hidden="true">▾</span></summary><div class="manage-menu-list"><button class="button secondary small" data-action="copy-observer">참관 주소 복사</button>${room&&!room.joinCode?'<button class="button secondary small" data-action="claim-join-code">탑텐반 코드 연결</button>':''}<button class="button secondary small" data-action="end" ${status==='ended'||controlBusy?'disabled':''}>수업 종료</button><button class="button quiet small" data-action="new-room">새 수업</button></div></details>`;}
+function manageMenu(){const status=room?effectiveStatus():'waiting';return `<details class="manage-menu" data-details="manage" ${manageOpen?'open':''}><summary class="button secondary small">수업 관리 <span aria-hidden="true">▾</span></summary><div class="manage-menu-list"><button class="button secondary small" data-action="copy-observer">참관 주소 복사</button><button class="button secondary small" data-action="copy-ppt-link">PPT용 주소 복사</button><button class="button secondary small" data-action="refresh-boards" ${controlBusy?'disabled':''}>PPT 화면 새로고침</button>${room&&!room.joinCode?'<button class="button secondary small" data-action="claim-join-code">탑텐반 코드 연결</button>':''}<button class="button secondary small" data-action="end" ${status==='ended'||controlBusy?'disabled':''}>수업 종료</button><button class="button quiet small" data-action="new-room">새 수업</button></div></details>`;}
 function header(){
   const studentGame=!teacherMode&&active(3);
   return `<header class="lesson-header ${teacherMode?'teacher-header':''}"><div class="brand"><span class="brand-mark">${logo}</span><div><div class="brand-title">우리 반 청자 교실</div><small>${observerMode?'참관 화면 · 읽기 전용':teacherMode?'선생님 진행 화면':'관찰하고 · 생각하고 · 만들어요'}</small></div></div>${teacherMode?`${observerMode?'<div class="observer-badge">참관 중 · 학생 이름은 보이지 않아요</div>':`<div class="teacher-room-code"><span>수업 코드</span><strong>${esc(publicJoinCode())}</strong><div class="code-actions"><button class="button secondary small" data-action="copy-code">수업 코드 복사</button><button class="button quiet small" data-action="copy-invite">참여 주소 복사</button></div></div>`}<div class="teacher-tools"><span class="pill" data-connection>연결됨</span><button class="button quiet small" data-action="fullscreen">전체 화면</button>${observerMode?'':`<button class="button secondary small observer-invite-open" type="button" data-action="observer-link" aria-haspopup="dialog" aria-controls="observer-invite-dialog" aria-expanded="${Boolean(observerInviteDialog)}">참관 QR</button>${manageMenu()}`}</div>`:`${studentGame?'':stages()}<div class="student-badge"><strong>${esc(student?.number||'')}번 ${esc(student?.name||'')}</strong><span class="pill" data-connection>연결됨</span></div>${studentGame?timerMarkup():''}`}</header><div class="connection-banner" data-connection-banner hidden><span></span><button class="button secondary small" data-action="retry-connection">다시 연결</button></div>`;
@@ -266,6 +270,9 @@ function receive(payload,{initial=false}={}){
   const previous=room;
   if(payload.state&&room&&payload.state.code===room.code&&(Number(payload.state.revision)<Number(room.revision)||(Number(payload.state.revision)===Number(room.revision)&&Number(payload.state.serverNow)<Number(room.serverNow)))){lastSuccessfulPoll=Date.now();heartbeatGame();return false;}
   room=payload.state||room;
+  if(observerMode)boardPresenter=payload.presenter===true;
+  // The teacher's "PPT 화면 새로고침" reloads every live board (PowerPoint slides, projector) once.
+  if(boardMode&&previous&&previous.code===room?.code&&Number(room.boardRefresh||0)!==Number(previous.boardRefresh||0)){location.reload();return false;}
   if(!teacherMode||observerMode)announceGameTimer(previous);
   // Network delay only makes an estimate smaller, so the largest recent one is the best. Older samples age out, so a
   // corrected device clock (e.g. after waking a Chromebook) is followed within a few polls instead of never.
@@ -379,8 +386,10 @@ function revealedAnswer(activity,id){return teacherData?.reveal?.[activity===1?'
 function teacherViewerOptions(activity,id){return {getExpandedInfo:()=>room.revealed?.[activity]?revealedAnswer(activity,id):null};}
 function teacherResultTabs(){
   if(![1,2].includes(teacherActivity))return '';
-  const exhibit=teacherResultViews[teacherActivity]==='exhibit'&&room.revealed?.[teacherActivity];
-  return `<nav class="teacher-result-tabs" aria-label="활동 결과 보기"><button data-action="teacher-result-view" data-view="responses" class="${exhibit?'':'active'}" aria-pressed="${!exhibit}">학생 응답 보기</button><button data-action="teacher-result-view" data-view="exhibit" class="${exhibit?'active':''}" aria-pressed="${Boolean(exhibit)}" ${room.revealed?.[teacherActivity]?'':'disabled'}>청자 설명 보기</button></nav>`;
+  const revealed=Boolean(room.revealed?.[teacherActivity]),exhibit=teacherResultViews[teacherActivity]==='exhibit'&&revealed;
+  const running=room.activity===teacherActivity&&effectiveStatus()==='active',canReveal=observerMode&&boardPresenter&&!revealed&&Boolean(room.runs?.[teacherActivity])&&!running;
+  const closedNote=revealed||canReveal?'':observerMode&&boardPresenter?(running?'활동을 마치면 열 수 있어요':'활동을 진행한 뒤 열 수 있어요'):observerMode?'선생님이 정답을 공개하면 열려요':'';
+  return `<nav class="teacher-result-tabs" aria-label="활동 결과 보기"><button data-action="teacher-result-view" data-view="responses" class="${exhibit?'':'active'}" aria-pressed="${!exhibit}">학생 응답 보기</button><button data-action="teacher-result-view" data-view="exhibit" class="${exhibit?'active':''}" aria-pressed="${Boolean(exhibit)}" ${revealed||canReveal?'':'disabled'} ${closedNote?`title="${closedNote}"`:''}>청자 설명 보기</button>${closedNote?`<span class="result-tab-note">${closedNote}</span>`:''}</nav>`;
 }
 function exhibitMarkup(){
   const artifacts=teacherActivity===1?COMPARISON_ARTIFACTS:OBSERVATION_ARTIFACTS;
@@ -547,7 +556,7 @@ function renderTeacher(){
   const completed=teacherBeautyView()?Number(teacherData?.beauty?.respondents)||0:teacherActivity===3?(teacherData?.works||[]).length:observerMode?Number(teacherData?.completionCounts?.[teacherActivity])||0:(teacherData?.participants||[]).filter(p=>p[`activity${teacherActivity}Complete`]).length;
   if(boardMode){
     const name=teacherBeautyView()?BEAUTY_NAME:ACTIVITY_NAMES[teacherActivity],state=live?'진행 중':status==='ended'?'수업 끝':room.activity===teacherActivity&&status==='paused'?'활동을 마쳤어요':'준비 중';
-    app.innerHTML=`<div class="board-shell" data-testid="live-board"><header class="board-status"><div class="board-title"><span>활동 ${teacherActivity} · ${state}</span><strong>${esc(name)}</strong></div><div class="board-metrics"><span>참여 <strong>${participantCount}</strong>명</span><span>${teacherActivity===3?'완성작':'모두 작성'} <strong>${completed}</strong>${teacherActivity===3?'점':'명'}</span></div>${timerMarkup()}<span class="pill" data-connection>연결됨</span></header><div class="teacher-content">${teacherContent()}</div></div>`;
+    app.innerHTML=`<div class="board-shell" data-testid="live-board"><header class="board-status"><div class="board-title"><span>활동 ${teacherActivity} · ${state}</span><strong>${esc(name)}</strong></div><div class="board-metrics"><span>참여 <strong>${participantCount}</strong>명</span><span>${teacherActivity===3?'완성작':'모두 작성'} <strong>${completed}</strong>${teacherActivity===3?'점':'명'}</span></div>${timerMarkup()}<span class="pill" data-connection>연결됨</span><button class="board-refresh" type="button" data-action="board-reload" aria-label="이 화면 새로고침" title="이 화면 새로고침">↻</button></header><div class="teacher-content">${teacherContent()}</div></div>`;
     updateTimer();updateConnection();mountTeacherBoard();if(teacherActivity===3)loadWorkImages();return;
   }
   app.innerHTML=`<div class="lesson-shell teacher-shell">${header()}<div class="teacher-workspace"><section class="teacher-main"><div class="teacher-overview"><div><span class="activity-label">고려의 문화 · 함께 생각하는 시간</span><h1>${TITLE}</h1></div></div><nav class="teacher-stage-nav" aria-label="교사용 활동 선택">${[1,2,3].map(n=>`<button class="${teacherActivity===n?'active':''}" data-action="teacher-activity" data-activity="${n}">${room.activity===n&&status==='active'?'<i class="live-dot"></i>':''}<span><b>${n}</b> ${ACTIVITY_NAMES[n]}</span></button>`).join('')}</nav><div class="teacher-content">${teacherContent()}</div></section><aside class="teacher-sidebar" aria-label="교사용 수업 진행"><section class="teacher-control-bar"><span class="activity-label">수업 진행</span><div class="stage-caption">${teacherBeautyView()?BEAUTY_NAME:ACTIVITY_NAMES[teacherActivity]}<small>${observerMode?(live?'학생들이 활동하고 있어요.':status==='active'?`지금은 활동 ${room.activity}${room.activity===2?'가':'이'} 진행 중이에요.`:status==='ended'?'수업을 마쳤어요.':room.activity===teacherActivity&&status==='paused'?'학생들이 선생님을 보고 있어요.':'아직 진행하지 않은 활동이에요.'):live?(timeExpired()?'입력이 마감됐어요. 활동을 마쳐 주세요.':'학생들이 활동하고 있어요.'):status==='active'?`지금은 활동 ${room.activity}${room.activity===2?'가':'이'} 진행 중이에요. 먼저 활동을 마쳐 주세요.`:room.activity===teacherActivity&&status==='paused'?'학생들이 선생님을 보고 있어요.':status==='ended'?'수업을 마쳤어요.':'시작하면 학생 화면이 함께 열립니다.'}</small></div>${timerMarkup()}<div class="teacher-metrics"><span>참여 <strong>${participantCount}</strong>명</span><span>${teacherActivity===3?'완성작':'모두 작성'} <strong>${completed}</strong>${teacherActivity===3?'점':'명'}</span></div>${teacherActionMarkup(live,status)}</section>${status==='paused'?'<div class="teacher-pause-note">학생 화면은 지금<br>“크롬북을 닫고 선생님을 보세요”</div>':''}${observerMode?'':participantsMarkup()+teacherSettings()+'<section class="panel teacher-data-actions"><button class="button danger small" data-action="delete-room">수업 데이터 삭제</button><p>학생 정보 · 답변 · 작품을 삭제합니다.</p></section>'}</aside></div></div>`;
@@ -730,7 +739,7 @@ async function handleClick(event){
   const chip=event.target.closest('[data-country-chip]');if(chip){if(answerLocked(1))return;selectCountry(selectedCountry===chip.dataset.countryChip?null:chip.dataset.countryChip);if(selectedCountry)toast(`${countryName(selectedCountry)} 이름표를 놓을 도자기의 칸을 눌러 주세요.`);return;}
   const drop=event.target.closest('[data-country-drop]');if(drop&&selectedCountry&&!answerLocked(1)&&!event.target.closest('[data-viewer] button,[data-viewer] a')){event.preventDefault();if(setCountry(drop.dataset.countryDrop,selectedCountry))selectCountry(null);return;}
   const button=event.target.closest('[data-action]');if(!button||button.disabled)return;const action=button.dataset.action;if(!actionAllowed(action))return;
-  if(['copy-observer','end','new-room','delete-room'].includes(action)){manageOpen=false;button.closest('details')?.removeAttribute('open');}
+  if(['copy-observer','copy-ppt-link','refresh-boards','end','new-room','delete-room'].includes(action)){manageOpen=false;button.closest('details')?.removeAttribute('open');}
   try{
     if(action==='retry-connection'){saveState='pending';await poll();if(!teacherMode)queueSave();return;}
     if(action==='submit-answers'){queueSave(true);return;}
@@ -742,6 +751,13 @@ async function handleClick(event){
     if(action==='teacher-object'){teacherObject=button.dataset.id;renderTeacher();return;}
     if(action==='works-sort'){worksSort=!observerMode&&button.dataset.sort==='number'?'number':'score';renderTeacher();app.querySelector(`[data-action="works-sort"][data-sort="${worksSort}"]`)?.focus({preventScroll:true});return;}
     if(action==='view-work'){openWorkDialog(button.dataset.workKey);return;}
+    // From a PPT slide: opening the explanations reveals them to the class, like the teacher's 함께 정답 보기.
+    if(action==='teacher-result-view'&&observerMode&&boardPresenter&&button.dataset.view==='exhibit'&&[1,2].includes(teacherActivity)&&!room.revealed?.[teacherActivity]){
+      button.disabled=true;
+      try{const payload=await api('control',{method:'POST',body:{command:'reveal',activity:teacherActivity}});teacherResultViews[teacherActivity]='exhibit';receive(payload);teacherSignature='';renderTeacher();}
+      catch(error){toast(error.message);button.disabled=false;}
+      return;
+    }
     if(action==='teacher-result-view'){if([1,2].includes(teacherActivity)&&(button.dataset.view==='responses'||room.revealed?.[teacherActivity])){teacherResultViews[teacherActivity]=button.dataset.view==='exhibit'?'exhibit':'responses';renderTeacher();}return;}
     if(['exhibit-object','exhibit-previous','exhibit-next'].includes(action)){
       if(![1,2].includes(teacherActivity)||!room.revealed?.[teacherActivity])return;
@@ -751,6 +767,15 @@ async function handleClick(event){
     }
     if(action==='cloud-kind'){cloudKind=button.dataset.kind==='use'?'use':'name';renderTeacher();return;}
     if(action==='claim-join-code'){await control('claim-join-code');return;}
+    if(action==='refresh-boards'){await control('refresh-boards');toast('PPT와 실시간 화면을 몇 초 안에 새로고침해요.');return;}
+    if(action==='board-reload'){location.reload();return;}
+    if(action==='copy-ppt-link'){
+      // For the PowerPoint add-in: like the observer link, but its board can also open the explanations.
+      const payload=await api('control',{method:'POST',body:{command:'observer-link',role:'presenter'}});
+      if(!/^[A-Za-z0-9_-]{30,100}$/.test(payload.observerToken||''))throw new Error('PPT용 주소를 만들지 못했어요. 다시 눌러 주세요.');
+      const url=new URL('/observe',location.origin);url.searchParams.set('code',payload.observerCode===CLASSROOM_JOIN_CODE?CLASSROOM_JOIN_CODE:session.code);url.hash=new URLSearchParams({key:payload.observerToken}).toString();
+      await copyClassroomValue(url.href,'PPT용 주소');return;
+    }
     if(action==='copy-code'){await copyClassroomValue(publicJoinCode(),'수업 코드');return;}
     if(action==='copy-invite'){await copyClassroomValue(`${location.origin}/lesson?code=${encodeURIComponent(publicJoinCode())}`,'참여 주소');return;}
     if(action==='fullscreen'){if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen();return;}
@@ -820,7 +845,19 @@ const clock=setInterval(()=>{
 },250);
 window.addEventListener('pagehide',event=>{observerInviteVerified=null;closeObserverInvite({restoreFocus:false});if(event.persisted)return;disposed=true;clearTimeout(pollTimer);clearTimeout(saveTimer);clearInterval(clock);clearPendingWorks();terminalWorks.clear();closeWorkDialog({restoreFocus:false});closeCompletionDialog();disposeViewers();disposeTeacherBoard();});
 
+// One lesson model, large and interactive: drag to turn, wheel or two fingers to zoom. Activity 2 objects keep
+// their blind labels (청자 1–5), so a slide cannot give the answers away.
+const MODEL_PAGES={beauty:BEAUTY_ARTIFACT,...Object.fromEntries(COMPARISON_ARTIFACTS.map(a=>[`comparison-${a.id}`,a])),...Object.fromEntries(OBSERVATION_ARTIFACTS.map(a=>[`observation-${a.id}`,a]))};
+function renderModelPage(){
+  document.body.classList.add('model-mode');document.title=`3D 청자 · ${TITLE}`;
+  const id=new URLSearchParams(location.search).get('id')||'beauty',artifact=Object.hasOwn(MODEL_PAGES,id)?MODEL_PAGES[id]:null;
+  if(!artifact){app.innerHTML='<section class="waiting board-empty" data-testid="model-missing"><div class="waiting-inner"><h1>3D 청자를 찾지 못했어요</h1><p>주소를 다시 확인해 주세요.</p></div></section>';return;}
+  const label=id==='beauty'?BEAUTY_ARTIFACT.label:`${id.startsWith('comparison')?'세 나라 비교':'쓰임 짐작'} · 청자 ${artifact.id}`;
+  app.innerHTML=`<main class="model-shell" data-testid="model-page" data-model-id="${esc(id)}"><div class="model-stage viewer-host" data-model-viewer></div><p class="model-caption"><strong>${esc(label)}</strong></p></main>`;
+  mountLessonViewer(app.querySelector('[data-model-viewer]'),artifact,{expand:false,detail:true});
+}
 async function boot(){
+  if(modelMode){renderModelPage();return;}
   pruneLocalGameData();
   if(boardMode)document.body.classList.add('board-mode');
   document.title=observerMode?`참관 · ${TITLE}`:teacherMode?`교사용 · ${TITLE}`:TITLE;

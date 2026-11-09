@@ -34,7 +34,7 @@ await stripLessonDirectory('dist/assets/lesson');
 await copyFile('classroom.css','dist/classroom.css');
 // PowerPoint content add-in (manifest, page, icons) that shows the live board inside a slide.
 await cp('ppt-addin','dist/ppt-addin',{recursive:true});
-for(const route of ['lesson','teacher','observe']){
+for(const route of ['lesson','teacher','observe','model']){
   await mkdir(`dist/${route}`,{recursive:true});
   await copyFile('classroom.html',`dist/${route}/index.html`);
 }
