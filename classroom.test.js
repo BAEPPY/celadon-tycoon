@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomBytes} from 'node:crypto';
-import {mkdtemp, rm} from 'node:fs/promises';
+import {mkdtemp, readFile, rm} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import {ClassroomService, WORK_UPLOAD_GRACE_MS, WORK_RETENTION_MS, finishedWork} from './classroom-domain.js';
@@ -437,6 +437,45 @@ test('a PPT link shows the board like the observer link and may only reveal answ
   assert.equal(own.observerCode, undefined);
   assert.equal((await service.observe({code: other.code}, own.observerToken)).presenter, true);
   await rejectsCode(service.control({code: other.code, command: 'pause'}, own.observerToken), 'teacher-auth');
+});
+
+test('polling screens share one participant listing briefly; creating or deleting a file refreshes it', async () => {
+  const adapter = new BlobClassroomStore(), prefix = `${classroomPrefix()}/ABCDEF/participants/`, files = new Set([`${prefix}1.json`]);
+  let lists = 0;
+  adapter.sdk = async () => ({
+    list: async options => { lists++; return {blobs: [...files].filter(key => key.startsWith(options.prefix)).map(pathname => ({pathname})), hasMore: false}; },
+    put: async key => { files.add(key); return {etag: 'e1'}; }, del: async keys => { for (const key of [].concat(keys)) files.delete(key); },
+  });
+  const [a, b] = await Promise.all([adapter.list(prefix, {maxAge: 2000}), adapter.list(prefix, {maxAge: 2000})]);
+  a.push('changed by the caller');
+  assert.deepEqual(await adapter.list(prefix, {maxAge: 2000}), [`${prefix}1.json`], 'callers get their own copy');
+  assert.deepEqual(b, [`${prefix}1.json`]); assert.equal(lists, 1, 'three polls, one listing');
+  await adapter.list(prefix); assert.equal(lists, 2, 'a mutation path that passes no maxAge always lists afresh');
+  await adapter.create(`${prefix}2.json`, {id: '2'});
+  assert.deepEqual((await adapter.list(prefix, {maxAge: 2000})).sort(), [`${prefix}1.json`, `${prefix}2.json`], 'a new student appears at once');
+  await adapter.update(`${prefix}2.json`, {id: '2', answers: {}}, 'e1'); await adapter.list(prefix, {maxAge: 2000});
+  assert.equal(lists, 3, 'saving answers does not drop the shared listing');
+  await adapter.delete(`${prefix}2.json`);
+  assert.deepEqual(await adapter.list(prefix, {maxAge: 2000}), [`${prefix}1.json`], 'a removed student disappears at once');
+  const failing = new BlobClassroomStore();
+  failing.sdk = async () => ({list: async () => { throw new Error('storage down'); }});
+  await assert.rejects(failing.list(prefix, {maxAge: 2000}));
+  failing.sdk = async () => ({list: async () => ({blobs: [], hasMore: false})});
+  assert.deepEqual(await failing.list(prefix, {maxAge: 2000}), [], 'a failed listing is not kept');
+});
+
+test('static files are cached only where a stale copy cannot hurt', async () => {
+  const config = JSON.parse(await readFile(new URL('./vercel.json', import.meta.url), 'utf8'));
+  const rules = config.headers.filter(rule => rule.headers.some(header => header.key === 'Cache-Control'));
+  const cacheFor = path => rules.filter(rule => new RegExp(`^${rule.source}$`).test(path)).map(rule => rule.headers.find(header => header.key === 'Cache-Control').value);
+  // Content-hashed chunks never change under the same name.
+  for (const path of ['/chunk-PXKYDS5L.js', '/three.module-ZDWJSGPE.js', '/observer-invite-PDWSA4OU.js']) assert.deepEqual(cacheFor(path), ['public, max-age=31536000, immutable']);
+  // Entry points, pages and the add-in must pick up a deployment at once.
+  for (const path of ['/app.js', '/classroom-app.js', '/classroom.css', '/lesson/index.html', '/ppt-addin/index.html', '/ppt-addin/manifest.xml', '/api/classroom']) assert.deepEqual(cacheFor(path), [], path);
+  // Models and pictures keep their names when they are replaced, so they are trusted for an hour at most.
+  for (const path of ['/assets/lesson/observation-5.glb', '/assets/vessels/pillow.webp']) {
+    const [value] = cacheFor(path); assert.match(value, /^public, max-age=(\d+)$/); assert.ok(Number(value.match(/\d+/)[0]) <= 3600);
+  }
 });
 
 test('activity 1 done works with the default settings and persists until a new run', async () => {

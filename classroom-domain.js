@@ -456,8 +456,9 @@ export class ClassroomService {
     }
     fail(409, 'try-again', '다른 화면에서 학생 정보가 바뀌었어요. 다시 눌러 주세요.');
   }
+  // Used by the polling views only (teacher, observers, boards): they may share a listing for two seconds.
   async students(code) {
-    const keys = await this.store.list(`${ROOM_ROOT(code)}participants/`);
+    const keys = await this.store.list(`${ROOM_ROOT(code)}participants/`, {maxAge: 2000});
     return (await Promise.all(keys.map(async key => {
       const result = await this.store.read(key, {maxAge: 5000});
       return result && this.expireStudentWorks(code, result.data.id, result);
