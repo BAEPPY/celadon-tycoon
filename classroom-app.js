@@ -258,6 +258,31 @@ function renderObserverWaiting(){
   if(viewKey==='observer-waiting')return;viewKey='observer-waiting';
   app.innerHTML=`<section class="waiting" data-testid="observer-waiting"><div class="waiting-inner"><div class="waiting-illustration">${laptopIcon}</div><h1>탑텐반 수업을<br>기다리고 있어요.</h1><p>지금은 열린 탑텐반 수업이 없어요.<br>선생님이 수업을 열면 바로 보여요.</p><div class="waiting-status"><i></i>화면을 그대로 두면 자동으로 이어져요</div></div></section>`;
 }
+// While a student waits, the next activity's 3D models are fetched into the browser cache one at a time, so the
+// activity opens at once even when thirty Chromebooks share the classroom Wi-Fi. Paths are the blind lesson names.
+const prefetchedModels=new Set();let prefetchTimer=null,prefetchRunning=false;
+function upcomingModels(){
+  if(teacherMode||!room||room.status==='ended')return [];
+  if(!room.activity)return [...COMPARISON_ARTIFACTS.map(a=>a.src),BEAUTY_ARTIFACT.src];
+  if(room.activity===1)return [BEAUTY_ARTIFACT.src,...OBSERVATION_ARTIFACTS.map(a=>a.src)];
+  return [];
+}
+function scheduleModelPrefetch(){
+  if(prefetchTimer||prefetchRunning||disposed||navigator.connection?.saveData)return;
+  if(!upcomingModels().some(src=>!prefetchedModels.has(src)))return;
+  // Start a little later so the models of the activity on screen load first.
+  prefetchTimer=setTimeout(async()=>{
+    prefetchTimer=null;prefetchRunning=true;
+    try{
+      for(const src of upcomingModels()){
+        if(disposed||prefetchedModels.has(src))continue;
+        prefetchedModels.add(src);
+        try{const response=await fetch(src,{priority:'low'});if(response.ok)await response.arrayBuffer();else prefetchedModels.delete(src);}
+        catch{prefetchedModels.delete(src);return;}
+      }
+    }finally{prefetchRunning=false;}
+  },4000);
+}
 function announceGameTimer(previous){
   if(!previous||previous.code!==room?.code||previous.runId!==room.runId||room.activity!==3||room.status!=='active'||previous.endsAt===room.endsAt)return;
   if(!Number.isFinite(room.endsAt)){if(Number.isFinite(previous.endsAt))toast(observerMode?'활동 3의 마감 시간이 없어졌어요.':'마감 시간이 없어졌어요. 선생님이 마칠 때까지 계속 만들 수 있어요.');return;}
@@ -302,6 +327,7 @@ function receive(payload,{initial=false}={}){
       if(run&&record?.runId===run){submitted[n]=Boolean(record.submitted);if(record.submitted){dirty[n]=false;drafts[n]=recordDraft(n,record);revisions[n]=Math.max(revisions[n],record.clientRevision||0);}if(!dirty[n]&&!saving&&(record.clientRevision||0)>=revisions[n]){drafts[n]=recordDraft(n,record);revisions[n]=record.clientRevision||0;}}
     }
     persistDrafts();
+    scheduleModelPrefetch();
   }
   render();updateConnection();heartbeatGame();return true;
 }
@@ -600,7 +626,7 @@ async function loadWorkImages(){
 function resetRoom({keepTeacherKey=false}={}){
   observerInviteVerified=null;
   closeObserverInvite({restoreFocus:false});closeWorkDialog({restoreFocus:false});closeCompletionDialog();teacherResultViews={1:'responses',2:'responses'};exhibitObjects={1:'1',2:'1'};
-  heartbeatGame();disposeViewers();disposeTeacherBoard();clearTimeout(pollTimer);clearTimeout(saveTimer);session=null;room=null;teacherData=null;student=null;answers={};
+  heartbeatGame();disposeViewers();disposeTeacherBoard();clearTimeout(pollTimer);clearTimeout(saveTimer);clearTimeout(prefetchTimer);prefetchTimer=null;session=null;room=null;teacherData=null;student=null;answers={};
   drafts={1:{},2:{},beauty:{}};revisions={1:0,2:0,beauty:0};dirty={1:false,2:false,beauty:false};draftChanges={1:0,2:0,beauty:0};submitted={1:false,2:false,beauty:false};teacherA1View='comparison';
   viewKey='';teacherSignature='';currentObject='1';teacherActivity=1;teacherObject='1';selectedCountry=null;cloudKind='name';settingsDirty=false;connectionError='';
   uploadedWorks.clear();clearPendingWorks();terminalWorks.clear();workImages.clear();workDesigns.clear();workImagePending.clear();if(teacherMode){if(!keepTeacherKey)store(SESSION_KEY,null);}else clearActiveStudentSession();

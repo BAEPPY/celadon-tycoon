@@ -46,7 +46,8 @@
     "test:drying-mask": "node tests/browser-drying-mask.cjs",
     "test:observer-qr": "node tests/browser-observer-qr.cjs",
     "test:observer-board": "node tests/browser-observer-board.cjs",
-    "test:ppt-addin": "node tests/browser-ppt-addin.cjs"
+    "test:ppt-addin": "node tests/browser-ppt-addin.cjs",
+    "test:model-prefetch": "node tests/browser-model-prefetch.cjs"
   },
   "dependencies": {
     "@vercel/blob": "2.8.2",
