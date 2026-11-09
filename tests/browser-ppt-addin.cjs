@@ -7,10 +7,11 @@ const {chromium}=require('playwright');
 const base=process.env.BASE_URL||'http://127.0.0.1:4173';
 const OFFICE_JS='**/appsforoffice.microsoft.com/**';
 // A minimal Office.js stand-in: one add-in instance with its own settings, reporting a chosen view.
-const officeStub=view=>`window.__settings=window.__settings||{};window.__saved=0;window.Office={EventType:{ActiveViewChanged:'ActiveViewChanged'},
+const officeStub=view=>`window.__settings=window.__settings||{};window.__saved=0;window.__goto=[];window.Office={EventType:{ActiveViewChanged:'ActiveViewChanged'},Index:{Next:'next',Previous:'previous'},GoToType:{Index:'index'},
   onReady(callback){setTimeout(()=>callback({host:'PowerPoint'}),10);},
   context:{document:{settings:{get:k=>window.__settings[k]??null,set:(k,v)=>{window.__settings[k]=v;},saveAsync:cb=>{window.__saved++;cb&&cb({status:'succeeded'});}},
-    getActiveViewAsync:cb=>cb({value:${JSON.stringify(view)}}),addHandlerAsync:(type,handler)=>{window.__viewHandler=handler;}}}};`;
+    getActiveViewAsync:cb=>cb({value:${JSON.stringify(view)}}),addHandlerAsync:(type,handler)=>{window.__viewHandler=handler;},
+    goToByIdAsync:(id,type,cb)=>{window.__goto.push(id);cb&&cb({status:'succeeded'});}}}};`;
 
 (async()=>{
   assert.ok(['127.0.0.1','localhost'].includes(new URL(base).hostname),'Use an isolated local classroom server.');
@@ -105,8 +106,47 @@ const officeStub=view=>`window.__settings=window.__settings||{};window.__saved=0
     await show.goto(`${base}/ppt-addin/index.html`);
     await show.frameLocator('#board').locator('[data-testid=live-board] [data-comparison-result="1"]').waitFor({timeout:20000});
     assert.equal(await show.locator('#setup').isHidden(),true);assert.equal(await show.locator('#change').isHidden(),true);
+    // A presenter remote keeps moving the slides even after the board inside was clicked.
+    await show.frameLocator('#board').locator('[data-testid=live-board]').click({position:{x:20,y:20}});
+    await show.keyboard.press('PageDown');await show.keyboard.press('PageUp');
+    await show.locator('body').press('ArrowRight');
+    assert.deepEqual(await show.evaluate(()=>window.__goto),['next','previous','next']);
+
+    // 클릭하면 나타나기: covered in the slide show (the board already loads behind), revealed by a click, covered again
+    // in the next slide show, never covered in the editor.
+    const coverContext=await browser.newContext({viewport:{width:900,height:560}});
+    await coverContext.route(OFFICE_JS,route=>route.fulfill({contentType:'text/javascript',body:`window.__settings=${JSON.stringify({panel:'comparison',link,cover:true})};`+officeStub('read')}));
+    const covered=await coverContext.newPage();watch(covered,'covered board');
+    await covered.goto(`${base}/ppt-addin/index.html`);
+    await covered.locator('#cover-screen').waitFor({timeout:15000});
+    assert.match(await covered.locator('#cover-screen').innerText(),/클릭하면 실시간 화면이 나타나요/);
+    await covered.frameLocator('#board').locator('[data-testid=live-board] [data-comparison-result="1"]').waitFor({timeout:20000});
+    assert.equal(await covered.locator('#cover-screen').isVisible(),true,'still covered while the board has loaded');
+    await covered.locator('#cover-screen').click();
+    await covered.locator('#cover-screen').waitFor({state:'hidden',timeout:5000});
+    await covered.evaluate(()=>window.__viewHandler({activeView:'edit'}));
+    assert.equal(await covered.locator('#cover-screen').isHidden(),true,'no cover in the editor');
+    assert.match(await covered.locator('#change').innerText(),/클릭하면 나타나기/);
+    await covered.evaluate(()=>window.__viewHandler({activeView:'read'}));
+    assert.equal(await covered.locator('#cover-screen').isVisible(),true,'the next slide show starts covered again');
+    // The choice is made with a checkbox when setting up an add-in.
+    const fresh=await officeContext.newPage();watch(fresh,'office add-in 3');
+    await fresh.goto(`${base}/ppt-addin/index.html`);await fresh.locator('#setup').waitFor({timeout:15000});
+    await fresh.locator('input[name=panel][value=model]').check();await fresh.locator('#cover').check();
+    await fresh.locator('#form button[type=submit]').click();
+    assert.equal(await fresh.evaluate(()=>window.__settings.cover),true);
+
+    // PowerPoint 2016/2019 without Microsoft 365 may use Internet Explorer 11 or old Edge: the page says so instead
+    // of staying blank (simulated by making modern syntax fail to compile).
+    const oldContext=await browser.newContext({viewport:{width:720,height:480}});
+    await oldContext.addInitScript(()=>{const F=window.Function;window.Function=function(...args){if(String(args[args.length-1]).includes('?.'))throw new SyntaxError('old engine');return F(...args);};});
+    await oldContext.route(OFFICE_JS,route=>route.abort());
+    const old=await oldContext.newPage();watch(old,'old engine');
+    await old.goto(`${base}/ppt-addin/index.html`);
+    await old.locator('#old-engine').waitFor({timeout:10000});
+    assert.match(await old.locator('#old-engine').innerText(),/실시간 화면을 띄울 수 없어요/);
     assert.deepEqual(errors,[]);
-    console.log('PowerPoint add-in: manifest and icons served, link validation, remembered choice outside Office, draggable 3D model page, per-instance Office settings, shared link on the next slide, slide-show view without controls and direct board on open passed.');
+    console.log('PowerPoint add-in: manifest and icons served, link validation, remembered choice outside Office, draggable 3D model page, per-instance Office settings, shared link on the next slide, slide-show view without controls, remote keys moving slides, click-to-reveal cover, old-engine notice and direct board on open passed.');
   }finally{
     if(room&&teacher)await control('delete').catch(()=>{});
     await browser.close();

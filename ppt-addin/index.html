@@ -21,10 +21,28 @@ button{font:inherit;font-size:15px;font-weight:700;border-radius:8px;border:1px 
 #error{color:#c35448;font-size:13px;min-height:1em}
 .tip{font-size:12.5px;padding:8px 10px;border-radius:8px;background:#f3f7f6}
 #change{position:fixed;right:8px;top:8px;z-index:2;font-size:12px;padding:5px 9px;background:#fff;color:var(--jade-dark);border-color:var(--line);opacity:.92}
+label.check{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700}
+#cover-screen{position:fixed;inset:0;z-index:3;display:grid;place-content:center;justify-items:center;gap:10px;margin:0;padding:16px;background:#fff;color:#2f6f5e;border:2px dashed #9fc7bd;border-radius:10px;font-size:20px;cursor:pointer;transition:opacity .6s ease}
+#cover-screen.leaving{opacity:0;pointer-events:none}#cover-screen .cover-mark{display:grid;place-items:center;width:52px;height:52px;border-radius:50%;background:#e8f7f5;font-size:22px}
 [hidden]{display:none!important}
 </style>
 </head>
 <body>
+<script>
+// PowerPoint 2016/2019 without Microsoft 365 may show add-ins with Internet Explorer 11 or old Edge, which cannot run the
+// live board. Say so instead of leaving a blank box. (Kept in ES5 so those engines can run it.)
+(function () {
+  var modern = true;
+  try { new Function('var a = {}; return a?.b ?? (() => 1)();')(); } catch (e) { modern = false; }
+  if (modern) return;
+  window.__oldEngine = true;
+  document.addEventListener('DOMContentLoaded', function () {
+    document.body.innerHTML = '<div id="old-engine" style="padding:18px;font-family:Malgun Gothic,sans-serif;font-size:15px;line-height:1.7;color:#25313b">' +
+      '<b>이 PowerPoint에서는 실시간 화면을 띄울 수 없어요.</b><br>추가 기능을 오래된 웹 엔진(Internet Explorer 등)으로 여는 버전이에요. ' +
+      'Microsoft 365나 PowerPoint 2021 이상에서 열거나, 슬라이드의 \u2018실시간 화면 열기\u2019 버튼을 써 주세요.</div>';
+  });
+})();
+</script>
 <main id="setup" hidden>
   <form class="card" id="form">
     <h1>이 자리에 띄울 실시간 화면</h1>
@@ -51,6 +69,7 @@ button{font:inherit;font-size:15px;font-weight:700;border-radius:8px;border:1px 
         <option value="observation-5">쓰임 짐작 · 청자 5</option>
       </select>
     </label>
+    <label class="check"><input type="checkbox" id="cover"> 슬라이드 쇼에서는 가려 두었다가 클릭하면 나타나기</label>
     <label class="field" id="link-field">PPT용 주소
       <input type="url" id="link" autocomplete="off" spellcheck="false" placeholder="선생님 화면 → 수업 관리 → PPT용 주소 복사">
     </label>
@@ -62,6 +81,7 @@ button{font:inherit;font-size:15px;font-weight:700;border-radius:8px;border:1px 
 </main>
 <iframe id="board" title="실시간 수업 화면" hidden allow="fullscreen"></iframe>
 <button id="change" type="button" hidden>화면 바꾸기</button>
+<button id="cover-screen" type="button" hidden><span class="cover-mark" aria-hidden="true">▶</span><strong>클릭하면 실시간 화면이 나타나요</strong></button>
 <script>
 'use strict';
 // Each inserted add-in keeps its own choice in the presentation (Office settings); the observer link is also kept
@@ -71,7 +91,7 @@ const LOCAL_KEY = 'celadon-ppt-addin-v1', PANELS = ['follow', 'comparison', 'bea
 const MODELS = ['beauty', 'comparison-1', 'comparison-2', 'comparison-3', 'observation-1', 'observation-2', 'observation-3', 'observation-4', 'observation-5'];
 const needsLink = panel => panel !== 'game' && panel !== 'model';
 const $ = id => document.getElementById(id);
-let office = null, editing = true;
+let office = null, editing = true, revealed = false;
 const local = {
   read() { try { return JSON.parse(localStorage.getItem(LOCAL_KEY) || 'null') || {}; } catch { return {}; } },
   write(value) { try { localStorage.setItem(LOCAL_KEY, JSON.stringify({...local.read(), ...value})); } catch {} },
@@ -94,13 +114,14 @@ function boardUrl(panel, link, model) {
 function saved() {
   const doc = office ? Office.context.document.settings : null, mine = local.read();
   const panel = (doc ? doc.get('panel') : mine.panel) || null, link = (doc && doc.get('link')) || mine.link || null, model = (doc ? doc.get('model') : mine.model) || 'beauty';
-  return {panel: PANELS.includes(panel) ? panel : null, link: parseLink(link) ? link : null, model: MODELS.includes(model) ? model : 'beauty', panelSaved: Boolean(doc ? doc.get('panel') : mine.panel)};
+  return {panel: PANELS.includes(panel) ? panel : null, link: parseLink(link) ? link : null, model: MODELS.includes(model) ? model : 'beauty',
+    cover: Boolean(doc ? doc.get('cover') : mine.cover), panelSaved: Boolean(doc ? doc.get('panel') : mine.panel)};
 }
-function save(panel, link, model) {
-  local.write({...(link ? {link} : {}), ...(office ? {} : {panel, model})});
+function save(panel, link, model, cover) {
+  local.write({...(link ? {link} : {}), ...(office ? {} : {panel, model, cover})});
   if (!office) return Promise.resolve();
   const settings = Office.context.document.settings;
-  settings.set('panel', panel); settings.set('model', model); if (link) settings.set('link', link);
+  settings.set('panel', panel); settings.set('model', model); settings.set('cover', cover); if (link) settings.set('link', link);
   return new Promise(resolve => settings.saveAsync(() => resolve()));
 }
 function showBoard() {
@@ -110,10 +131,22 @@ function showBoard() {
   const src = boardUrl(panel, parsed || {}, model);
   if ($('board').getAttribute('src') !== src) $('board').setAttribute('src', src);
   $('board').hidden = false; $('change').hidden = !editing;
+  $('change').textContent = saved().cover ? '화면 바꾸기 · 클릭하면 나타나기' : '화면 바꾸기';
+  applyCover();
 }
+// "클릭하면 나타나기": in a slide show the board waits (already loading) behind a cover until it is clicked; each new
+// slide show starts covered again. The editor never shows the cover.
+function applyCover() {
+  const cover = $('cover-screen'), show = Boolean(office) && !editing && !revealed && saved().cover && !$('board').hidden;
+  cover.classList.remove('leaving'); cover.hidden = !show;
+}
+$('cover-screen').addEventListener('click', () => {
+  revealed = true; const cover = $('cover-screen'); cover.classList.add('leaving');
+  setTimeout(() => { if (revealed) { cover.hidden = true; cover.classList.remove('leaving'); } }, 650);
+});
 function showSetup(message = '') {
   const {panel, link, model} = saved();
-  $('model').value = model;
+  $('model').value = model; $('cover').checked = saved().cover; $('cover-screen').hidden = true;
   $('board').hidden = true; $('change').hidden = true; $('setup').hidden = false; $('error').textContent = message;
   const choice = document.querySelector(`input[name=panel][value="${panel || 'follow'}"]`); if (choice) choice.checked = true;
   $('link').value = link || local.read().link || '';
@@ -130,25 +163,47 @@ $('form').addEventListener('submit', async event => {
   if (!PANELS.includes(panel)) return;
   if (needsLink(panel) && !parseLink(text)) { $('error').textContent = 'PPT용 주소를 확인해 주세요. 선생님 화면 → 수업 관리 → “PPT용 주소 복사”로 복사한 주소를 붙여 넣어 주세요.'; return; }
   const model = MODELS.includes($('model').value) ? $('model').value : 'beauty';
-  await save(panel, parseLink(text) ? text : saved().link, model);
+  await save(panel, parseLink(text) ? text : saved().link, model, $('cover').checked);
   showBoard();
 });
 $('change').addEventListener('click', () => showSetup());
 // In a slide show (PowerPoint "read" view) only the board shows; in the editor a small button changes it.
 function watchView() {
-  const apply = view => { editing = view !== 'read'; if (!$('board').hidden) $('change').hidden = !editing; };
+  const apply = view => {
+    const wasEditing = editing; editing = view !== 'read';
+    if (wasEditing && !editing) revealed = false;
+    if (!$('board').hidden) $('change').hidden = !editing;
+    applyCover();
+  };
   try {
     Office.context.document.getActiveViewAsync(result => apply(result.value));
     Office.context.document.addHandlerAsync(Office.EventType.ActiveViewChanged, event => apply(event.activeView));
   } catch {}
 }
+// A presenter remote sends PageDown/PageUp. After the board inside was clicked those keys would stay in the web page,
+// so in a slide show they move the slides here. Arrow keys do the same unless they are turning a 3D model.
+function forwardSlideKeys(target) {
+  target.addEventListener('keydown', event => {
+    if (!office || editing) return;
+    const own = /^(CANVAS|INPUT|SELECT|TEXTAREA)$/.test((event.target && event.target.tagName) || '');
+    const next = event.key === 'PageDown' || (!own && (event.key === 'ArrowRight' || event.key === 'ArrowDown'));
+    const previous = event.key === 'PageUp' || (!own && (event.key === 'ArrowLeft' || event.key === 'ArrowUp'));
+    if (!next && !previous) return;
+    event.preventDefault(); event.stopPropagation();
+    try { Office.context.document.goToByIdAsync(next ? Office.Index.Next : Office.Index.Previous, Office.GoToType.Index, () => {}); } catch {}
+  }, true);
+}
+forwardSlideKeys(document);
+$('board').addEventListener('load', () => { try { forwardSlideKeys($('board').contentWindow); } catch {} });
 function start(inOffice) {
   office = inOffice;
-  if (office) watchView();
+  // Inside PowerPoint assume a slide show until the view is known, so a covered board never flashes.
+  if (office) { editing = false; watchView(); }
   saved().panelSaved ? showBoard() : showSetup();
 }
 // Office.js only matters inside PowerPoint; elsewhere (or if it cannot load) the page runs on its own.
 (function boot() {
+  if (window.__oldEngine) return;
   let done = false; const finish = inOffice => { if (!done) { done = true; start(inOffice); } };
   const script = document.createElement('script');
   script.src = 'https://appsforoffice.microsoft.com/lib/1/hosted/office.js';
