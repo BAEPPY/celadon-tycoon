@@ -401,6 +401,44 @@ test('the teacher can make every live board reload, and only the teacher can', a
   assert.ok((await f.control('refresh-boards')).state.boardRefresh > first.state.boardRefresh, 'each press is a new signal');
 });
 
+test('a PPT link shows the board like the observer link and may only reveal answers', async () => {
+  const store = new MemoryStore(), service = new ClassroomService(store), first = await service.create({joinCode: '탑텐반'});
+  const teacher = (command, extra = {}, room = first) => service.control({code: room.code, command, ...extra}, room.teacherToken);
+  const observer = await teacher('observer-link'), ppt = await teacher('observer-link', {role: 'presenter'});
+  assert.equal(ppt.observerCode, '탑텐반'); assert.notEqual(ppt.observerToken, observer.observerToken);
+  assert.equal((await teacher('observer-link', {role: 'presenter'})).observerToken, ppt.observerToken, 'stable like the QR');
+  const student = await service.join({code: '탑텐반', number: 1, name: '실명하나'});
+  const view = await service.observe({code: '탑텐반'}, ppt.observerToken);
+  assert.equal(view.presenter, true); assert.equal((await service.observe({code: '탑텐반'}, observer.observerToken)).presenter, undefined);
+  assert.ok(!JSON.stringify(view).includes('실명하나'));
+  const run = await teacher('start', {activity: 1});
+  await service.answer({code: first.code, participantId: student.participantId, activity: 1, runId: run.state.runId, clientRevision: 1, final: true, answers: {1: 'japan', 2: 'yuan', 3: 'goryeo'}}, student.participantToken);
+  await rejectsCode(service.control({code: '탑텐반', command: 'reveal', activity: 1}, ppt.observerToken), 'reveal-after-activity');
+  await teacher('pause');
+  // Only revealing: no class control, settings, students, links or data.
+  for (const command of ['start', 'pause', 'end', 'settings', 'lock-room', 'observer-link', 'refresh-boards', 'game-timer', 'delete']) {
+    await rejectsCode(service.control({code: first.code, command, activity: 2}, ppt.observerToken), 'teacher-auth');
+  }
+  await rejectsCode(service.overview({code: first.code}, ppt.observerToken), 'teacher-auth');
+  await rejectsCode(service.control({code: '탑텐반', command: 'reveal', activity: 1}, observer.observerToken), 'invalid-code', 'the observer QR cannot reveal');
+  await rejectsCode(service.control({code: '탑텐반', command: 'reveal', activity: 1}, student.participantToken), 'invalid-code');
+  const revealed = await service.control({code: '탑텐반', command: 'reveal', activity: 1}, ppt.observerToken);
+  assert.equal(revealed.state.revealed[1], true);
+  assert.equal((await service.observe({code: '탑텐반'}, observer.observerToken)).reveal.comparison['3'].name, '청자 상감 모란 국화무늬 참외모양 병', 'everyone sees the revealed explanations');
+  // The PPT link follows 탑텐반 to the next class and changes with "QR 새로 만들기".
+  const second = await service.create({joinCode: '탑텐반', previousCode: first.code}, first.teacherToken);
+  assert.equal((await service.observe({code: '탑텐반'}, ppt.observerToken)).state.code, second.code);
+  const rotated = await teacher('observer-link', {rotate: true}, second);
+  assert.notEqual(rotated.observerToken, observer.observerToken);
+  await rejectsCode(service.observe({code: '탑텐반'}, ppt.observerToken), 'observer-auth');
+  assert.notEqual((await teacher('observer-link', {role: 'presenter'}, second)).observerToken, ppt.observerToken);
+  // A class without 탑텐반 has its own PPT link.
+  const other = await service.create({}), own = await teacher('observer-link', {role: 'presenter'}, other);
+  assert.equal(own.observerCode, undefined);
+  assert.equal((await service.observe({code: other.code}, own.observerToken)).presenter, true);
+  await rejectsCode(service.control({code: other.code, command: 'pause'}, own.observerToken), 'teacher-auth');
+});
+
 test('activity 1 done works with the default settings and persists until a new run', async () => {
   const f = await fixture(), student = await f.join(1), {state} = await f.control('start', 1);
   assert.equal(state.settings.submitButton, false);

@@ -52,6 +52,8 @@ const boardMode=observerMode&&(Boolean(boardPin)||boardQuery.get('board')==='1'|
 let session=observerMode?observerSession():teacherMode?stored(SESSION_KEY):loadStudentEntryState(),room=null,teacherData=null,student=null,answers={},offset=0,offsetSamples=[];
 let currentObject='1',teacherActivity=1,teacherObject='1',teacherA1View='comparison',selectedCountry=null,cloudKind='name';
 let teacherResultViews={1:'responses',2:'responses'},exhibitObjects={1:'1',2:'1'},completionDialog=null;
+// A board opened with the PPT link ("PPT용 주소") may reveal answers from the slide itself.
+let boardPresenter=false;
 let worksSort=observerMode?'score':'number',workDialog=null;
 let observerInviteDialog=null,observerInviteRequest=null,observerInviteVerified=null,observerInviteModule;
 let drafts={1:{},2:{},beauty:{}},revisions={1:0,2:0,beauty:0},dirty={1:false,2:false,beauty:false},draftChanges={1:0,2:0,beauty:0},submitted={1:false,2:false,beauty:false};
@@ -221,7 +223,7 @@ function stages(activity=room?.activity||0){
   return `<div class="current-activity" aria-label="현재 수업 활동"><span>${activity?`활동 ${activity} / 3`:'수업 준비'}</span><strong>${activity?(beautyStage()?BEAUTY_NAME:STAGE_NAMES[activity]):'선생님의 시작을 기다려요'}</strong><small>선생님이 진행해요</small></div>`;
 }
 // Kept in the header so it stays reachable on 1024×600, where the side panel has to scroll.
-function manageMenu(){const status=room?effectiveStatus():'waiting';return `<details class="manage-menu" data-details="manage" ${manageOpen?'open':''}><summary class="button secondary small">수업 관리 <span aria-hidden="true">▾</span></summary><div class="manage-menu-list"><button class="button secondary small" data-action="copy-observer">참관 주소 복사</button><button class="button secondary small" data-action="refresh-boards" ${controlBusy?'disabled':''}>PPT 화면 새로고침</button>${room&&!room.joinCode?'<button class="button secondary small" data-action="claim-join-code">탑텐반 코드 연결</button>':''}<button class="button secondary small" data-action="end" ${status==='ended'||controlBusy?'disabled':''}>수업 종료</button><button class="button quiet small" data-action="new-room">새 수업</button></div></details>`;}
+function manageMenu(){const status=room?effectiveStatus():'waiting';return `<details class="manage-menu" data-details="manage" ${manageOpen?'open':''}><summary class="button secondary small">수업 관리 <span aria-hidden="true">▾</span></summary><div class="manage-menu-list"><button class="button secondary small" data-action="copy-observer">참관 주소 복사</button><button class="button secondary small" data-action="copy-ppt-link">PPT용 주소 복사</button><button class="button secondary small" data-action="refresh-boards" ${controlBusy?'disabled':''}>PPT 화면 새로고침</button>${room&&!room.joinCode?'<button class="button secondary small" data-action="claim-join-code">탑텐반 코드 연결</button>':''}<button class="button secondary small" data-action="end" ${status==='ended'||controlBusy?'disabled':''}>수업 종료</button><button class="button quiet small" data-action="new-room">새 수업</button></div></details>`;}
 function header(){
   const studentGame=!teacherMode&&active(3);
   return `<header class="lesson-header ${teacherMode?'teacher-header':''}"><div class="brand"><span class="brand-mark">${logo}</span><div><div class="brand-title">우리 반 청자 교실</div><small>${observerMode?'참관 화면 · 읽기 전용':teacherMode?'선생님 진행 화면':'관찰하고 · 생각하고 · 만들어요'}</small></div></div>${teacherMode?`${observerMode?'<div class="observer-badge">참관 중 · 학생 이름은 보이지 않아요</div>':`<div class="teacher-room-code"><span>수업 코드</span><strong>${esc(publicJoinCode())}</strong><div class="code-actions"><button class="button secondary small" data-action="copy-code">수업 코드 복사</button><button class="button quiet small" data-action="copy-invite">참여 주소 복사</button></div></div>`}<div class="teacher-tools"><span class="pill" data-connection>연결됨</span><button class="button quiet small" data-action="fullscreen">전체 화면</button>${observerMode?'':`<button class="button secondary small observer-invite-open" type="button" data-action="observer-link" aria-haspopup="dialog" aria-controls="observer-invite-dialog" aria-expanded="${Boolean(observerInviteDialog)}">참관 QR</button>${manageMenu()}`}</div>`:`${studentGame?'':stages()}<div class="student-badge"><strong>${esc(student?.number||'')}번 ${esc(student?.name||'')}</strong><span class="pill" data-connection>연결됨</span></div>${studentGame?timerMarkup():''}`}</header><div class="connection-banner" data-connection-banner hidden><span></span><button class="button secondary small" data-action="retry-connection">다시 연결</button></div>`;
@@ -266,6 +268,7 @@ function receive(payload,{initial=false}={}){
   const previous=room;
   if(payload.state&&room&&payload.state.code===room.code&&(Number(payload.state.revision)<Number(room.revision)||(Number(payload.state.revision)===Number(room.revision)&&Number(payload.state.serverNow)<Number(room.serverNow)))){lastSuccessfulPoll=Date.now();heartbeatGame();return false;}
   room=payload.state||room;
+  if(observerMode)boardPresenter=payload.presenter===true;
   // The teacher's "PPT 화면 새로고침" reloads every live board (PowerPoint slides, projector) once.
   if(boardMode&&previous&&previous.code===room?.code&&Number(room.boardRefresh||0)!==Number(previous.boardRefresh||0)){location.reload();return false;}
   if(!teacherMode||observerMode)announceGameTimer(previous);
@@ -381,8 +384,10 @@ function revealedAnswer(activity,id){return teacherData?.reveal?.[activity===1?'
 function teacherViewerOptions(activity,id){return {getExpandedInfo:()=>room.revealed?.[activity]?revealedAnswer(activity,id):null};}
 function teacherResultTabs(){
   if(![1,2].includes(teacherActivity))return '';
-  const exhibit=teacherResultViews[teacherActivity]==='exhibit'&&room.revealed?.[teacherActivity];
-  return `<nav class="teacher-result-tabs" aria-label="활동 결과 보기"><button data-action="teacher-result-view" data-view="responses" class="${exhibit?'':'active'}" aria-pressed="${!exhibit}">학생 응답 보기</button><button data-action="teacher-result-view" data-view="exhibit" class="${exhibit?'active':''}" aria-pressed="${Boolean(exhibit)}" ${room.revealed?.[teacherActivity]?'':'disabled'}>청자 설명 보기</button></nav>`;
+  const revealed=Boolean(room.revealed?.[teacherActivity]),exhibit=teacherResultViews[teacherActivity]==='exhibit'&&revealed;
+  const running=room.activity===teacherActivity&&effectiveStatus()==='active',canReveal=observerMode&&boardPresenter&&!revealed&&Boolean(room.runs?.[teacherActivity])&&!running;
+  const closedNote=revealed||canReveal?'':observerMode&&boardPresenter?(running?'활동을 마치면 열 수 있어요':'활동을 진행한 뒤 열 수 있어요'):observerMode?'선생님이 정답을 공개하면 열려요':'';
+  return `<nav class="teacher-result-tabs" aria-label="활동 결과 보기"><button data-action="teacher-result-view" data-view="responses" class="${exhibit?'':'active'}" aria-pressed="${!exhibit}">학생 응답 보기</button><button data-action="teacher-result-view" data-view="exhibit" class="${exhibit?'active':''}" aria-pressed="${Boolean(exhibit)}" ${revealed||canReveal?'':'disabled'} ${closedNote?`title="${closedNote}"`:''}>청자 설명 보기</button>${closedNote?`<span class="result-tab-note">${closedNote}</span>`:''}</nav>`;
 }
 function exhibitMarkup(){
   const artifacts=teacherActivity===1?COMPARISON_ARTIFACTS:OBSERVATION_ARTIFACTS;
@@ -732,7 +737,7 @@ async function handleClick(event){
   const chip=event.target.closest('[data-country-chip]');if(chip){if(answerLocked(1))return;selectCountry(selectedCountry===chip.dataset.countryChip?null:chip.dataset.countryChip);if(selectedCountry)toast(`${countryName(selectedCountry)} 이름표를 놓을 도자기의 칸을 눌러 주세요.`);return;}
   const drop=event.target.closest('[data-country-drop]');if(drop&&selectedCountry&&!answerLocked(1)&&!event.target.closest('[data-viewer] button,[data-viewer] a')){event.preventDefault();if(setCountry(drop.dataset.countryDrop,selectedCountry))selectCountry(null);return;}
   const button=event.target.closest('[data-action]');if(!button||button.disabled)return;const action=button.dataset.action;if(!actionAllowed(action))return;
-  if(['copy-observer','refresh-boards','end','new-room','delete-room'].includes(action)){manageOpen=false;button.closest('details')?.removeAttribute('open');}
+  if(['copy-observer','copy-ppt-link','refresh-boards','end','new-room','delete-room'].includes(action)){manageOpen=false;button.closest('details')?.removeAttribute('open');}
   try{
     if(action==='retry-connection'){saveState='pending';await poll();if(!teacherMode)queueSave();return;}
     if(action==='submit-answers'){queueSave(true);return;}
@@ -744,6 +749,13 @@ async function handleClick(event){
     if(action==='teacher-object'){teacherObject=button.dataset.id;renderTeacher();return;}
     if(action==='works-sort'){worksSort=!observerMode&&button.dataset.sort==='number'?'number':'score';renderTeacher();app.querySelector(`[data-action="works-sort"][data-sort="${worksSort}"]`)?.focus({preventScroll:true});return;}
     if(action==='view-work'){openWorkDialog(button.dataset.workKey);return;}
+    // From a PPT slide: opening the explanations reveals them to the class, like the teacher's 함께 정답 보기.
+    if(action==='teacher-result-view'&&observerMode&&boardPresenter&&button.dataset.view==='exhibit'&&[1,2].includes(teacherActivity)&&!room.revealed?.[teacherActivity]){
+      button.disabled=true;
+      try{const payload=await api('control',{method:'POST',body:{command:'reveal',activity:teacherActivity}});teacherResultViews[teacherActivity]='exhibit';receive(payload);teacherSignature='';renderTeacher();}
+      catch(error){toast(error.message);button.disabled=false;}
+      return;
+    }
     if(action==='teacher-result-view'){if([1,2].includes(teacherActivity)&&(button.dataset.view==='responses'||room.revealed?.[teacherActivity])){teacherResultViews[teacherActivity]=button.dataset.view==='exhibit'?'exhibit':'responses';renderTeacher();}return;}
     if(['exhibit-object','exhibit-previous','exhibit-next'].includes(action)){
       if(![1,2].includes(teacherActivity)||!room.revealed?.[teacherActivity])return;
@@ -755,6 +767,13 @@ async function handleClick(event){
     if(action==='claim-join-code'){await control('claim-join-code');return;}
     if(action==='refresh-boards'){await control('refresh-boards');toast('PPT와 실시간 화면을 몇 초 안에 새로고침해요.');return;}
     if(action==='board-reload'){location.reload();return;}
+    if(action==='copy-ppt-link'){
+      // For the PowerPoint add-in: like the observer link, but its board can also open the explanations.
+      const payload=await api('control',{method:'POST',body:{command:'observer-link',role:'presenter'}});
+      if(!/^[A-Za-z0-9_-]{30,100}$/.test(payload.observerToken||''))throw new Error('PPT용 주소를 만들지 못했어요. 다시 눌러 주세요.');
+      const url=new URL('/observe',location.origin);url.searchParams.set('code',payload.observerCode===CLASSROOM_JOIN_CODE?CLASSROOM_JOIN_CODE:session.code);url.hash=new URLSearchParams({key:payload.observerToken}).toString();
+      await copyClassroomValue(url.href,'PPT용 주소');return;
+    }
     if(action==='copy-code'){await copyClassroomValue(publicJoinCode(),'수업 코드');return;}
     if(action==='copy-invite'){await copyClassroomValue(`${location.origin}/lesson?code=${encodeURIComponent(publicJoinCode())}`,'참여 주소');return;}
     if(action==='fullscreen'){if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen();return;}

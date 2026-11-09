@@ -40,7 +40,7 @@ const officeStub=view=>`window.__settings=window.__settings||{};window.__saved=0
     await plain.locator('#setup').waitFor({timeout:15000});
     await plain.locator('#link').fill('https://example.com/observe?code=ABCDEF#key=xyz');
     await plain.locator('#form button[type=submit]').click();
-    assert.match(await plain.locator('#error').innerText(),/참관 주소를 확인해 주세요/);
+    assert.match(await plain.locator('#error').innerText(),/PPT용 주소를 확인해 주세요/);
     await plain.locator('input[name=panel][value=comparison]').check();
     await plain.locator('#link').fill(link);
     await plain.locator('#form button[type=submit]').click();

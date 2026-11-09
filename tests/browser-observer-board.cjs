@@ -22,6 +22,7 @@ const privateName='보드비공개학생';
   const boardText=page=>page.locator('[data-testid=live-board]').innerText();
   try{
     const teacherContext=await browser.newContext({viewport:{width:1100,height:700}});
+    await teacherContext.grantPermissions(['clipboard-read','clipboard-write'],{origin:base});
     teacher=await teacherContext.newPage();watch(teacher,'teacher');
     await teacher.goto(`${base}/teacher`);
     const created=teacher.waitForResponse(response=>response.url().endsWith('/api/classroom')&&response.request().method()==='POST'&&response.request().postDataJSON()?.action==='create');
@@ -90,8 +91,33 @@ const privateName='보드비공개학생';
     await stranger.getByTestId('board-empty').waitFor({timeout:15000});
     assert.match(await stranger.getByTestId('board-empty').innerText(),/선생님 화면을 먼저 열어/);
 
+    // The PPT link (수업 관리 → PPT용 주소 복사) lets a slide open the explanations, which reveals them to everyone;
+    // a board with the observer QR explains why the button is closed and then follows the reveal.
+    await control('pause');
+    await teacher.click('.manage-menu>summary');await teacher.click('[data-action=copy-ppt-link]');
+    await teacher.waitForFunction(()=>document.querySelector('#classroom-toast')?.textContent.includes('PPT용 주소'));
+    const pptLink=await teacher.evaluate(()=>navigator.clipboard.readText());
+    assert.match(pptLink,/\/observe\?code=%ED%83%91%ED%85%90%EB%B0%98#key=[A-Za-z0-9_-]{43}$/);assert.notEqual(new URL(pptLink).hash,new URL(link).hash);
+    const watcherContext=await browser.newContext({viewport:{width:1000,height:640}});
+    const watcher=await watcherContext.newPage();watch(watcher,'observer board');
+    await watcher.goto(link.replace('#',`&show=comparison#`));
+    await watcher.locator('[data-testid=live-board] [data-comparison-result="1"]').waitFor({timeout:15000});
+    assert.equal(await watcher.locator('[data-action=teacher-result-view][data-view=exhibit]').isDisabled(),true);
+    assert.match(await watcher.locator('.teacher-result-tabs').innerText(),/선생님이 정답을 공개하면 열려요/);
+    const presenterContext=await browser.newContext({viewport:{width:1000,height:640}});
+    const presenter=await presenterContext.newPage();watch(presenter,'PPT board');
+    await presenter.goto(pptLink.replace('#',`&show=comparison#`));
+    const explain=presenter.locator('[data-action=teacher-result-view][data-view=exhibit]');
+    await explain.waitFor({timeout:15000});
+    await presenter.waitForFunction(()=>!document.querySelector('[data-action=teacher-result-view][data-view=exhibit]')?.disabled,{},{timeout:15000});
+    await explain.click();
+    await presenter.getByTestId('exhibit-page').waitFor({timeout:15000});
+    await watcher.getByTestId('exhibit-page').waitFor({timeout:15000});
+    assert.equal(await presenter.locator('[data-action=start],[data-action=pause],[data-action=game-timer],.manage-menu').count(),0,'the PPT link has no class controls');
+    await watcherContext.close();await presenterContext.close();
+
     // Activity 3: the works board shows finished works without names, with the countdown when a timer is set.
-    await control('pause');const a3=await control('start',{activity:3});
+    const a3=await control('start',{activity:3});
     const preview=await teacher.evaluate(()=>{const canvas=document.createElement('canvas');canvas.width=120;canvas.height=120;const ctx=canvas.getContext('2d');ctx.fillStyle='#88ae8d';ctx.fillRect(30,15,60,90);return canvas.toDataURL('image/png');});
     const work={id:'board-work',orderId:'royal-rest',shape:'pillow',modelId:'pillow',step:4,technique:'inlay',pattern:'crane',title:'학이 쉬는 청자 베개',placements:[{x:100,y:100,pattern:'crane'}],strokes:[],decorDone:true,firing:['dry','biscuit','glaze','fire'],clay:{slip:'white'},explanationUse:'학 무늬를 넣은 베개예요. 머리를 받치고 쉬면 좋아요.',explanationBeauty:'학 무늬를 파고 흰 흙을 채워 또렷하게 만들었어요.'};
     await api('work',{participantId:student.participantId,runId:a3.state.runId,work,preview},{auth:student.participantToken});
@@ -103,7 +129,7 @@ const privateName='보드비공개학생';
     assert.ok(!(await works.locator('body').innerText()).includes(privateName));
     await following.locator('[data-testid=live-board] .work-card').waitFor({timeout:15000});
     assert.deepEqual(errors,[]);
-    console.log('Live board: key-free board on the teacher computer, pinned and following boards, teacher refresh and ↻ reload, automatic layout inside a slide frame, ?key fallback, empty state and anonymous works with countdown passed.');
+    console.log('Live board: key-free board on the teacher computer, pinned and following boards, teacher refresh and ↻ reload, PPT link revealing explanations, automatic layout inside a slide frame, ?key fallback, empty state and anonymous works with countdown passed.');
   }finally{
     if(room&&teacher)await api('control',{command:'delete'}).catch(()=>{});
     await browser.close();

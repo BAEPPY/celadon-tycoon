@@ -50,6 +50,11 @@ const observerLinkToken = room => observerDigest(room, 'observer-link-v1');
 // One observer QR for 탑텐반: its key comes from a random seed kept with the 탑텐반 pointer, so the same printed QR keeps
 // working across 새 수업 and data deletion and always shows whichever class 탑텐반 currently points to.
 const fixedObserverToken = seed => createHmac('sha256', seed).update('tapten-observer-v1').digest('base64url');
+// The PPT link ("PPT용 주소") is an observer link that may also reveal answers from a slide.
+// It is derived like the observer link, so it changes with "QR 새로 만들기" and nothing extra is stored.
+const fixedPresenterToken = seed => createHmac('sha256', seed).update('tapten-presenter-v1').digest('base64url');
+const presenterLinkToken = room => observerDigest(room, 'presenter-link-v1');
+const PRESENTER_COMMANDS = new Set(['reveal']);
 const OBSERVER_WAITING = '지금은 열린 탑텐반 수업이 없어요. 수업이 열리면 이 화면에 자동으로 나타나요.';
 const observerWorkReference = (room, participantId, workId) => `obs_${observerDigest(room, `observer-work-v1:${participantId}:${workId}`)}`;
 function observerWorkParticipant(room, reference, workId) {
@@ -307,20 +312,23 @@ export class ClassroomService {
     }
     fail(409, 'try-again', '수업 연결을 정리하는 중이에요. 다시 눌러 주세요.');
   }
-  async fixedObserverLink({rotate = false} = {}) {
+  async fixedObserverLink({rotate = false, presenter = false} = {}) {
+    const derive = presenter ? fixedPresenterToken : fixedObserverToken;
     for (let retry = 0; retry < 6; retry++) {
       const alias = await this.store.read(joinAliasKey());
-      if (alias?.data.observerSeed && !rotate) return fixedObserverToken(alias.data.observerSeed);
+      if (alias?.data.observerSeed && !rotate) return derive(alias.data.observerSeed);
       const seed = this.makeToken(), data = {code: alias?.data.code ?? null, updatedAt: this.now(), observerSeed: seed};
-      try { if (alias) await this.store.update(joinAliasKey(), data, alias.etag); else await this.store.create(joinAliasKey(), data); return fixedObserverToken(seed); }
+      try { if (alias) await this.store.update(joinAliasKey(), data, alias.etag); else await this.store.create(joinAliasKey(), data); return derive(seed); }
       catch (error) { if (!(error instanceof StoreConflict)) throw error; }
     }
     fail(409, 'try-again', '참관 QR을 준비하는 중이에요. 다시 눌러 주세요.');
   }
   // Resolves a fixed 탑텐반 observer link to the class it currently points to.
-  async fixedObserverRoom(bearer, options) {
-    const alias = await this.store.read(joinAliasKey(), options);
-    if (!alias?.data.observerSeed || !authorized(bearer, hash(fixedObserverToken(alias.data.observerSeed)))) fail(403, 'observer-auth', '참관 QR이 바뀌었어요. 선생님께 새 참관 QR을 받아 주세요.');
+  async fixedObserverRoom(bearer, options, access = {}) {
+    const alias = await this.store.read(joinAliasKey(), options), seed = alias?.data.observerSeed;
+    const presenter = Boolean(seed) && authorized(bearer, hash(fixedPresenterToken(seed)));
+    if (!seed || (!presenter && !authorized(bearer, hash(fixedObserverToken(seed))))) fail(403, 'observer-auth', '참관 QR이 바뀌었어요. 선생님께 새 참관 QR을 받아 주세요.');
+    access.presenter = presenter;
     if (!alias.data.code) fail(409, 'observer-waiting', OBSERVER_WAITING);
     try { return (await this.room(alias.data.code, options)).data; }
     catch (error) { if (error.code === 'room-not-found') fail(409, 'observer-waiting', OBSERVER_WAITING); throw error; }
@@ -467,10 +475,12 @@ export class ClassroomService {
   // Read-only view for visitors at an open class: results and works without student names or numbers.
   async observe(raw, bearer) {
     let room;
-    if (publicJoinCode(raw.code) === CLASSROOM_JOIN_CODE) room = await this.fixedObserverRoom(bearer, {maxAge: 500});
+    const access = {};
+    if (publicJoinCode(raw.code) === CLASSROOM_JOIN_CODE) room = await this.fixedObserverRoom(bearer, {maxAge: 500}, access);
     else {
       room = (await this.room(validateCode(raw.code), {maxAge: 500}, '참관할 수업을 찾지 못했어요. 선생님께 확인해 주세요.')).data;
-      if (!authorized(bearer, room.observerHash)) fail(403, 'observer-auth', '참관 주소가 바뀌었어요. 선생님께 새 참관 주소를 받아 주세요.');
+      access.presenter = authorized(bearer, hash(presenterLinkToken(room)));
+      if (!access.presenter && !authorized(bearer, room.observerHash)) fail(403, 'observer-auth', '참관 주소가 바뀌었어요. 선생님께 새 참관 주소를 받아 주세요.');
     }
     const code = room.code;
     const [students, reveal] = await Promise.all([this.students(code), this.revealedAnswers(room)]);
@@ -478,7 +488,20 @@ export class ClassroomService {
     return {state: classroomState(room, this.now()), comparison: summary.comparison, observations: summary.observations, beauty: summary.beauty,
       participantCount: summary.participants.length,
       completionCounts: {1: summary.participants.filter(student => student.activity1Complete).length, 2: summary.participants.filter(student => student.activity2Complete).length},
-      works: summary.works.map(({name, number, participantId, ...work}) => ({...work, participantId: observerWorkReference(room, participantId, work.id)})), reveal};
+      works: summary.works.map(({name, number, participantId, ...work}) => ({...work, participantId: observerWorkReference(room, participantId, work.id)})), reveal,
+      ...(access.presenter ? {presenter: true} : {})};
+  }
+  // A PPT link may only run PRESENTER_COMMANDS; returns the class it reaches, or null for any other bearer.
+  async presenterAccess(raw, bearer) {
+    if (typeof bearer !== 'string' || !bearer) return null;
+    if (publicJoinCode(raw.code) === CLASSROOM_JOIN_CODE) {
+      const alias = await this.store.read(joinAliasKey()), seed = alias?.data.observerSeed;
+      return seed && alias.data.code && authorized(bearer, hash(fixedPresenterToken(seed))) ? {code: validateCode(alias.data.code)} : null;
+    }
+    let code;
+    try { code = validateCode(raw.code); } catch { return null; }
+    const room = await this.store.read(roomKey(code));
+    return room && room.data.deletedAt === undefined && authorized(bearer, hash(presenterLinkToken(room.data))) ? {code} : null;
   }
   async state(raw, bearer) {
     // Only polling may reuse short-lived reads. Every mutation re-reads durable state.
@@ -491,18 +514,21 @@ export class ClassroomService {
     return {state: classroomState(room, this.now()), ...classroomSummary(room, students, this.now()), reveal};
   }
   async control(raw, bearer) {
-    const code = validateCode(raw.code);
+    const presenter = PRESENTER_COMMANDS.has(raw.command) ? await this.presenterAccess(raw, bearer) : null;
+    const code = presenter ? presenter.code : validateCode(raw.code);
     if (raw.command === 'delete') return this.removeRoom(code, bearer);
     if (raw.command === 'claim-join-code') return this.claimJoinCode(code, bearer);
     if (raw.command === 'release-student' || raw.command === 'remove-student') return this.manageStudent(code, raw, bearer);
     if (raw.command === 'observer-link') {
       const {data: room} = await this.room(code, undefined, TEACHER_ROOM_GONE); this.teacher(room, bearer);
       const alias = await this.store.read(joinAliasKey());
-      if (alias?.data.code === code) return {state: classroomState(room, this.now()), observerToken: await this.fixedObserverLink({rotate: raw.rotate === true}), observerCode: CLASSROOM_JOIN_CODE};
+      const asPresenter = raw.role === 'presenter';
+      if (alias?.data.code === code) return {state: classroomState(room, this.now()), observerToken: await this.fixedObserverLink({rotate: raw.rotate === true && !asPresenter, presenter: asPresenter}), observerCode: CLASSROOM_JOIN_CODE};
+      if (asPresenter) return {state: classroomState(room, this.now()), observerToken: presenterLinkToken(room)};
     }
     let observerToken;
     for (let retry = 0; retry < 6; retry++) {
-      const current = await this.room(code, undefined, TEACHER_ROOM_GONE), room = structuredClone(current.data); this.teacher(room, bearer);
+      const current = await this.room(code, undefined, TEACHER_ROOM_GONE), room = structuredClone(current.data); if (!presenter) this.teacher(room, bearer);
       const state = classroomState(room, this.now());
       if (raw.command === 'start') {
         const activity = Number(raw.activity);
@@ -695,7 +721,8 @@ export class ClassroomService {
   async artwork(raw, bearer) {
     const workId = validateWorkId(raw.workId), viaFixedLink = publicJoinCode(raw.code) === CLASSROOM_JOIN_CODE;
     const room = viaFixedLink ? await this.fixedObserverRoom(bearer) : (await this.room(validateCode(raw.code))).data, code = room.code;
-    const teacher = !viaFixedLink && authorized(bearer, room.teacherHash), observer = viaFixedLink || (!teacher && authorized(bearer, room.observerHash));
+    const teacher = !viaFixedLink && authorized(bearer, room.teacherHash);
+    const observer = viaFixedLink || (!teacher && (authorized(bearer, room.observerHash) || authorized(bearer, hash(presenterLinkToken(room)))));
     const id = observer ? observerWorkParticipant(room, raw.participantId, workId) : validateNumber(raw.participantId);
     if (!teacher && !observer) await this.student(code, id, bearer);
     const student = await this.expireStudentWorks(code, id);

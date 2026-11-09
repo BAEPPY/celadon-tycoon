@@ -19,6 +19,7 @@ label.choice:has(input:checked){border-color:var(--jade);background:#e8f7f5}
 input[type=url]{font:inherit;font-weight:400;font-size:14px;padding:9px 10px;border:1px solid var(--line);border-radius:8px;width:100%}
 button{font:inherit;font-size:15px;font-weight:700;border-radius:8px;border:1px solid var(--jade);background:var(--jade);color:#fff;padding:10px 14px;cursor:pointer}
 #error{color:#c35448;font-size:13px;min-height:1em}
+.tip{font-size:12.5px;padding:8px 10px;border-radius:8px;background:#f3f7f6}
 #change{position:fixed;right:8px;top:8px;z-index:2;font-size:12px;padding:5px 9px;background:#fff;color:var(--jade-dark);border-color:var(--line);opacity:.92}
 [hidden]{display:none!important}
 </style>
@@ -36,10 +37,11 @@ button{font:inherit;font-size:15px;font-weight:700;border-radius:8px;border:1px 
       <label class="choice"><input type="radio" name="panel" value="works"> 완성작 모음</label>
       <label class="choice"><input type="radio" name="panel" value="game"> 청자 만들기 게임</label>
     </fieldset>
-    <label class="field" id="link-field">참관 주소
-      <input type="url" id="link" autocomplete="off" spellcheck="false" placeholder="선생님 화면 → 참관 QR → 참관 주소 복사">
+    <label class="field" id="link-field">PPT용 주소
+      <input type="url" id="link" autocomplete="off" spellcheck="false" placeholder="선생님 화면 → 수업 관리 → PPT용 주소 복사">
     </label>
-    <p>참관 주소는 이 컴퓨터에 한 번만 넣으면 다른 슬라이드에도 저절로 채워져요. 학생 이름은 보이지 않아요.</p>
+    <p>PPT용 주소는 이 컴퓨터에 한 번만 넣으면 다른 슬라이드에도 저절로 채워져요. 학생 이름은 보이지 않고, 슬라이드에서 ‘청자 설명 보기’를 눌러 정답을 공개할 수 있어요.</p>
+    <p class="tip">이 상자를 지우거나 순서를 바꿀 때는 <b>Alt+F10</b>(선택 창)에서 상자를 고른 뒤 <b>Delete</b> 키나 <b>정렬 → 맨 앞으로/맨 뒤로 가져오기</b>를 쓰세요.</p>
     <p id="error" role="alert"></p>
     <button type="submit">이 화면 띄우기</button>
   </form>
@@ -104,7 +106,7 @@ $('form').addEventListener('submit', async event => {
   event.preventDefault();
   const panel = document.querySelector('input[name=panel]:checked')?.value, text = $('link').value.trim();
   if (!PANELS.includes(panel)) return;
-  if (panel !== 'game' && !parseLink(text)) { $('error').textContent = '참관 주소를 확인해 주세요. 선생님 화면의 참관 QR 창에서 “참관 주소 복사”로 복사한 주소를 붙여 넣어 주세요.'; return; }
+  if (panel !== 'game' && !parseLink(text)) { $('error').textContent = 'PPT용 주소를 확인해 주세요. 선생님 화면 → 수업 관리 → “PPT용 주소 복사”로 복사한 주소를 붙여 넣어 주세요.'; return; }
   await save(panel, panel === 'game' && !parseLink(text) ? saved().link : text);
   showBoard();
 });
