@@ -252,12 +252,20 @@ function clearObserverRoom(){
   room=null;teacherData=null;viewKey='';teacherSignature='';teacherActivity=1;teacherObject='1';teacherA1View='comparison';cloudKind='name';
   teacherResultViews={1:'responses',2:'responses'};exhibitObjects={1:'1',2:'1'};workImages.clear();workDesigns.clear();workImagePending.clear();
 }
-// No 탑텐반 class is open (between classes, or after its data was deleted). Keep polling: the next class appears here.
-function renderObserverWaiting(){
-  if(room)clearObserverRoom();pollFailures=0;connectionError='';lastSuccessfulPoll=Date.now();
-  if(viewKey==='observer-waiting')return;viewKey='observer-waiting';
-  app.innerHTML=`<section class="waiting" data-testid="observer-waiting"><div class="waiting-inner"><div class="waiting-illustration">${laptopIcon}</div><h1>탑텐반 수업을<br>기다리고 있어요.</h1><p>지금은 열린 탑텐반 수업이 없어요.<br>선생님이 수업을 열면 바로 보여요.</p><div class="waiting-status"><i></i>화면을 그대로 두면 자동으로 이어져요</div></div></section>`;
+// No 탑텐반 class is open (before the lesson, between classes, or after its data was deleted). The visitor can still
+// look around: the three activities with their 3D models and empty results. Polling goes on, so the board turns
+// live by itself when a class opens.
+function showObserverPreview(){
+  pollFailures=0;connectionError='';lastSuccessfulPoll=Date.now();
+  if(room?.preview){updateConnection();return;}
+  if(room)clearObserverRoom();
+  room={preview:true,code:'',activity:0,activity1Stage:'comparison',status:'waiting',runId:'',runs:{},startedAt:null,endsAt:null,pausedAt:null,serverNow:Date.now(),
+    settings:structuredClone(DEFAULT_SETTINGS),revealed:{},locked:false,boardRefresh:0,revision:0};
+  teacherData={state:room,comparison:[],observations:[],beauty:{responses:[],words:[],respondents:0,total:0,submitted:0},participantCount:0,completionCounts:{1:0,2:0},works:[],reveal:{}};
+  teacherActivity=boardPin?.activity||1;teacherA1View=boardPin?.view||'comparison';viewKey='';teacherSignature='';
+  render();
 }
+const observerPreviewNote=()=>room?.preview?'<p class="observer-preview-note" data-testid="observer-preview" role="status"><strong>지금은 열린 수업이 없어요.</strong> 수업 자료를 미리 둘러볼 수 있고, 수업이 열리면 이 화면에 실시간 결과가 나타나요.</p>':'';
 // While a student waits, the next activity's 3D models are fetched into the browser cache one at a time, so the
 // activity opens at once even when thirty Chromebooks share the classroom Wi-Fi. Paths are the blind lesson names.
 const prefetchedModels=new Set();let prefetchTimer=null,prefetchRunning=false;
@@ -336,7 +344,7 @@ async function poll(){
   if(pollRunning||!session)return;schedulePoll();pollRunning=true;const requestSession=session;
   try{const payload=await api(observerMode?'observe':teacherMode?'teacher':'state');if(session!==requestSession)return;receive(payload);if(!teacherMode&&active(room.activity)&&dirty[answerActivity()]&&!saving)queueSave();retryWorks();}
   catch(error){if(session!==requestSession)return;
-    if(observerMode&&error.code==='observer-waiting'){renderObserverWaiting();return;}
+    if(observerMode&&error.code==='observer-waiting'){showObserverPreview();return;}
     if(error.status===403||error.status===404)closeObserverInvite({restoreFocus:false});
     if((!teacherMode||observerMode)&&(error.status===403||error.status===404)){const message=observerMode||error.status===404?error.message:'선생님이 입장 정보를 정리했어요. 번호와 이름으로 다시 입장해 주세요.';resetRoom();renderWelcome(message);return;}
     pollFailures++;connectionError=error.name==='AbortError'?'응답을 기다리고 있어요.':error.message;updateConnection();}
@@ -479,7 +487,7 @@ function workImageMarkup(work){return workImages.has(workKey(work))?`<img src="$
 function workExplanationMarkup(work){return `<section><h3>모양 · 문양 · 쓰임</h3><p>${esc(work.explanationUse||'')}</p></section><section><h3>공들인 부분</h3><p>${esc(work.explanationBeauty||'')}</p></section>`;}
 function teacherWorks(){
   const works=sortedWorks();
-  return works.length?`<div class="works-toolbar"><h2>완성한 청자 <span>${works.length}점</span></h2><div class="works-sort" role="group" aria-label="작품 정렬">${[['score','점수순'],...(!observerMode?[['number','번호순']]:[])].map(([sort,label])=>`<button type="button" data-action="works-sort" data-sort="${sort}" aria-pressed="${worksSort===sort}">${label}</button>`).join('')}</div></div><div class="works-grid">${works.map(w=>`<article class="panel work-card" data-work-id="${esc(w.id)}"><div class="work-preview" data-work-preview="${esc(workKey(w))}">${workImageMarkup(w)}<span class="work-score">${workScore(w)}점</span></div><div class="work-details">${w.name?`<p class="student-line">${esc(w.number)}번 ${esc(w.name)}</p>`:''}<h2>${esc(w.title||'나의 청자')}</h2>${workExplanationMarkup(w)}<button type="button" class="button secondary work-expand" data-action="view-work" data-work-key="${esc(workKey(w))}" aria-label="${esc(w.title||'나의 청자')} 작품과 설명 크게 보기"><span aria-hidden="true">⛶</span> 크게 보기</button></div></article>`).join('')}</div>`:`<section class="panel teacher-empty"><h2>나만의 청자를 빚고 있어요.</h2><p>학생이 작품을 완성하고 설명을 전달하면<br>이곳에 청자와 이야기, 점수가 함께 모입니다.</p></section>`;
+  return works.length?`<div class="works-toolbar"><h2>완성한 청자 <span>${works.length}점</span></h2><div class="works-sort" role="group" aria-label="작품 정렬">${[['score','점수순'],...(!observerMode?[['number','번호순']]:[])].map(([sort,label])=>`<button type="button" data-action="works-sort" data-sort="${sort}" aria-pressed="${worksSort===sort}">${label}</button>`).join('')}</div></div><div class="works-grid">${works.map(w=>`<article class="panel work-card" data-work-id="${esc(w.id)}"><div class="work-preview" data-work-preview="${esc(workKey(w))}">${workImageMarkup(w)}<span class="work-score">${workScore(w)}점</span></div><div class="work-details">${w.name?`<p class="student-line">${esc(w.number)}번 ${esc(w.name)}</p>`:''}<h2>${esc(w.title||'나의 청자')}</h2>${workExplanationMarkup(w)}<button type="button" class="button secondary work-expand" data-action="view-work" data-work-key="${esc(workKey(w))}" aria-label="${esc(w.title||'나의 청자')} 작품과 설명 크게 보기"><span aria-hidden="true">⛶</span> 크게 보기</button></div></article>`).join('')}</div>`:room?.preview?`<section class="panel teacher-empty"><h2>손님의 주문에 맞는 청자를 만들어요.</h2><p>수업이 열리면 학생들이 완성한 청자와 설명이<br>이곳에 모입니다.</p><a class="button secondary preview-game-link" href="/game" target="_blank" rel="noopener">청자 만들기 게임 해 보기 →</a></section>`:`<section class="panel teacher-empty"><h2>나만의 청자를 빚고 있어요.</h2><p>학생이 작품을 완성하고 설명을 전달하면<br>이곳에 청자와 이야기, 점수가 함께 모입니다.</p></section>`;
 }
 function workDialogMarkup(work){
   const breakdown=Number.isFinite(work.objectiveScore)&&Number.isFinite(work.explanationScore)?`<small>주문·제작 ${work.objectiveScore}점 · 설명 ${work.explanationScore}점</small>`:'';
@@ -653,11 +661,11 @@ function renderTeacher(){
   const live=teacherViewActive()&&status==='active',participantCount=observerMode?Number(teacherData?.participantCount)||0:teacherData?.participants?.length||0;
   const completed=teacherBeautyView()?Number(teacherData?.beauty?.respondents)||0:teacherActivity===3?(teacherData?.works||[]).length:observerMode?Number(teacherData?.completionCounts?.[teacherActivity])||0:(teacherData?.participants||[]).filter(p=>p[`activity${teacherActivity}Complete`]).length;
   if(boardMode){
-    const name=teacherBeautyView()?BEAUTY_NAME:ACTIVITY_NAMES[teacherActivity],state=live?'진행 중':status==='ended'?'수업 끝':room.activity===teacherActivity&&status==='paused'?'활동을 마쳤어요':'준비 중';
-    app.innerHTML=`<div class="board-shell" data-testid="live-board"><header class="board-status"><div class="board-title"><span>활동 ${teacherActivity} · ${state}</span><strong>${esc(name)}</strong></div><div class="board-metrics"><span>참여 <strong>${participantCount}</strong>명</span><span>${teacherActivity===3?'완성작':'모두 작성'} <strong>${completed}</strong>${teacherActivity===3?'점':'명'}</span></div>${timerMarkup()}<span class="pill" data-connection>연결됨</span><button class="board-refresh" type="button" data-action="board-reload" aria-label="이 화면 새로고침" title="이 화면 새로고침">↻</button></header><div class="teacher-content">${teacherContent()}</div></div>`;
+    const name=teacherBeautyView()?BEAUTY_NAME:ACTIVITY_NAMES[teacherActivity],state=room.preview?'수업 전':live?'진행 중':status==='ended'?'수업 끝':room.activity===teacherActivity&&status==='paused'?'활동을 마쳤어요':'준비 중';
+    app.innerHTML=`<div class="board-shell" data-testid="live-board"><header class="board-status"><div class="board-title"><span>활동 ${teacherActivity} · ${state}</span><strong>${esc(name)}</strong></div><div class="board-metrics"><span>참여 <strong>${participantCount}</strong>명</span><span>${teacherActivity===3?'완성작':'모두 작성'} <strong>${completed}</strong>${teacherActivity===3?'점':'명'}</span></div>${timerMarkup()}<span class="pill" data-connection>연결됨</span><button class="board-refresh" type="button" data-action="board-reload" aria-label="이 화면 새로고침" title="이 화면 새로고침">↻</button></header>${observerPreviewNote()}<div class="teacher-content">${teacherContent()}</div></div>`;
     updateTimer();updateConnection();mountTeacherBoard();if(teacherActivity===3)loadWorkImages();return;
   }
-  app.innerHTML=`<div class="lesson-shell teacher-shell">${header()}<div class="teacher-workspace"><section class="teacher-main"><div class="teacher-overview"><div><span class="activity-label">고려의 문화 · 함께 생각하는 시간</span><h1>${TITLE}</h1></div></div><nav class="teacher-stage-nav" aria-label="교사용 활동 선택">${[1,2,3].map(n=>`<button class="${teacherActivity===n?'active':''}" data-action="teacher-activity" data-activity="${n}">${room.activity===n&&status==='active'?'<i class="live-dot"></i>':''}<span><b>${n}</b> ${ACTIVITY_NAMES[n]}</span></button>`).join('')}</nav><div class="teacher-content">${teacherContent()}</div></section><aside class="teacher-sidebar" aria-label="교사용 수업 진행"><section class="teacher-control-bar"><span class="activity-label">수업 진행</span><div class="stage-caption">${teacherBeautyView()?BEAUTY_NAME:ACTIVITY_NAMES[teacherActivity]}<small>${observerMode?(live?'학생들이 활동하고 있어요.':status==='active'?`지금은 활동 ${room.activity}${room.activity===2?'가':'이'} 진행 중이에요.`:status==='ended'?'수업을 마쳤어요.':room.activity===teacherActivity&&status==='paused'?'학생들이 선생님을 보고 있어요.':'아직 진행하지 않은 활동이에요.'):live?(timeExpired()?'입력이 마감됐어요. 활동을 마쳐 주세요.':'학생들이 활동하고 있어요.'):status==='active'?`지금은 활동 ${room.activity}${room.activity===2?'가':'이'} 진행 중이에요. 먼저 활동을 마쳐 주세요.`:room.activity===teacherActivity&&status==='paused'?'학생들이 선생님을 보고 있어요.':status==='ended'?'수업을 마쳤어요.':'시작하면 학생 화면이 함께 열립니다.'}</small></div>${timerMarkup()}<div class="teacher-metrics"><span>참여 <strong>${participantCount}</strong>명</span><span>${teacherActivity===3?'완성작':'모두 작성'} <strong>${completed}</strong>${teacherActivity===3?'점':'명'}</span></div>${teacherActionMarkup(live,status)}</section>${status==='paused'?'<div class="teacher-pause-note">학생 화면은 지금<br>“크롬북을 닫고 선생님을 보세요”</div>':''}${observerMode?'':participantsMarkup()+teacherSettings()+'<section class="panel teacher-data-actions"><button class="button danger small" data-action="delete-room">수업 데이터 삭제</button><p>학생 정보 · 답변 · 작품을 삭제합니다.</p></section>'}</aside></div></div>`;
+  app.innerHTML=`<div class="lesson-shell teacher-shell">${header()}<div class="teacher-workspace"><section class="teacher-main"><div class="teacher-overview"><div><span class="activity-label">고려의 문화 · 함께 생각하는 시간</span><h1>${TITLE}</h1></div></div>${observerPreviewNote()}<nav class="teacher-stage-nav" aria-label="교사용 활동 선택">${[1,2,3].map(n=>`<button class="${teacherActivity===n?'active':''}" data-action="teacher-activity" data-activity="${n}">${room.activity===n&&status==='active'?'<i class="live-dot"></i>':''}<span><b>${n}</b> ${ACTIVITY_NAMES[n]}</span></button>`).join('')}</nav><div class="teacher-content">${teacherContent()}</div></section><aside class="teacher-sidebar" aria-label="교사용 수업 진행"><section class="teacher-control-bar"><span class="activity-label">수업 진행</span><div class="stage-caption">${teacherBeautyView()?BEAUTY_NAME:ACTIVITY_NAMES[teacherActivity]}<small>${observerMode?(room.preview?'수업이 열리면 실시간으로 보여요.':live?'학생들이 활동하고 있어요.':status==='active'?`지금은 활동 ${room.activity}${room.activity===2?'가':'이'} 진행 중이에요.`:status==='ended'?'수업을 마쳤어요.':room.activity===teacherActivity&&status==='paused'?'학생들이 선생님을 보고 있어요.':'아직 진행하지 않은 활동이에요.'):live?(timeExpired()?'입력이 마감됐어요. 활동을 마쳐 주세요.':'학생들이 활동하고 있어요.'):status==='active'?`지금은 활동 ${room.activity}${room.activity===2?'가':'이'} 진행 중이에요. 먼저 활동을 마쳐 주세요.`:room.activity===teacherActivity&&status==='paused'?'학생들이 선생님을 보고 있어요.':status==='ended'?'수업을 마쳤어요.':'시작하면 학생 화면이 함께 열립니다.'}</small></div>${timerMarkup()}<div class="teacher-metrics"><span>참여 <strong>${participantCount}</strong>명</span><span>${teacherActivity===3?'완성작':'모두 작성'} <strong>${completed}</strong>${teacherActivity===3?'점':'명'}</span></div>${teacherActionMarkup(live,status)}</section>${status==='paused'?'<div class="teacher-pause-note">학생 화면은 지금<br>“크롬북을 닫고 선생님을 보세요”</div>':''}${observerMode?'':participantsMarkup()+teacherSettings()+'<section class="panel teacher-data-actions"><button class="button danger small" data-action="delete-room">수업 데이터 삭제</button><p>학생 정보 · 답변 · 작품을 삭제합니다.</p></section>'}</aside></div></div>`;
   updateTimer();updateConnection();mountTeacherBoard();refreshStudentManager();if(teacherActivity===3)loadWorkImages();
 }
 const workExpiresAt=work=>Math.min(work.submittedAt+GAME_DATA_TTL_MS,Number.isFinite(work.expiresAt)?work.expiresAt:Infinity);
@@ -703,7 +711,7 @@ function resetRoom({keepTeacherKey=false}={}){
   viewKey='';teacherSignature='';currentObject='1';teacherActivity=1;teacherObject='1';selectedCountry=null;cloudKind='name';settingsDirty=false;connectionError='';
   uploadedWorks.clear();clearPendingWorks();terminalWorks.clear();workImages.clear();workDesigns.clear();workImagePending.clear();if(teacherMode){if(!keepTeacherKey)store(SESSION_KEY,null);}else clearActiveStudentSession();
 }
-function render(){if(observerMode&&session&&!room&&viewKey==='observer-waiting')return;if(!session||!room)return renderWelcome();if(teacherMode)renderTeacher();else renderStudent();}
+function render(){if(!session||!room)return renderWelcome();if(teacherMode)renderTeacher();else renderStudent();}
 function updateTimer(){
   const timer=document.querySelector('[data-testid=lesson-timer]');if(!timer)return;
   const viewed=teacherMode?teacherActivity:room?.activity,open=untimed(viewed),label=open?'진행 시간':'남은 시간';
@@ -979,7 +987,7 @@ async function boot(){
     receive(payload,{initial:true});schedulePoll();
   }
   catch(error){
-    if(observerMode&&error.code==='observer-waiting'){renderObserverWaiting();schedulePoll();return;}
+    if(observerMode&&error.code==='observer-waiting'){showObserverPreview();schedulePoll();return;}
     if(error.status===403||error.status===404){if(observerMode)store(SESSION_KEY,null);if(!teacherMode)clearActiveStudentSession();session=null;room=null;renderWelcome(error.message);return;}
     // Keep the saved key: rejoining or opening a new class here would lock the student out or lose the teacher's class.
     viewKey='';app.innerHTML=`<section class="waiting"><div class="waiting-inner"><div class="waiting-status"><i></i>${esc(error.message||'연결을 확인하고 다시 시도해 주세요.')}</div><button class="button" type="button" data-action="retry-boot">다시 연결</button></div></section>`;

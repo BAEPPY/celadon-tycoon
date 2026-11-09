@@ -415,3 +415,7 @@ body.model-mode{border-top-width:0;background:#f6f8f8}
 .preflight-list li[data-state=warn] .preflight-mark{background:#e2a100}.preflight-list li[data-state=warn] .preflight-mark::after{content:'!'}
 .preflight-list li[data-state=fail] .preflight-mark{background:#d1483c}.preflight-list li[data-state=fail] .preflight-mark::after{content:'×'}
 .preflight-footer{display:flex;justify-content:flex-end;margin-top:12px}
+/* Observer page while no class is open: browsable preview with a notice. */
+.observer-preview-note{margin:0 0 14px;padding:11px 15px;border-radius:9px;border:1px solid #cfe5df;background:#eef8f5;color:#2f6a60;font-size:15px;line-height:1.6;word-break:keep-all}
+.board-shell .observer-preview-note{margin:0}
+.teacher-empty .preview-game-link{display:inline-flex;margin-top:16px;text-decoration:none}

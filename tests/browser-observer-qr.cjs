@@ -185,12 +185,23 @@ async function assertInviteFits(page,width,height){
     await guest.locator('[data-action=teacher-activity][data-activity="1"].active').waitFor();
     assert.equal(await guest.locator('[data-action=view-work],.teacher-pause-note').count(),0,'Nothing from the deleted class remains on the guest page.');
     assert.equal((await api('observe',{method:'GET',auth:observerToken,body:fixed})).state.code,room.code);
-    // Between classes the guest waits, then the next class appears without rescanning.
+    // With no class open the guest can still look around the lesson (activities and 3D models, no results or
+    // names), stays on the tab they chose, and the next class appears without rescanning.
     await control('delete');
-    await guest.getByTestId('observer-waiting').waitFor({timeout:15000});
-    assert.match(await guest.getByTestId('observer-waiting').innerText(),/탑텐반 수업을\s*기다리고 있어요/);
+    await guest.getByTestId('observer-preview').waitFor({timeout:15000});
+    assert.match(await guest.getByTestId('observer-preview').innerText(),/지금은 열린 수업이 없어요/);
+    assert.equal(await guest.locator('.teacher-metrics strong').first().innerText(),'0');
+    await guest.locator('[data-action=teacher-activity][data-activity="2"]').tap();
+    await guest.locator('.observation-board .viewer-host').waitFor();
+    assert.equal(await guest.locator('[data-action=teacher-result-view][data-view=exhibit]').isDisabled(),true,'no explanations before a teacher reveals them');
+    await guest.locator('[data-action=teacher-activity][data-activity="3"]').tap();
+    assert.equal(await guest.locator('.preview-game-link').getAttribute('href'),'/game');
+    await guest.waitForTimeout(6000);
+    assert.equal(await guest.locator('[data-action=teacher-activity][data-activity="3"].active').count(),1,'polling keeps the tab the visitor chose');
+    for(const name of privateNames)assert.ok(!(await guest.locator('body').innerText()).includes(name));
     room=await api('create',{auth:null,body:{joinCode:'탑텐반',createToken:createToken()}});
-    await guest.locator('.teacher-stage-nav').waitFor({timeout:15000});
+    await guest.getByTestId('observer-preview').waitFor({state:'detached',timeout:15000});
+    await guest.locator('[data-action=teacher-activity][data-activity="1"].active').waitFor({timeout:15000});
 
     // The new class's teacher sees the same QR, and "QR 새로 만들기" retires it everywhere.
     await teacher.goto(`${base}/teacher`);

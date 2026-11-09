@@ -108,13 +108,14 @@ const base = process.env.BASE_URL || 'http://127.0.0.1:4173';
     assert.equal(repeatedToken, new URLSearchParams(new URL(link).hash.slice(1)).get('key'));
     const stillVisible = await observer.request.get(`${base}/api/classroom`, {headers: {Authorization: `Bearer ${repeatedToken}`}, params: {action: 'observe', code: '탑텐반'}});
     assert.equal(stillVisible.status(), 200);
-    // Deleting the class clears an already-open observer board; the fixed QR waits for the next 탑텐반 class.
+    // Deleting the class clears an already-open observer board; the fixed QR then shows the lesson preview.
     const deleted = await teacher.request.post(`${base}/api/classroom`, {headers: {Authorization: `Bearer ${teacherSession.teacherToken}`}, data: {action: 'control', code: teacherSession.code, command: 'delete'}});
     assert.equal(deleted.status(), 200);
-    await observer.getByTestId('observer-waiting').waitFor({timeout: 15000});
+    await observer.getByTestId('observer-preview').waitFor({timeout: 15000});
+    assert.equal(await observer.locator('.teacher-stage-nav button').count(), 3, 'the visitor can still browse the three activities');
     assert.ok(!(await observer.locator('#classroom-app').innerText()).includes('봄샘'));
     assert.deepEqual(errors, []);
-    console.log('Classroom management: unified names, anonymous observer, entry lock, release/rejoin, removal, untimed activity 3 with a teacher-set end timer, stable QR link and waiting after deletion passed.');
+    console.log('Classroom management: unified names, anonymous observer, entry lock, release/rejoin, removal, untimed activity 3 with a teacher-set end timer, stable QR link and lesson preview after deletion passed.');
   } finally {
     if(teacherSession&&teacher)await teacher.request.post(`${base}/api/classroom`,{headers:{Authorization:`Bearer ${teacherSession.teacherToken}`},data:{action:'control',code:teacherSession.code,command:'delete'}}).catch(()=>{});
     await browser.close();
