@@ -82,7 +82,7 @@ export function classroomState(room, now = Date.now()) {
   const timedOut = room.status === 'active' && Number.isFinite(room.endsAt) && now >= room.endsAt && (room.activity === 3 || room.settings.autoPause);
   return {code: room.code, ...(room.joinCode === CLASSROOM_JOIN_CODE ? {joinCode: CLASSROOM_JOIN_CODE} : {}), activity: room.activity, activity1Stage: room.activity1Stage === 'beauty' ? 'beauty' : 'comparison', status: timedOut ? 'paused' : room.status,
     runId: room.runId, runs: {...room.runs}, startedAt: room.startedAt, endsAt: room.endsAt ?? null, pausedAt: timedOut ? room.endsAt : room.pausedAt ?? null,
-    serverNow: now, settings: {...structuredClone(room.settings), beautyDuration: room.settings.beautyDuration ?? DEFAULT_CLASSROOM_SETTINGS.beautyDuration}, revealed: {...room.revealed}, locked: room.locked === true, revision: room.revision};
+    serverNow: now, settings: {...structuredClone(room.settings), beautyDuration: room.settings.beautyDuration ?? DEFAULT_CLASSROOM_SETTINGS.beautyDuration}, revealed: {...room.revealed}, locked: room.locked === true, boardRefresh: room.boardRefresh ?? 0, revision: room.revision};
 }
 // The game stops as soon as the activity closes, but a work finished just before may still be uploading its picture.
 // Accept it for a short while after the close of that same run (the teacher's "활동 마치기", or a deadline left over
@@ -537,6 +537,8 @@ export class ClassroomService {
           room.endsAt = this.now() + seconds * 1000;
         }
       } else if (raw.command === 'end') room.status = 'ended';
+      // Live boards (PowerPoint slides, projector) reload themselves when this changes.
+      else if (raw.command === 'refresh-boards') room.boardRefresh = this.now();
       else if (raw.command === 'settings') {
         if (state.status === 'active') fail(409, 'already-active', '진행 중인 활동을 마친 뒤 설정해 주세요.');
         room.settings = settingsFrom(raw.settings, room.settings);

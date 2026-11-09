@@ -392,3 +392,5 @@ body.board-mode{border-top-width:0}
 .board-shell .beauty-stage-tabs{display:none}
 .board-shell .works-grid{grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
 .board-shell .work-preview{height:150px}.board-shell .work-details{padding:12px 14px}
+.board-refresh{flex:none;width:36px;height:36px;padding:0;border:1px solid var(--line);border-radius:50%;background:var(--paper);color:var(--jade-dark);font-size:18px;line-height:1;cursor:pointer}
+.board-refresh:hover{background:var(--mint)}

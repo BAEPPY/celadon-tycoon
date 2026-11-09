@@ -387,6 +387,20 @@ test('the teacher can announce an end time for activity 3: it counts down, can b
   const next = await f.control('start', 3); assert.equal(next.state.endsAt, null, 'a new game run starts without a timer');
 });
 
+test('the teacher can make every live board reload, and only the teacher can', async () => {
+  const f = await fixture(), student = await f.join(1), code = f.room.code;
+  assert.equal(f.room.state.boardRefresh, 0);
+  const {observerToken} = await f.control('observer-link');
+  await rejectsCode(f.service.control({code, command: 'refresh-boards'}, student.participantToken), 'teacher-auth');
+  await rejectsCode(f.service.control({code, command: 'refresh-boards'}, observerToken), 'teacher-auth');
+  f.advance(1000);
+  const first = await f.control('refresh-boards');
+  assert.ok(first.state.boardRefresh > 0);
+  assert.equal((await f.service.observe({code}, observerToken)).state.boardRefresh, first.state.boardRefresh, 'boards see the signal');
+  f.advance(1000);
+  assert.ok((await f.control('refresh-boards')).state.boardRefresh > first.state.boardRefresh, 'each press is a new signal');
+});
+
 test('activity 1 done works with the default settings and persists until a new run', async () => {
   const f = await fixture(), student = await f.join(1), {state} = await f.control('start', 1);
   assert.equal(state.settings.submitButton, false);

@@ -51,6 +51,19 @@ const privateName='보드비공개학생';
     await pinned.waitForTimeout(5000);
     assert.equal(await pinned.locator('[data-comparison-result="1"]').count(),1,'?show=comparison stays on the comparison results');
 
+    // 수업 관리 → PPT 화면 새로고침 reloads every live board once (not again on later polls); ↻ reloads one board.
+    const reloads=[following,pinned].map(page=>page.waitForEvent('load',{timeout:20000}));
+    await teacher.click('.manage-menu>summary');await teacher.click('[data-action=refresh-boards]');
+    await teacher.waitForFunction(()=>document.querySelector('#classroom-toast')?.textContent.includes('새로고침'));
+    await Promise.all(reloads);
+    await following.locator('[data-testid=live-board] .beauty-board').waitFor({timeout:15000});
+    await pinned.locator('[data-testid=live-board] [data-comparison-result="1"]').waitFor({timeout:15000});
+    await following.evaluate(()=>{window.__stayed=true;});await following.waitForTimeout(6000);
+    assert.equal(await following.evaluate(()=>window.__stayed),true,'a board reloads once per press, not on every poll');
+    const reloadOne=pinned.waitForEvent('load',{timeout:20000});
+    await pinned.locator('[data-action=board-reload]').click();await reloadOne;
+    await pinned.locator('[data-testid=live-board] [data-comparison-result="1"]').waitFor({timeout:15000});
+
     // Inside another page (PowerPoint's Web Viewer), the observer link alone opens the board layout.
     const {observerToken,observerCode}=await control('observer-link');assert.equal(observerCode,'탑텐반');
     const link=`${base}/observe?code=${encodeURIComponent(observerCode)}#key=${observerToken}`;
@@ -90,7 +103,7 @@ const privateName='보드비공개학생';
     assert.ok(!(await works.locator('body').innerText()).includes(privateName));
     await following.locator('[data-testid=live-board] .work-card').waitFor({timeout:15000});
     assert.deepEqual(errors,[]);
-    console.log('Live board: key-free board on the teacher computer, pinned and following boards, automatic layout inside a slide frame, ?key fallback, empty state and anonymous works with countdown passed.');
+    console.log('Live board: key-free board on the teacher computer, pinned and following boards, teacher refresh and ↻ reload, automatic layout inside a slide frame, ?key fallback, empty state and anonymous works with countdown passed.');
   }finally{
     if(room&&teacher)await api('control',{command:'delete'}).catch(()=>{});
     await browser.close();
