@@ -158,7 +158,7 @@ const officeStub=view=>`window.__settings=window.__settings||{};window.__goto=[]
       if(options.block)await boardContext.route(options.block,route=>route.abort());
       const board=await boardContext.newPage();watch(board,options.label||'3D board');board.fetched=[];board.on('request',request=>board.fetched.push(request.url()));
       if(options.before)await board.addInitScript(options.before);
-      await board.addInitScript(([key,value])=>{if(!localStorage.getItem(key))localStorage.setItem(key,value);},['celadon-ppt-addin-v1',JSON.stringify({panel:options.panel||'comparison',link,model:options.model||'beauty'})]);
+      await board.addInitScript(([key,value])=>{if(!localStorage.getItem(key))localStorage.setItem(key,value);},['celadon-ppt-addin-v1',JSON.stringify({panel:options.panel||'comparison',link,model:options.model||'beauty',...(options.settings||{})})]);
       await board.goto(`${base}/ppt-addin/index.html?legacy=1${options.query||''}`);return board;
     };
     const solid=await boardPage();
@@ -227,6 +227,38 @@ const officeStub=view=>`window.__settings=window.__settings||{};window.__goto=[]
     await empty.locator('[data-act=turn][data-model="comparison-1"][data-step="2"]').click();assert.equal(await empty.locator('.lg-turn[data-model="comparison-1"]').getAttribute('data-frame'),'2');
     await empty.context().close();
 
+    // 청자만 크게 보기 (for a slide that only looks around one celadon): the model fills the box, the only buttons are
+    // 확대 and 축소, it is turned by dragging and does not turn by itself.
+    const alone=await boardPage({label:'plain model',panel:'model',model:'beauty',settings:{plain:true}});
+    await alone.locator('.lg-turn[data-model=beauty][data-3d=ready]').waitFor({timeout:60000});
+    const shownButtons=page=>page.locator('#lg-root button').evaluateAll(nodes=>nodes.filter(node=>node.offsetParent!==null).map(node=>node.textContent));
+    assert.deepEqual(await shownButtons(alone),['＋','－','화면 바꾸기']);
+    assert.equal(await alone.locator('.lg-head').isVisible(),false,'no bar at the top');
+    assert.equal(await alone.locator('[data-act=turn],[data-act=auto],[data-act=reset-view],.lg-model-name,.lg-turn-hint').count(),0);
+    assert.deepEqual(await alone.locator('.lg-plain canvas.lg-3d').evaluate(node=>{const r=node.getBoundingClientRect();return [r.left,r.top,r.width,r.height];}),[0,0,1000,562],'the drawing fills the whole box');
+    const view=()=>alone.evaluate(()=>window.__legacy3d.state('beauty'));
+    assert.equal((await view()).yaw,0);await alone.waitForTimeout(700);assert.equal((await view()).yaw,0,'it does not turn by itself');
+    await alone.locator('[data-act=zoom][data-factor="1.25"]').click();assert.equal((await view()).zoom,1.25);
+    for(let i=0;i<8;i++)await alone.locator('[data-act=zoom][data-factor="1.25"]').click();assert.equal((await view()).zoom,4,'at most four times closer');
+    await alone.locator('[data-act=zoom][data-factor="0.8"]').click();assert.ok((await view()).zoom<4);
+    await alone.mouse.move(700,280);await alone.mouse.down();await alone.mouse.move(840,280,{steps:5});await alone.waitForTimeout(250);await alone.mouse.up();
+    assert.ok((await view()).yaw>0.5,'dragging anywhere in the box turns it');
+    assert.equal(await alone.evaluate(()=>{const body=document.querySelector('.lg-body');return body.scrollHeight<=body.clientHeight+1&&body.scrollWidth<=body.clientWidth+1;}),true);
+    // The choice sits under the model list in the form and is kept.
+    await alone.locator('[data-act=setup]').click();
+    assert.equal(await alone.locator('#lg-plain').isChecked(),true);assert.equal(await alone.locator('#lg-plain').isVisible(),true);
+    await alone.locator('input[name=lg-panel][value=follow]').check();assert.equal(await alone.locator('#lg-plain').isVisible(),false,'only offered for the model box');
+    await alone.context().close();
+    // Where 3D does not work the picture itself is enlarged (up to three times) inside its square.
+    const flatAlone=await boardPage({label:'plain pictures',panel:'model',model:'beauty',settings:{plain:true,three:false}});
+    const picture=flatAlone.locator('.lg-plain .lg-turn[data-model=beauty]');await picture.waitFor();
+    assert.deepEqual(await shownButtons(flatAlone),['＋','－','화면 바꾸기']);
+    await flatAlone.locator('[data-act=zoom][data-factor="1.25"]').click();assert.equal(await picture.evaluate(node=>node.style.transform),'scale(1.25)');
+    for(let i=0;i<8;i++)await flatAlone.locator('[data-act=zoom][data-factor="1.25"]').click();assert.equal(await picture.evaluate(node=>node.style.transform),'scale(3)');
+    for(let i=0;i<9;i++)await flatAlone.locator('[data-act=zoom][data-factor="0.8"]').click();assert.equal(await picture.evaluate(node=>node.style.transform),'scale(1)');
+    const square=await picture.boundingBox();assert.ok(Math.abs(square.width-562)<2&&Math.abs(square.height-562)<2,'the pictures keep their square, as tall as the box');
+    await flatAlone.context().close();
+
     // Finished works' pictures where WebP cannot be drawn ("nowebp=1" stands in for that engine): the server
     // hands each one over as JPEG, whatever format it was stored in.
     const webpPreview=await teacher.evaluate(()=>{const canvas=document.createElement('canvas');canvas.width=160;canvas.height=120;const ctx=canvas.getContext('2d');ctx.fillStyle='#88ae8d';ctx.beginPath();ctx.ellipse(80,62,38,48,0,0,7);ctx.fill();return canvas.toDataURL('image/webp',.8);});
@@ -290,8 +322,15 @@ const officeStub=view=>`window.__settings=window.__settings||{};window.__goto=[]
     // Back in the editor the box can be changed again.
     await show.evaluate(()=>window.__viewHandler({activeView:'edit'}));
     await show.locator('[data-act=setup]').waitFor();
+    // 청자만 크게 보기 in a slide show: only the model and the two zoom buttons.
+    const showPlain=await showContext.newPage();watch(showPlain,'plain slide show');
+    await showPlain.addInitScript(()=>{window.__settings={panel:'model',model:'beauty',plain:true};});
+    await showPlain.goto(`${base}/ppt-addin/index.html?legacy=1`);
+    await showPlain.locator('.lg-turn[data-model=beauty][data-3d=ready]').waitFor({timeout:60000});
+    assert.deepEqual(await showPlain.locator('#lg-root button').evaluateAll(nodes=>nodes.filter(node=>node.offsetParent!==null).map(node=>node.textContent)),['＋','－']);
+    await showPlain.evaluate(()=>window.__viewHandler({activeView:'edit'}));await showPlain.locator('[data-act=setup]').waitFor();
     assert.deepEqual(errors,[]);
-    console.log('Old-engine add-in board: setup, anonymous comparison counts, turning pictures, 청자 설명 보기 from the slide, following 아름다움·쓰임·완성작, real 3D (turn, tilt, zoom, kept across redraws, self-turning), falling back to pictures without WebGL, with a missing model and after an empty drawing, pictures of finished works as JPEG where WebP cannot be drawn, large buttons on a touch screen, waiting for a class, slide-show cover and remote keys passed.');
+    console.log('Old-engine add-in board: setup, anonymous comparison counts, turning pictures, 청자 설명 보기 from the slide, following 아름다움·쓰임·완성작, real 3D (turn, tilt, zoom, kept across redraws, self-turning), falling back to pictures without WebGL, with a missing model and after an empty drawing, pictures of finished works as JPEG where WebP cannot be drawn, large buttons on a touch screen, plain model view (zoom only, whole box, no self-turning, picture zoom), waiting for a class, slide-show cover and remote keys passed.');
   }finally{
     if(room&&teacher)await control('delete').catch(()=>{});
     await browser.close();

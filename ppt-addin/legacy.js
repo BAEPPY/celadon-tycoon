@@ -22,6 +22,10 @@
   var data = null, receivedAt = 0, waiting = false, problem = '', connected = false, pollTimer = null, polling = false, lastRefresh = null, lastCode = '';
   var view = {object: '1', kind: 'name', exhibit: {1: false, 2: false}, exhibitObject: {1: '1', 2: '1'}, auto: true, setup: false};
   var turnFrames = {}, turnTimer = null, autoModel = 'beauty', lastBody = '', revealBusy = false;
+  // "청자만 크게 보기": only the model and two zoom buttons. Where 3D does not work the pictures are enlarged instead.
+  var pictureZoom = {};
+  function plainNow() { var now = saved(); return now.panel === 'model' && now.plain; }
+  function scalePicture(node, zoom) { node.style.msTransform = 'scale(' + zoom + ')'; node.style.transform = 'scale(' + zoom + ')'; }
   var canWebp = null, pictures = {}, picturePending = {};
   // Real 3D (legacy-3d.js) when this engine's WebGL works; the turning pictures otherwise.
   var threeD = null, VENDOR = '/ppt-addin/vendor/';
@@ -66,16 +70,17 @@
     var mine = localRead(), doc = null;
     if (office) { try { doc = window.Office.context.document.settings; } catch (e) { doc = null; } }
     var panel = (doc ? doc.get('panel') : mine.panel) || null, link = (doc && doc.get('link')) || mine.link || null, model = (doc ? doc.get('model') : mine.model) || 'beauty';
-    return {panel: has(PANELS, panel) ? panel : null, link: parseLink(link) ? link : null, model: has(MODELS, model) ? model : 'beauty', cover: !!(doc ? doc.get('cover') : mine.cover)};
+    return {panel: has(PANELS, panel) ? panel : null, link: parseLink(link) ? link : null, model: has(MODELS, model) ? model : 'beauty', cover: !!(doc ? doc.get('cover') : mine.cover),
+      plain: !!(doc ? doc.get('plain') : mine.plain)};
   }
-  function save(panel, link, model, cover, done) {
-    var values = office ? {} : {panel: panel, model: model, cover: cover};
+  function save(panel, link, model, cover, plain, done) {
+    var values = office ? {} : {panel: panel, model: model, cover: cover, plain: plain};
     if (link) values.link = link;
     localWrite(values);
     if (!office) return done();
     try {
       var settings = window.Office.context.document.settings;
-      settings.set('panel', panel); settings.set('model', model); settings.set('cover', cover); if (link) settings.set('link', link);
+      settings.set('panel', panel); settings.set('model', model); settings.set('cover', cover); settings.set('plain', plain); if (link) settings.set('link', link);
       settings.saveAsync(function () { done(); });
     } catch (e) { done(); }
   }
@@ -144,9 +149,11 @@
   function mountTurns() {
     var nodes = root.querySelectorAll('.lg-turn');
     for (var i = 0; i < nodes.length; i++) {
-      var id = nodes[i].getAttribute('data-model'), solid = !!threeD && threeD.usable() && threeD.mount(nodes[i], id);
+      // In the plain view the 3D drawing fills the whole box, not only the model's square.
+      var id = nodes[i].getAttribute('data-model'), solid = !!threeD && threeD.usable() && threeD.mount(nodes[i], id, plainNow() ? root.querySelector('.lg-plain') : null);
       // The pictures stay underneath until the 3D model has been drawn (and for good where 3D does not work).
       if (!solid || !threeD.shown(id)) { nodes[i].style.backgroundImage = 'url(/assets/lesson/turntable/' + id + '.jpg)'; showFrame(nodes[i], turnFrames[id] || 0); }
+      scalePicture(nodes[i], solid && threeD.shown(id) ? 1 : pictureZoom[id] || 1);
     }
     if (threeD) threeD.sweep();
   }
@@ -171,7 +178,7 @@
   }
   // Only the "청자 돌려 보기" box turns by itself, until someone drags it or presses 멈추기.
   function syncAuto() {
-    var now = saved(), wanted = !view.setup && now.panel === 'model' && view.auto, solid = !!threeD && threeD.shown(now.model);
+    var now = saved(), wanted = !view.setup && now.panel === 'model' && !now.plain && view.auto, solid = !!threeD && threeD.shown(now.model);
     autoModel = now.model;
     if (threeD) threeD.auto(wanted && solid ? now.model : null);
     if (wanted && !solid && !turnTimer) turnTimer = setInterval(function () { if (!drag) setFrame(autoModel, (turnFrames[autoModel] || 0) + 1); }, 160);
@@ -320,6 +327,11 @@
   }
   function modelPanel() {
     var model = saved().model;
+    // Only the celadon, as large as the box, with 확대 and 축소. It is still turned by dragging; nothing else shows.
+    if (saved().plain) return '<div class="lg-plain"><div class="lg-turn-box"><div class="lg-turn" data-model="' + esc(model) + '" role="img" aria-label="돌려 볼 수 있는 청자"></div></div>' +
+      '<div class="lg-plain-keys"><button type="button" data-act="zoom" data-model="' + esc(model) + '" data-factor="1.25" aria-label="확대">＋</button>' +
+      '<button type="button" data-act="zoom" data-model="' + esc(model) + '" data-factor="0.8" aria-label="축소">－</button></div>' +
+      (editing ? '<button type="button" class="lg-plain-setup" data-act="setup">화면 바꾸기</button>' : '') + '</div>';
     return '<div class="lg-center">' + turnMarkup(model, 68, false) + '<p class="lg-model-name">' + esc(model === 'beauty' ? BEAUTY_LABEL : '청자 ' + model.split('-')[1]) + '</p>' +
       '<div class="lg-turn-keys"><button type="button" data-act="turn" data-model="' + model + '" data-step="2" aria-label="왼쪽으로 돌리기">↶</button><button type="button" data-act="auto">■ 멈추기</button>' +
       '<button type="button" data-act="turn" data-model="' + model + '" data-step="-2" aria-label="오른쪽으로 돌리기">↷</button>' + zoomKeys(model) + '</div>' +
@@ -357,7 +369,8 @@
     for (i = 0; i < PANELS.length; i++) choices += '<label class="lg-choice"><input type="radio" name="lg-panel" value="' + PANELS[i] + '"' + (PANELS[i] === panel ? ' checked' : '') + '> ' + PANEL_LABELS[PANELS[i]] + '</label>';
     for (i = 0; i < MODELS.length; i++) options += '<option value="' + MODELS[i] + '"' + (MODELS[i] === now.model ? ' selected' : '') + '>' + MODEL_LABELS[MODELS[i]] + '</option>';
     return '<form class="lg-form" id="lg-form"><h1>이 자리에 띄울 실시간 화면</h1>' + choices +
-      '<label class="lg-field" id="lg-model-field">돌려 볼 청자<select id="lg-model">' + options + '</select></label>' +
+      '<div id="lg-model-field"><label class="lg-field">돌려 볼 청자<select id="lg-model">' + options + '</select></label>' +
+      '<label class="lg-field"><input type="checkbox" id="lg-plain"' + (now.plain ? ' checked' : '') + '> 청자만 크게 보기 (버튼은 확대·축소만)</label></div>' +
       (office ? '<label class="lg-field"><input type="checkbox" id="lg-cover"' + (now.cover ? ' checked' : '') + '> 슬라이드 쇼에서는 가려 두었다가 클릭하면 나타나기</label>' : '') +
       '<label class="lg-field" id="lg-link-field">PPT용 주소<input type="text" id="lg-link" autocomplete="off" spellcheck="false" value="' + esc(now.link || localRead().link || '') + '" placeholder="선생님 화면 → 수업 관리 → PPT용 주소 복사"></label>' +
       '<label class="lg-field"><input type="checkbox" id="lg-three"' + (localRead().three === false ? '' : ' checked') + '> 청자를 3D로 보기 (안 보이거나 느리면 꺼 주세요)</label>' +
@@ -376,12 +389,14 @@
     if (view.setup || !now.panel || (needsLink(now.panel) && !link)) {
       if (!view.setup) { view.setup = true; lastBody = ''; }
       if (head.style.display !== 'none') { head.style.display = 'none'; body.style.top = '0'; }
+      body.style.padding = '';
       if (lastBody !== 'setup') { lastBody = 'setup'; body.innerHTML = setupMarkup(''); syncSetupFields(); }
       syncAuto(); syncCover(); return;
     }
-    var panel = panelNow(), html = '';
-    head.style.display = ''; body.style.top = '';
-    head.innerHTML = headMarkup(panel);
+    var panel = panelNow(), html = '', plain = plainNow();
+    // The plain view has no bar at the top: the model takes the whole box.
+    head.style.display = plain ? 'none' : ''; body.style.top = plain ? '0' : ''; body.style.padding = plain ? '0' : '';
+    head.innerHTML = plain ? '' : headMarkup(panel);   // the plain view has its own 화면 바꾸기 button
     if (problem) html = '<p class="lg-empty"><b>실시간 화면을 열지 못했어요.</b><br>' + esc(problem) + '</p>';
     else {
       if (needsLink(panel) && waiting) html += '<p class="lg-note" data-waiting><b>지금은 열린 수업이 없어요.</b> 수업이 열리면 이 화면에 실시간 결과가 나타나요.</p>';
@@ -431,7 +446,17 @@
       if (threeD && threeD.shown(turned)) threeD.turn(turned, -steps * Math.PI / 12); else setFrame(turned, (turnFrames[turned] || 0) + steps);
       syncAuto(); return;
     }
-    if (act === 'zoom') { if (threeD) threeD.zoom(node.getAttribute('data-model'), Number(node.getAttribute('data-factor'))); return; }
+    if (act === 'zoom') {
+      var zoomed = node.getAttribute('data-model'), factor = Number(node.getAttribute('data-factor'));
+      if (threeD && threeD.shown(zoomed)) threeD.zoom(zoomed, factor);
+      else {
+        // Pictures cannot come closer in 3D, so the picture itself is enlarged (up to three times).
+        pictureZoom[zoomed] = Math.max(1, Math.min(3, (pictureZoom[zoomed] || 1) * factor));
+        var shown = root.querySelectorAll('.lg-turn');
+        for (var z = 0; z < shown.length; z++) if (shown[z].getAttribute('data-model') === zoomed) scalePicture(shown[z], pictureZoom[zoomed]);
+      }
+      return;
+    }
     if (act === 'reset-view') { view.auto = false; if (threeD) threeD.reset(node.getAttribute('data-model')); syncAuto(); return; }
     if (act === 'auto') { view.auto = !view.auto; syncAuto(); return; }
     if (act === 'object') view.object = node.getAttribute('data-id');
@@ -453,7 +478,8 @@
     if (needsLink(panel) && !parseLink(text)) { document.getElementById('lg-error').innerHTML = 'PPT용 주소를 확인해 주세요. 선생님 화면 → 수업 관리 → “PPT용 주소 복사”로 복사한 주소를 붙여 넣어 주세요.'; return; }
     var three = document.getElementById('lg-three'), wasThree = localRead().three !== false, wantThree = !three || three.checked;
     localWrite({three: wantThree});
-    save(panel, parseLink(text) ? text : saved().link, select && has(MODELS, select.value) ? select.value : 'beauty', !!(cover && cover.checked), function () {
+    var plain = document.getElementById('lg-plain');
+    save(panel, parseLink(text) ? text : saved().link, select && has(MODELS, select.value) ? select.value : 'beauty', !!(cover && cover.checked), !!(plain && plain.checked), function () {
       // Switching 3D on or off starts the box again so the choice applies cleanly.
       if (wasThree !== wantThree) { window.location.reload(); return; }
       view.setup = false; view.auto = true; lastBody = ''; data = null; waiting = false; problem = ''; connected = false; lastRefresh = null;
