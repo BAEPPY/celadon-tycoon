@@ -123,7 +123,8 @@ const officeStub=view=>`window.__settings=window.__settings||{};window.__saved=0
     await covered.frameLocator('#board').locator('[data-testid=live-board] [data-comparison-result="1"]').waitFor({timeout:20000});
     assert.equal(await covered.locator('#cover-screen').isVisible(),true,'still covered while the board has loaded');
     await covered.locator('#cover-screen').click();
-    await covered.locator('#cover-screen').waitFor({state:'hidden',timeout:5000});
+    // The board inside shares this page's thread; while it is still drawing its 3D models the cover can take a few seconds to go.
+    await covered.locator('#cover-screen').waitFor({state:'hidden',timeout:20000});
     await covered.evaluate(()=>window.__viewHandler({activeView:'edit'}));
     assert.equal(await covered.locator('#cover-screen').isHidden(),true,'no cover in the editor');
     assert.match(await covered.locator('#change').innerText(),/클릭하면 나타나기/);

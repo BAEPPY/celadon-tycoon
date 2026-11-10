@@ -32,8 +32,9 @@ html,body{margin:0;height:100%}
 .lg-col.lg-wide{width:44%}
 .lg-count{float:right;font-size:.8rem;font-weight:400;color:#687783}
 .lg-label{display:block;font-size:.76rem;font-weight:700;color:#078e91;margin-bottom:.15rem}
-.lg-turn-box{margin:.4rem auto;max-width:100%}
-.lg-turn{height:0;padding-top:100%;border-radius:.5rem;background-color:#f5f7f8;background-repeat:no-repeat;background-size:600% 400%;background-position:0 0;cursor:move;touch-action:none;-ms-touch-action:none;-ms-user-select:none;user-select:none}
+.lg-turn-box{margin:.4rem auto;max-width:100%;border-radius:.5rem;background:#f5f7f8;background:radial-gradient(ellipse at 50% 45%,#ffffff 0%,#eef2f3 80%)}
+.lg-turn{position:relative;height:0;padding-top:100%;border-radius:.5rem;background-repeat:no-repeat;background-size:600% 400%;background-position:0 0;cursor:move;touch-action:none;-ms-touch-action:none;-ms-user-select:none;user-select:none}
+.lg-3d{position:absolute;top:0;left:0;width:100%;height:100%;cursor:move;touch-action:none;-ms-touch-action:none}
 .lg-turn-keys{text-align:center;margin-top:.2rem}
 .lg-turn-keys button{margin:0 .15rem}
 .lg-turn-hint{text-align:center;font-size:.72rem;color:#8a97a0}

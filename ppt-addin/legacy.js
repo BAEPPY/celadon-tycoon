@@ -23,6 +23,8 @@
   var view = {object: '1', kind: 'name', exhibit: {1: false, 2: false}, exhibitObject: {1: '1', 2: '1'}, auto: true, setup: false};
   var turnFrames = {}, turnTimer = null, autoModel = 'beauty', lastBody = '', revealBusy = false;
   var canWebp = null, pictures = {}, picturePending = {};
+  // Real 3D (legacy-3d.js) when this engine's WebGL works; the turning pictures otherwise.
+  var threeD = null, VENDOR = '/ppt-addin/vendor/';
 
   // ---------- small helpers ----------
   function has(list, value) { for (var i = 0; i < list.length; i++) if (list[i] === value) return true; return false; }
@@ -131,15 +133,22 @@
   }
   function turnMarkup(id, size, keys) {
     return '<div class="lg-turn-box" style="width:' + size + 'vh"><div class="lg-turn" data-model="' + esc(id) + '" role="img" aria-label="돌려 볼 수 있는 청자 사진"></div></div>' +
-      (keys === false ? '' : '<div class="lg-turn-keys"><button type="button" data-act="turn" data-model="' + esc(id) + '" data-step="2" aria-label="왼쪽으로 돌리기">↶</button><button type="button" data-act="turn" data-model="' + esc(id) + '" data-step="-2" aria-label="오른쪽으로 돌리기">↷</button></div>');
+      (keys === false ? '' : '<div class="lg-turn-keys"><button type="button" data-act="turn" data-model="' + esc(id) + '" data-step="2" aria-label="왼쪽으로 돌리기">↶</button><button type="button" data-act="turn" data-model="' + esc(id) + '" data-step="-2" aria-label="오른쪽으로 돌리기">↷</button>' + zoomKeys(id) + '</div>');
+  }
+  // 확대·축소·처음 시점 exist only while the model is really drawn in 3D.
+  function zoomKeys(id) {
+    if (!threeD || !threeD.shown(id)) return '';
+    return '<button type="button" data-act="zoom" data-model="' + esc(id) + '" data-factor="1.25" aria-label="확대">＋</button><button type="button" data-act="zoom" data-model="' + esc(id) + '" data-factor="0.8" aria-label="축소">－</button>' +
+      '<button type="button" data-act="reset-view" data-model="' + esc(id) + '">처음 시점</button>';
   }
   function mountTurns() {
     var nodes = root.querySelectorAll('.lg-turn');
     for (var i = 0; i < nodes.length; i++) {
-      var id = nodes[i].getAttribute('data-model');
-      nodes[i].style.backgroundImage = 'url(/assets/lesson/turntable/' + id + '.jpg)';
-      showFrame(nodes[i], turnFrames[id] || 0);
+      var id = nodes[i].getAttribute('data-model'), solid = !!threeD && threeD.usable() && threeD.mount(nodes[i], id);
+      // The pictures stay underneath until the 3D model has been drawn (and for good where 3D does not work).
+      if (!solid || !threeD.shown(id)) { nodes[i].style.backgroundImage = 'url(/assets/lesson/turntable/' + id + '.jpg)'; showFrame(nodes[i], turnFrames[id] || 0); }
     }
+    if (threeD) threeD.sweep();
   }
   var drag = null;
   function dragStart(node, x) { view.auto = false; drag = {id: node.getAttribute('data-model'), x: x, frame: turnFrames[node.getAttribute('data-model')] || 0, width: node.offsetWidth || 200}; syncAuto(); }
@@ -162,12 +171,38 @@
   }
   // Only the "청자 돌려 보기" box turns by itself, until someone drags it or presses 멈추기.
   function syncAuto() {
-    var now = saved(), wanted = !view.setup && now.panel === 'model' && view.auto;
+    var now = saved(), wanted = !view.setup && now.panel === 'model' && view.auto, solid = !!threeD && threeD.shown(now.model);
     autoModel = now.model;
-    if (wanted && !turnTimer) turnTimer = setInterval(function () { if (!drag) setFrame(autoModel, (turnFrames[autoModel] || 0) + 1); }, 160);
-    if (!wanted && turnTimer) { clearInterval(turnTimer); turnTimer = null; }
+    if (threeD) threeD.auto(wanted && solid ? now.model : null);
+    if (wanted && !solid && !turnTimer) turnTimer = setInterval(function () { if (!drag) setFrame(autoModel, (turnFrames[autoModel] || 0) + 1); }, 160);
+    if ((!wanted || solid) && turnTimer) { clearInterval(turnTimer); turnTimer = null; }
     var button = root.querySelector('[data-act=auto]');
     if (button) button.innerHTML = view.auto ? '■ 멈추기' : '▶ 천천히 돌리기';
+  }
+
+  // ---------- real 3D, when the engine can ----------
+  function webglLikely() {
+    try { var canvas = document.createElement('canvas'); return !!window.WebGLRenderingContext && !!(canvas.getContext('webgl') || canvas.getContext('experimental-webgl')); } catch (e) { return false; }
+  }
+  function loadScripts(list, done) {
+    if (!list.length) return done(true);
+    var script = document.createElement('script'), finished = false;
+    function next(ok) { if (finished) return; finished = true; if (ok) loadScripts(list.slice(1), done); else done(false); }
+    script.charset = 'utf-8'; script.src = list[0];
+    script.onload = function () { next(true); }; script.onerror = function () { next(false); };
+    document.getElementsByTagName('head')[0].appendChild(script);
+  }
+  function loadThree() {
+    if (localRead().three === false || !webglLikely()) return;
+    var list = (window.Promise ? [] : [VENDOR + 'promise-polyfill.min.js']).concat([VENDOR + 'three-r116.min.js', VENDOR + 'GLTFLoader-r116.js', '/ppt-addin/legacy-3d.js']);
+    loadScripts(list, function (ok) {
+      if (!ok || !window.__legacy3d || !window.__legacy3d.usable()) return;
+      threeD = window.__legacy3d;
+      // A model became visible in 3D, or 3D turned out not to work: draw the boxes again either way.
+      threeD.onChange = function () { lastBody = ''; render(); };
+      threeD.onHold = function () { if (view.auto) { view.auto = false; syncAuto(); } };
+      lastBody = ''; render();
+    });
   }
 
   // ---------- finished works' pictures ----------
@@ -284,7 +319,8 @@
     var model = saved().model;
     return '<div class="lg-center">' + turnMarkup(model, 68, false) + '<p class="lg-model-name">' + esc(model === 'beauty' ? BEAUTY_LABEL : '청자 ' + model.split('-')[1]) + '</p>' +
       '<div class="lg-turn-keys"><button type="button" data-act="turn" data-model="' + model + '" data-step="2" aria-label="왼쪽으로 돌리기">↶</button><button type="button" data-act="auto">■ 멈추기</button>' +
-      '<button type="button" data-act="turn" data-model="' + model + '" data-step="-2" aria-label="오른쪽으로 돌리기">↷</button></div><p class="lg-turn-hint">사진을 좌우로 끌어도 돌아가요.</p></div>';
+      '<button type="button" data-act="turn" data-model="' + model + '" data-step="-2" aria-label="오른쪽으로 돌리기">↷</button>' + zoomKeys(model) + '</div>' +
+      '<p class="lg-turn-hint">' + (threeD && threeD.shown(model) ? '청자를 끌어서 돌리고 기울여 보세요.' : '사진을 좌우로 끌어도 돌아가요.') + '</p></div>';
   }
   function gamePanel() {
     return '<p class="lg-empty"><b>청자 만들기 게임은 이 PowerPoint 안에서는 열 수 없어요.</b><br>아래 버튼으로 인터넷 창에서 열어 주세요.<br><br><a href="/game" target="_blank" rel="noopener">청자 만들기 게임 열기 →</a></p>';
@@ -316,7 +352,8 @@
       '<label class="lg-field" id="lg-model-field">돌려 볼 청자<select id="lg-model">' + options + '</select></label>' +
       (office ? '<label class="lg-field"><input type="checkbox" id="lg-cover"' + (now.cover ? ' checked' : '') + '> 슬라이드 쇼에서는 가려 두었다가 클릭하면 나타나기</label>' : '') +
       '<label class="lg-field" id="lg-link-field">PPT용 주소<input type="text" id="lg-link" autocomplete="off" spellcheck="false" value="' + esc(now.link || localRead().link || '') + '" placeholder="선생님 화면 → 수업 관리 → PPT용 주소 복사"></label>' +
-      '<p>이 PowerPoint는 추가 기능을 옛 웹 엔진으로 열어서, 3D 대신 좌우로 끌어 돌려 보는 사진으로 보여 줘요. 학생 이름은 보이지 않아요.</p>' +
+      '<label class="lg-field"><input type="checkbox" id="lg-three"' + (localRead().three === false ? '' : ' checked') + '> 청자를 3D로 보기 (안 보이거나 느리면 꺼 주세요)</label>' +
+      '<p>이 PowerPoint는 추가 기능을 옛 웹 엔진으로 열어요. 청자는 3D로 보여 주고, 3D가 안 되는 컴퓨터에서는 좌우로 끌어 돌려 보는 사진으로 바꿔 보여 줘요. 학생 이름은 보이지 않아요.</p>' +
       '<p class="lg-error" id="lg-error" role="alert">' + esc(message || '') + '</p><button type="submit" class="lg-submit">이 화면 띄우기</button></form>';
   }
   function syncSetupFields() {
@@ -373,7 +410,14 @@
     var act = node.getAttribute('data-act'), activity = Number(node.getAttribute('data-activity'));
     if (act === 'setup') { view.setup = true; lastBody = ''; render(); return; }
     if (act === 'reload') { window.location.reload(); return; }
-    if (act === 'turn') { view.auto = false; setFrame(node.getAttribute('data-model'), (turnFrames[node.getAttribute('data-model')] || 0) + Number(node.getAttribute('data-step'))); syncAuto(); return; }
+    if (act === 'turn') {
+      var turned = node.getAttribute('data-model'), steps = Number(node.getAttribute('data-step'));
+      view.auto = false;
+      if (threeD && threeD.shown(turned)) threeD.turn(turned, -steps * Math.PI / 12); else setFrame(turned, (turnFrames[turned] || 0) + steps);
+      syncAuto(); return;
+    }
+    if (act === 'zoom') { if (threeD) threeD.zoom(node.getAttribute('data-model'), Number(node.getAttribute('data-factor'))); return; }
+    if (act === 'reset-view') { view.auto = false; if (threeD) threeD.reset(node.getAttribute('data-model')); syncAuto(); return; }
     if (act === 'auto') { view.auto = !view.auto; syncAuto(); return; }
     if (act === 'object') view.object = node.getAttribute('data-id');
     else if (act === 'kind') view.kind = node.getAttribute('data-kind') === 'use' ? 'use' : 'name';
@@ -392,7 +436,11 @@
     var text = field ? field.value.replace(/^\s+|\s+$/g, '') : '', select = document.getElementById('lg-model'), cover = document.getElementById('lg-cover');
     if (!has(PANELS, panel)) return;
     if (needsLink(panel) && !parseLink(text)) { document.getElementById('lg-error').innerHTML = 'PPT용 주소를 확인해 주세요. 선생님 화면 → 수업 관리 → “PPT용 주소 복사”로 복사한 주소를 붙여 넣어 주세요.'; return; }
+    var three = document.getElementById('lg-three'), wasThree = localRead().three !== false, wantThree = !three || three.checked;
+    localWrite({three: wantThree});
     save(panel, parseLink(text) ? text : saved().link, select && has(MODELS, select.value) ? select.value : 'beauty', !!(cover && cover.checked), function () {
+      // Switching 3D on or off starts the box again so the choice applies cleanly.
+      if (wasThree !== wantThree) { window.location.reload(); return; }
       view.setup = false; view.auto = true; lastBody = ''; data = null; waiting = false; problem = ''; connected = false; lastRefresh = null;
       render(); schedule(0);
     });
@@ -446,6 +494,7 @@
     probe.onerror = function () { canWebp = false; render(); };
     probe.src = WEBP_PROBE;
     setInterval(tick, 1000);
+    loadThree();
     if (office) watchView();
     view.setup = !saved().panel;
     render(); schedule(0);
