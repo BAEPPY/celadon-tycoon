@@ -48,3 +48,15 @@
 @media(max-height:650px){.hand-tools.inlay-tools{bottom:66px}}
 @media (max-width:600px),(max-width:1023px) and (pointer:coarse){.zoom-toggle,.zoom-note{display:none}.shop-game .hand-tools.inlay-tools{inset:auto;grid-template-columns:1fr}}
 @media(max-height:650px){.zoom-note{display:none}}
+/* 무늬 넣는 작업대: how many motifs of how many kinds are on the vessel, and what is still needed to go on. */
+.motif-check{display:flex;gap:6px;flex-wrap:wrap}
+.motif-check span{flex:1 1 auto;padding:5px 9px;border:1px solid #c9b190;border-radius:999px;background:#fbf4e6;color:#7a5a45;font-size:15px;font-weight:700;white-space:nowrap;text-align:center}
+.motif-check span b{font-size:18px;color:#a2573c}
+.motif-check span.done{border-color:#7fa784;background:#e7f2e4;color:#3f6a47}
+.motif-check span.done b{color:#2f6a3f}
+.motif-check span.done::before{content:'✓ '}
+.decoration-scene .station-info p.motif-rule{font-size:15px;line-height:1.45}
+.motif-rule b{color:#a2573c}
+
+/* On a very short screen (a phone held sideways) the count comes right under the heading, before the explanation. */
+@media(max-height:480px){.decoration-scene .station-info h2{order:-2}.decoration-scene .station-info .motif-check{order:-1}}

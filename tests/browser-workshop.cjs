@@ -201,6 +201,17 @@ async function fire(page, kind, length) {
     await page.click("[data-action=undo]");
     await turn(page, 12);
     await page.click("[data-technique=inlay]");
+    // Changing the technique starts the decoration again. Two cranes and a lotus are stamped; the cloud drawn below
+    // is the fourth motif (a drawing counts once, as the pattern it is named).
+    for (const [pattern, u, v] of [["crane", .3, .3], ["crane", .7, .3], ["lotus", .5, .8]]) {
+      await page.click(`[data-pattern=${pattern}]`);
+      await page.waitForSelector(".illustration-viewport[data-status=ready]");
+      const spot = await surfacePoint(page, u, v);
+      await page.mouse.click(spot.x, spot.y);
+      await page.waitForTimeout(250);
+    }
+    assert.deepEqual((await saved(page)).placements.map(mark => mark.pattern), ["crane", "crane", "lotus"]);
+    assert.equal(await page.locator('[data-action=inlay-fill]').isDisabled(), true, "three motifs are one short");
     await page.click("[data-tool=draw]");
     const cloud = [
       [-80, 22],

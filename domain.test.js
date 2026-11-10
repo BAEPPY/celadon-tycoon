@@ -3,11 +3,16 @@ import {EXAMPLE_DESIGNS} from './example-orders.js';
 import {MODEL_CATALOG} from './models-manifest.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { SHAPES, ORDERS, TECHNIQUES, PATTERNS, FIRING, drawNextOrder, evaluateWork } from './domain.js';
+import { SHAPES, ORDERS, TECHNIQUES, PATTERNS, FIRING, MIN_MOTIFS, MIN_MOTIF_KINDS, drawNextOrder, evaluateWork, orderMotifs, workMotifCounts, decorationProgress, motifRequest } from './domain.js';
+import {orderQuote} from './dialogue.js';
+
+// As many stamps of each pattern as an order asks for (a free order gets two kinds, four in all).
+const stamps = counts => Object.entries(counts).flatMap(([pattern, count]) => Array.from({length: count}, (_, index) => ({x: 150 + index * 20, y: 190, pattern})));
+const orderStamps = order => stamps(orderMotifs(order).length ? Object.fromEntries(orderMotifs(order).map(motif => [motif.pattern, motif.count])) : {cloud: 2, crane: 2});
 
 const completedWork = (overrides = {}) => {const work = {
   orderId: 'royal-rest', shape: 'pillow', technique: 'inlay', pattern: 'crane',
-  placements: [{ x: 0.4, y: 0.5 }], decorDone: true,
+  placements: [{ x: 0.4, y: 0.5 }, { x: 0.5, y: 0.5 }, { x: 0.6, y: 0.5 }, { x: 0.3, y: 0.3, pattern: 'cloud' }, { x: 0.7, y: 0.3, pattern: 'cloud' }], decorDone: true,
   firing: ['dry', 'biscuit', 'glaze', 'fire'],
   explanationUse: '누워서 쉴 때 머리를 받칩니다.',
   explanationBeauty: '학 무늬를 다른 색의 흙으로 정교하게 나타냈습니다.',
@@ -66,7 +71,7 @@ test('기존 30개와 예시 23개 주문은 모두 제작하고 만점 받을 �
     assert.ok(order.pattern === 'any' || PATTERNS.some((pattern) => pattern.id === order.pattern));
     const result = evaluateWork(completedWork({
       orderId: order.id, shape: order.shape, modelId: order.modelId,
-      placements: (order.requiredPatterns||[order.pattern==='any'?'cloud':order.pattern]).map(pattern=>({x:180,y:190,pattern})),
+      placements: orderStamps(order),
       technique: order.technique === 'any' ? 'inlay' : order.technique,
       pattern: order.pattern === 'any' ? 'cloud' : order.pattern,
     }));
@@ -174,14 +179,17 @@ test('빈 입력, 잘못된 입력, 여러 선택 조합에서도 항상 점수 
 
 test('직접 그린 문양은 학생이 정한 뜻으로 주문 조건을 확인한다', () => {
   const strokes = [{points: [{point:[0,0,1]}, {point:[.2,.1,1]}]}];
-  assert.equal(evaluateWork(completedWork({placements:[], strokes, drawingLabel:'crane'})).objective,80);
-  assert.equal(evaluateWork(completedWork({placements:[], strokes, drawingLabel:'cloud'})).objective,70);
-  assert.equal(evaluateWork(completedWork({placements:[], strokes, recognition:{id:'crane'}})).objective,70);
+  // The order asks for three cranes and two clouds: a drawing named 학 stands for the cranes, the clouds are stamped.
+  const clouds = stamps({cloud: 2});
+  assert.equal(evaluateWork(completedWork({placements:clouds, strokes, drawingLabel:'crane'})).objective,80);
+  assert.equal(evaluateWork(completedWork({placements:clouds, strokes, drawingLabel:'cloud'})).objective,70);
+  assert.equal(evaluateWork(completedWork({placements:clouds, strokes, recognition:{id:'crane'}})).objective,70);
+  assert.equal(evaluateWork(completedWork({placements:[], strokes, drawingLabel:'crane'})).objective,70,'the clouds are still missing');
 });
 
 test('각 도장의 무늬를 보존하고 마지막 선택만으로 기존 무늬를 바꾸지 않는다', () => {
-  assert.equal(evaluateWork(completedWork({pattern:'cloud',placements:[{x:180,y:190,pattern:'crane'}]})).objective,80);
-  assert.equal(evaluateWork(completedWork({pattern:'crane',placements:[{x:180,y:190,pattern:'cloud'}]})).objective,70);
+  assert.equal(evaluateWork(completedWork({pattern:'cloud',placements:stamps({crane:3,cloud:2})})).objective,80);
+  assert.equal(evaluateWork(completedWork({pattern:'crane',placements:stamps({cloud:5})})).objective,70);
 });
 
 
@@ -197,13 +205,57 @@ test('오리 연적과 오리 향로는 다른 쓰임으로 평가한다',()=>{
 });
 
 test('조롱박 주전자와 병, 같은 분류의 다른 예시도 구별한다',()=>{
- const work=completedWork({orderId:'example-poemGourdBottle',shape:'gourdBottle',modelId:'gourdBottle',placements:[{x:180,y:190,pattern:'text'},{x:200,y:190,pattern:'lotus'}]});
+ const work=completedWork({orderId:'example-poemGourdBottle',shape:'gourdBottle',modelId:'gourdBottle',placements:stamps({text:2,lotus:2})});
  assert.equal(evaluateWork(work).objective,70);
  assert.equal(evaluateWork({...work,modelId:'poemGourdBottle'}).objective,80);
 });
 
 test('복합 무늬 주문은 모든 무늬가 있어야 하고 마지막 선택만 바꾸어 채울 수 없다',()=>{
- const work=completedWork({orderId:'example-plumBambooMaebyeong',shape:'maebyeong',modelId:'plumBambooMaebyeong',pattern:'bamboo',placements:[{x:180,y:190,pattern:'plum'},{x:200,y:200,pattern:'crane'}]});
+ const work=completedWork({orderId:'example-plumBambooMaebyeong',shape:'maebyeong',modelId:'plumBambooMaebyeong',pattern:'bamboo',placements:stamps({plum:2,crane:1})});
  assert.equal(evaluateWork(work).objective,70);
- assert.equal(evaluateWork({...work,placements:[...work.placements,{x:160,y:180,pattern:'bamboo'}]}).objective,80);
+ assert.equal(evaluateWork({...work,placements:[...work.placements,{x:160,y:180,pattern:'bamboo'}]}).objective,70,'one bamboo where two were ordered');
+ assert.equal(evaluateWork({...work,placements:[...work.placements,...stamps({bamboo:2})]}).objective,80);
+});
+
+test('무늬 주문은 두 가지 이상의 무늬와 개수를 말하고, 개수가 모자라면 무늬 조건을 채우지 못한다',()=>{
+ for(const order of ORDERS){
+  const motifs=orderMotifs(order),total=motifs.reduce((sum,motif)=>sum+motif.count,0);
+  if(order.pattern==='any'||order.technique==='plain'){assert.deepEqual(motifs,[],order.id);continue;}
+  assert.ok(motifs.length>=MIN_MOTIF_KINDS,order.id);assert.ok(total>=MIN_MOTIFS&&total<=5,`${order.id}: ${total}`);
+  assert.equal(motifs[0].pattern,order.pattern,order.id);
+  for(const motif of motifs){assert.ok(PATTERNS.some(pattern=>pattern.id===motif.pattern),order.id);assert.ok(motif.count>=1,order.id);
+   // The customer says each kind with its number, and the plain-style text of the order does too.
+   for(const text of [orderQuote(order),order.quote])assert.ok(text.includes(`${motif.name} ${motif.count}개`),`${order.id}: ${text}`);}
+ }
+ assert.equal(orderQuote(ORDERS[0]),'누워서 쉴 때 머리를 받칠 것이 필요하오. 학 무늬를 다른 색의 흙으로 넣어 주시오. 무늬는 학 3개에 구름 2개를 곁들여 주시오.');
+ assert.equal(motifRequest(ORDERS.find(order=>order.id==='example-plumBambooMaebyeong')),'무늬는 매화 2개에 대나무 2개와 학 1개를 곁들여 주세요.');
+ // A free order tells how much decoration a decorated work needs; a plain order asks for none.
+ assert.equal(motifRequest(ORDERS.find(order=>order.id==='royal-fragrance'),{archaic:true}),'구멍무늬는 두 가지 모양을 섞어 4개 이상 뚫어 주시오.');
+ assert.equal(motifRequest(ORDERS.find(order=>order.id==='noble-banquet'),{archaic:true}),'무늬를 넣는다면 두 가지를 섞어 4개 이상 넣어 주시오.');
+ assert.equal(motifRequest(ORDERS.find(order=>order.id==='example-pitcher')),'');
+ // Three cranes and two clouds were ordered.
+ const short=evaluateWork(completedWork({placements:stamps({crane:2,cloud:2})}));
+ assert.equal(short.total,90);assert.match(short.breakdown.find(row=>row.key==='design').feedback,/학 3개·구름 2개.*종류와 개수/);
+ assert.equal(evaluateWork(completedWork({placements:stamps({crane:3})})).total,90,'the second kind is missing');
+ assert.equal(evaluateWork(completedWork({placements:stamps({crane:4,cloud:3,lotus:1})})).total,100,'more than ordered, and another kind besides, still fills the order');
+});
+
+test('무늬 작업대는 두 가지 이상의 무늬를 네 개 이상 넣어야 다음 순서로 넘어간다',()=>{
+ assert.deepEqual([MIN_MOTIFS,MIN_MOTIF_KINDS],[4,2]);
+ const bench=(placements,more={})=>decorationProgress({technique:'inlay',pattern:'crane',placements,strokes:[],...more});
+ assert.deepEqual(bench([]),{total:0,kinds:0,needed:4,neededKinds:2,ready:false});
+ assert.equal(bench(stamps({crane:1})).ready,false);
+ assert.deepEqual(bench(stamps({crane:4})),{total:4,kinds:1,needed:4,neededKinds:2,ready:false},'four of one kind are not enough');
+ assert.deepEqual(bench(stamps({crane:2,cloud:1})),{total:3,kinds:2,needed:4,neededKinds:2,ready:false},'two kinds but only three');
+ assert.equal(bench(stamps({crane:3,cloud:1})).ready,true);assert.equal(bench(stamps({crane:2,cloud:2,lotus:1})).ready,true);
+ // A stamp without its own pattern takes the work's; a drawing is one motif of the pattern it is named (its own kind unnamed).
+ assert.equal(bench([{x:1,y:1},{x:2,y:1},{x:3,y:1},{x:4,y:1,pattern:'cloud'}]).ready,true);
+ const strokes=[{points:[{point:[0,0,1]},{point:[.2,.1,1]}]},{points:[{point:[0,0,1]},{point:[.3,.1,1]}]}];
+ assert.deepEqual([bench(stamps({crane:3}),{strokes,drawingLabel:'cloud'}).ready,bench(stamps({crane:3}),{strokes}).ready,bench(stamps({crane:3}),{strokes,drawingLabel:'crane'}).ready],[true,true,false]);
+ assert.equal(workMotifCounts({technique:'inlay',placements:stamps({crane:2}),strokes,drawingLabel:'crane'}).counts.get('crane'),3);
+ assert.equal(bench([],{strokes}).ready,false,'a drawing alone is one motif');
+ // 무문 needs no motif; openwork follows the same rule as inlay.
+ assert.equal(decorationProgress({technique:'plain',placements:[],strokes:[]}).ready,true);
+ assert.equal(decorationProgress({technique:'openwork',pattern:'lotus',placements:stamps({lotus:2,cloud:2}),strokes:[]}).ready,true);
+ for(const broken of [undefined,null,{},{technique:'inlay',placements:null,strokes:null}])assert.equal(decorationProgress(broken).ready,false);
 });

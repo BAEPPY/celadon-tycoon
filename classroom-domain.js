@@ -1,5 +1,5 @@
 import {createHash, createHmac, randomBytes, timingSafeEqual} from 'node:crypto';
-import {ORDERS, PATTERNS, SHAPES, TECHNIQUES, evaluateWork} from './domain.js';
+import {ORDERS, PATTERNS, SHAPES, TECHNIQUES, evaluateWork, orderMotifs, workMotifCounts} from './domain.js';
 import {assessmentInput, normalizeAssessment, rubricAssessment} from './assessment-rules.js';
 import {classroomPrefix, StoreConflict} from './classroom-store.js';
 import {sanitizeWorkDesign} from './work-design.js';
@@ -204,13 +204,15 @@ const named = (list, id) => list.find(item => item.id === id)?.name || '';
 export function orderDigest(work) {
   const order = ORDERS.find(item => item.id === work.orderId);
   if (!order) return null;
-  const shape = SHAPES.find(item => item.id === order.shape), patterns = order.requiredPatterns || (order.pattern === 'any' ? [] : [order.pattern]);
+  // motifs: each pattern the order names with how many it asks for; patterns: their names alone.
+  const shape = SHAPES.find(item => item.id === order.shape), motifs = orderMotifs(order).map(({name, count}) => ({name, count})).filter(motif => motif.name);
   return {id: order.id, shape: order.shape, shapeName: shape?.name || '', use: shape?.use || '', customer: order.customer, title: order.title, quote: order.quote,
-    techniqueId: order.technique, technique: order.technique === 'any' ? '' : named(TECHNIQUES, order.technique), patterns: patterns.map(id => named(PATTERNS, id)).filter(Boolean)};
+    techniqueId: order.technique, technique: order.technique === 'any' ? '' : named(TECHNIQUES, order.technique), patterns: motifs.map(motif => motif.name), motifs};
 }
 export function madeDigest(work) {
-  const patterns = [...new Set([...work.placements.map(point => point.pattern), work.drawingLabel].filter(Boolean))].map(id => named(PATTERNS, id)).filter(Boolean);
-  return {shape: work.shape, shapeName: named(SHAPES, work.shape), techniqueId: work.technique, technique: named(TECHNIQUES, work.technique), patterns: work.technique === 'plain' ? [] : patterns};
+  // How many motifs of each pattern the work carries (a drawing named as a pattern counts once).
+  const motifs = [...workMotifCounts(work).counts].map(([id, count]) => ({name: named(PATTERNS, id), count})).filter(motif => motif.name);
+  return {shape: work.shape, shapeName: named(SHAPES, work.shape), techniqueId: work.technique, technique: named(TECHNIQUES, work.technique), patterns: motifs.map(motif => motif.name), motifs};
 }
 export function finishedWork(raw) {
   if (!raw || raw.step !== 4 || !ORDERS.some(order => order.id === raw.orderId) || !SHAPES.some(shape => shape.id === raw.shape) || !TECHNIQUES.some(technique => technique.id === raw.technique)) fail(400, 'unfinished-work', '완성한 작품만 선생님께 보낼 수 있어요.');

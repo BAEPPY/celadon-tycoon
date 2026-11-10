@@ -286,7 +286,7 @@ const officeStub=view=>`window.__settings=window.__settings||{};window.__goto=[]
     assert.deepEqual(await compare.locator('.lg-chips button').evaluateAll(buttons=>buttons.map(button=>[button.innerText.replace(/\s+/g,''),button.className])),[['베개2','lg-on'],['매병1','']]);
     assert.match(await compare.locator('.lg-cmp-head').innerText(),/비슷한 주문끼리 비교하기[\s\S]*청자 베개 주문\s*2점[\s\S]*누워서 쉴 때 머리를 받칩니다[\s\S]*같은 점과 다른 점/);
     assert.deepEqual((await compare.locator('.lg-cmp-card').evaluateAll(cards=>cards.map(card=>[card.querySelector('h2').textContent,...[...card.querySelectorAll('.lg-cmp-facts div')].map(item=>item.textContent)]))).sort(),
-      [['구름이 쉬는 베개','주문왕실 · 학 무늬 · 상감','만든 것학 무늬 · 상감'],['학이 쉬는 청자 베개','주문왕실 · 학 무늬 · 상감','만든 것학 무늬 · 상감']]);
+      [['구름이 쉬는 베개','주문왕실 · 학 3·구름 2 · 상감','만든 것학 1 · 상감'],['학이 쉬는 청자 베개','주문왕실 · 학 3·구름 2 · 상감','만든 것학 1 · 상감']]);
     // A picture keeps its own shape (that engine has no object-fit), and the whole board fits the slide box.
     const drawn=await compare.locator('.lg-cmp-card img').first().evaluate(image=>({natural:image.naturalWidth/image.naturalHeight,shown:image.getBoundingClientRect().width/image.getBoundingClientRect().height}));
     assert.ok(Math.abs(drawn.natural-drawn.shown)<.03,`picture ratio ${drawn.natural} shown as ${drawn.shown}`);

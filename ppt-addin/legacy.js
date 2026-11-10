@@ -354,13 +354,17 @@
     return groups;
   }
   function words(parts) { var kept = []; for (var i = 0; i < parts.length; i++) if (parts[i]) kept.push(parts[i]); return kept.join(' · '); }
+  // "학 3·구름 2": the patterns with their numbers (works kept before the numbers were recorded: "학·구름 무늬").
+  function motifWords(item) {
+    var motifs = item.motifs || [], patterns = item.patterns || [], parts = [], i;
+    if (motifs.length) { for (i = 0; i < motifs.length; i++) parts.push(motifs[i].name + ' ' + motifs[i].count); return parts.join('·'); }
+    return patterns.length ? patterns.join('·') + ' 무늬' : '';
+  }
   function orderWords(order) {
-    var patterns = order.patterns || [];
-    return words([String(order.customer || '').replace(/의 주문$/, ''), patterns.length ? patterns.join('·') + ' 무늬' : order.techniqueId === 'plain' ? '' : order.technique ? '무늬는 자유' : '무늬·기법은 자유', order.technique]);
+    return words([String(order.customer || '').replace(/의 주문$/, ''), motifWords(order) || (order.techniqueId === 'plain' ? '' : order.technique ? '무늬는 자유' : '무늬·기법은 자유'), order.technique]);
   }
   function madeWords(made, order) {
-    var patterns = made.patterns || [];
-    return words([order && made.shape === order.shape ? '' : made.shapeName, made.techniqueId === 'plain' ? '' : patterns.length ? patterns.join('·') + ' 무늬' : PLAIN_WORDS, made.technique]);
+    return words([order && made.shape === order.shape ? '' : made.shapeName, made.techniqueId === 'plain' ? '' : motifWords(made) || PLAIN_WORDS, made.technique]);
   }
   function comparePicture(work, big) {
     var picture = pictures[pictureKey(work)];
