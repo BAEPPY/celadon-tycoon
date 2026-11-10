@@ -145,6 +145,11 @@ const officeStub=view=>`window.__settings=window.__settings||{};window.__goto=[]
     const before=await model.getAttribute('data-frame');await page.waitForTimeout(700);assert.notEqual(await model.getAttribute('data-frame'),before,'it turns by itself');
     await page.locator('[data-act=auto]').click();const stopped=await model.getAttribute('data-frame');await page.waitForTimeout(600);
     assert.equal(await model.getAttribute('data-frame'),stopped);assert.match(await page.locator('[data-act=auto]').innerText(),/천천히 돌리기/);
+    // The game cannot run in that engine: the box says so and gives the address for a browser window or a slide hyperlink.
+    await page.locator('[data-act=setup]').click();await page.locator('input[name=lg-panel][value=game]').check();await page.locator('.lg-submit').click();
+    await page.locator('.lg-address').waitFor();assert.equal(await page.locator('.lg-address').inputValue(),`${base}/game`);
+    assert.equal(await page.locator('[data-act=open-game]').getAttribute('href'),'/game');assert.equal(await page.locator('[data-act=open-game]').getAttribute('target'),'_blank');
+    assert.match(await text(),/상자 안에서는 열 수 없어요/);assert.match(await text(),/하이퍼링크\(Ctrl\+K\)/);
     await page.close();
 
     // Real 3D where the engine's WebGL works: the old three.js draws the models, which turn, tilt and zoom.
@@ -154,7 +159,7 @@ const officeStub=view=>`window.__settings=window.__settings||{};window.__goto=[]
       const board=await boardContext.newPage();watch(board,options.label||'3D board');board.fetched=[];board.on('request',request=>board.fetched.push(request.url()));
       if(options.before)await board.addInitScript(options.before);
       await board.addInitScript(([key,value])=>{if(!localStorage.getItem(key))localStorage.setItem(key,value);},['celadon-ppt-addin-v1',JSON.stringify({panel:options.panel||'comparison',link,model:options.model||'beauty'})]);
-      await board.goto(`${base}/ppt-addin/index.html?legacy=1`);return board;
+      await board.goto(`${base}/ppt-addin/index.html?legacy=1${options.query||''}`);return board;
     };
     const solid=await boardPage();
     await solid.waitForFunction(()=>document.querySelectorAll('.lg-turn[data-3d=ready]').length===3,{},{timeout:60000});
@@ -222,6 +227,29 @@ const officeStub=view=>`window.__settings=window.__settings||{};window.__goto=[]
     await empty.locator('[data-act=turn][data-model="comparison-1"][data-step="2"]').click();assert.equal(await empty.locator('.lg-turn[data-model="comparison-1"]').getAttribute('data-frame'),'2');
     await empty.context().close();
 
+    // Finished works' pictures where WebP cannot be drawn ("nowebp=1" stands in for that engine): the server
+    // hands each one over as JPEG, whatever format it was stored in.
+    const webpPreview=await teacher.evaluate(()=>{const canvas=document.createElement('canvas');canvas.width=160;canvas.height=120;const ctx=canvas.getContext('2d');ctx.fillStyle='#88ae8d';ctx.beginPath();ctx.ellipse(80,62,38,48,0,0,7);ctx.fill();return canvas.toDataURL('image/webp',.8);});
+    assert.match(webpPreview,/^data:image\/webp;base64,/);
+    await api('work',{participantId:students[1].participantId,runId:a3.state.runId,work:{...work,id:'legacy-webp',title:'구름이 쉬는 베개'},preview:webpPreview},{auth:students[1].participantToken});
+    const gallery=await boardPage({label:'no WebP',panel:'works',query:'&nowebp=1'});
+    await gallery.locator('[data-work="legacy-webp"] img').waitFor({timeout:20000});await gallery.locator('[data-work="legacy-work"] img').waitFor({timeout:20000});
+    for(const id of ['legacy-webp','legacy-work']){
+      const shown=gallery.locator(`[data-work="${id}"] img`);
+      assert.match(await shown.getAttribute('src'),/^data:image\/jpeg;base64,/);
+      await gallery.waitForFunction(node=>node.complete&&node.naturalWidth>0,await shown.elementHandle());
+    }
+    assert.ok(gallery.fetched.some(url=>url.includes('/api/work-picture?')));assert.ok(!gallery.fetched.some(url=>url.includes('action=artwork')),'the stored WebP is never asked for');
+    assert.ok(!(await gallery.locator('#lg-root').innerText()).includes(privateName));
+    await gallery.context().close();
+    // If the server cannot convert a picture, that work keeps its text card.
+    const cards=await boardPage({label:'no conversion',panel:'works',query:'&nowebp=1',before:()=>{}});
+    await cards.context().route('**/api/work-picture?*',route=>route.fulfill({contentType:'application/json',body:JSON.stringify({preview:'data:image/webp;base64,UklGRiIAAABXRUJQVlA4IBYAAAAwAQCdASoBAAEADsD+JaQAA3AAAAAA',converted:false})}));
+    await cards.reload();
+    await cards.waitForFunction(()=>/그림을 불러오지 못했어요/.test(document.querySelector('[data-work="legacy-webp"]')?.innerText||''),{},{timeout:20000});
+    assert.equal(await cards.locator('[data-work] img').count(),0);assert.match(await cards.locator('[data-work="legacy-webp"]').innerText(),/구름이 쉬는 베개/);
+    await cards.context().close();
+
     // With no class open the board says so and comes back when a class opens.
     const waitingPage=await context.newPage();watch(waitingPage,'waiting board');
     await waitingPage.addInitScript(([key,value])=>localStorage.setItem(key,value),['celadon-ppt-addin-v1',JSON.stringify({panel:'follow',link,model:'beauty'})]);
@@ -251,7 +279,7 @@ const officeStub=view=>`window.__settings=window.__settings||{};window.__goto=[]
     await show.evaluate(()=>window.__viewHandler({activeView:'edit'}));
     await show.locator('[data-act=setup]').waitFor();
     assert.deepEqual(errors,[]);
-    console.log('Old-engine add-in board: setup, anonymous comparison counts, turning pictures, 청자 설명 보기 from the slide, following 아름다움·쓰임·완성작, real 3D (turn, tilt, zoom, kept across redraws, self-turning), falling back to pictures without WebGL, with a missing model and after an empty drawing, waiting for a class, slide-show cover and remote keys passed.');
+    console.log('Old-engine add-in board: setup, anonymous comparison counts, turning pictures, 청자 설명 보기 from the slide, following 아름다움·쓰임·완성작, real 3D (turn, tilt, zoom, kept across redraws, self-turning), falling back to pictures without WebGL, with a missing model and after an empty drawing, pictures of finished works as JPEG where WebP cannot be drawn, waiting for a class, slide-show cover and remote keys passed.');
   }finally{
     if(room&&teacher)await control('delete').catch(()=>{});
     await browser.close();

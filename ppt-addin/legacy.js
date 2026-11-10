@@ -82,10 +82,10 @@
   function needsLink(panel) { return panel !== 'game' && panel !== 'model'; }
 
   // ---------- reading the class ----------
-  function request(method, query, payload, key, done) {
+  function request(method, query, payload, key, done, path) {
     var xhr = new XMLHttpRequest(), finished = false;
     function finish(status, value) { if (!finished) { finished = true; done(status, value); } }
-    xhr.open(method, '/api/classroom' + (query ? '?' + query : ''), true);
+    xhr.open(method, (path || '/api/classroom') + (query ? '?' + query : ''), true);
     if (key) xhr.setRequestHeader('Authorization', 'Bearer ' + key);
     if (payload) xhr.setRequestHeader('Content-Type', 'application/json');
     xhr.onreadystatechange = function () {
@@ -214,13 +214,16 @@
       var key = pictureKey(work);
       if (pictures[key] !== undefined || picturePending[key]) return;
       picturePending[key] = true;
-      request('GET', 'action=artwork&code=' + encodeURIComponent(link.code) + '&participantId=' + encodeURIComponent(work.participantId) + '&workId=' + encodeURIComponent(work.id) + '&_=' + new Date().getTime(), null, link.key, function (status, value) {
+      // The pictures are stored as WebP. An engine that cannot draw WebP asks the server for the same picture as
+      // JPEG (api/work-picture.js); the others take the stored picture from the classroom API.
+      var query = 'code=' + encodeURIComponent(link.code) + '&participantId=' + encodeURIComponent(work.participantId) + '&workId=' + encodeURIComponent(work.id) + '&_=' + new Date().getTime();
+      request('GET', canWebp ? 'action=artwork&' + query : query, null, link.key, function (status, value) {
         delete picturePending[key];
         var preview = status === 200 && value && typeof value.preview === 'string' ? value.preview : '';
-        // This engine cannot draw WebP pictures; those works keep their text card. A work that is gone is not asked for again.
+        // If the server could not convert it the work keeps its text card. A work that is gone is not asked for again.
         if (status === 200 || status === 404) pictures[key] = /^data:image\/(png|jpeg);base64,/.test(preview) || (canWebp && /^data:image\/webp;base64,/.test(preview)) ? preview : '';
         render();
-      });
+      }, canWebp ? '' : '/api/work-picture');
     })(works[i]);
   }
 
@@ -310,7 +313,7 @@
     for (var i = 0; i < works.length; i++) {
       var work = works[i], picture = pictures[pictureKey(work)];
       html += '<div class="lg-work" data-work="' + esc(work.id) + '"><div class="lg-work-inner"><div class="lg-work-picture">' +
-        (picture ? '<img src="' + esc(picture) + '" alt="학생이 완성한 청자">' : '<span>' + (picture === '' ? '그림은 인터넷 창의 선생님 화면에서 볼 수 있어요' : '완성한 청자를 불러오고 있어요') + '</span>') +
+        (picture ? '<img src="' + esc(picture) + '" alt="학생이 완성한 청자">' : '<span>' + (picture === '' ? '그림을 불러오지 못했어요. 인터넷 창의 선생님 화면에서 볼 수 있어요' : '완성한 청자를 불러오고 있어요') + '</span>') +
         '<b class="lg-score">' + score(work) + '점</b></div><h2>' + esc(work.title || '나의 청자') + '</h2><p>' + esc(work.explanationUse || '') + '</p></div></div>';
     }
     return html + '</div>';
@@ -322,8 +325,13 @@
       '<button type="button" data-act="turn" data-model="' + model + '" data-step="-2" aria-label="오른쪽으로 돌리기">↷</button>' + zoomKeys(model) + '</div>' +
       '<p class="lg-turn-hint">' + (threeD && threeD.shown(model) ? '청자를 끌어서 돌리고 기울여 보세요.' : '사진을 좌우로 끌어도 돌아가요.') + '</p></div>';
   }
+  // The game needs a current browser engine, so it cannot run inside this box. The button opens it in a browser
+  // window where this PowerPoint allows that; the address is shown too, for a hyperlink on the slide (Ctrl+K),
+  // which always opens the computer's own browser.
   function gamePanel() {
-    return '<p class="lg-empty"><b>청자 만들기 게임은 이 PowerPoint 안에서는 열 수 없어요.</b><br>아래 버튼으로 인터넷 창에서 열어 주세요.<br><br><a href="/game" target="_blank" rel="noopener">청자 만들기 게임 열기 →</a></p>';
+    return '<div class="lg-empty"><b>청자 만들기 게임은 이 PowerPoint 상자 안에서는 열 수 없어요.</b><br>게임은 최신 인터넷 창에서만 돌아가요. 아래 버튼을 누르거나, 슬라이드의 글자·도형에 하이퍼링크(Ctrl+K)로 이 주소를 넣어 여세요.<br>' +
+      '<input type="text" readonly class="lg-address" value="' + esc(origin() + '/game') + '" aria-label="청자 만들기 게임 주소"><br>' +
+      '<a class="lg-open" data-act="open-game" href="/game" target="_blank" rel="noopener">청자 만들기 게임 열기 →</a></div>';
   }
   function remaining() {
     var state = data && data.state;
@@ -409,6 +417,13 @@
     if (!node || node.disabled) return;
     var act = node.getAttribute('data-act'), activity = Number(node.getAttribute('data-activity'));
     if (act === 'setup') { view.setup = true; lastBody = ''; render(); return; }
+    if (act === 'open-game') {
+      // Newer PowerPoint can hand the address to the computer's own browser; otherwise the link opens as usual.
+      try {
+        if (office && window.Office.context.ui && window.Office.context.ui.openBrowserWindow) { window.Office.context.ui.openBrowserWindow(origin() + '/game'); if (event.preventDefault) event.preventDefault(); }
+      } catch (e) {}
+      return;
+    }
     if (act === 'reload') { window.location.reload(); return; }
     if (act === 'turn') {
       var turned = node.getAttribute('data-model'), steps = Number(node.getAttribute('data-step'));
@@ -489,10 +504,14 @@
     document.addEventListener('keydown', forwardKeys);
     window.addEventListener('resize', resize);
     watchDragging(); resize();
-    var probe = new Image();
-    probe.onload = function () { canWebp = probe.width > 0; render(); };
-    probe.onerror = function () { canWebp = false; render(); };
-    probe.src = WEBP_PROBE;
+    // "nowebp=1" in the address makes any browser behave like the engine that cannot draw WebP (for checking).
+    if (/[?&]nowebp=1(&|$)/.test(window.location.search)) canWebp = false;
+    else {
+      var probe = new Image();
+      probe.onload = function () { canWebp = probe.width > 0; render(); };
+      probe.onerror = function () { canWebp = false; render(); };
+      probe.src = WEBP_PROBE;
+    }
     setInterval(tick, 1000);
     loadThree();
     if (office) watchView();
