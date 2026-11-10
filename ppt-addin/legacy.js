@@ -495,6 +495,8 @@
     for (i = 0; i < usual.length; i++) { node = document.getElementById(usual[i]); if (node) node.style.display = 'none'; }
     node = document.getElementById('lg-loading'); if (node && node.parentNode) node.parentNode.removeChild(node);
     root = document.createElement('div'); root.id = 'lg-root';
+    // A touch screen (an interactive whiteboard) gets larger buttons.
+    if (window.navigator.maxTouchPoints > 0 || window.navigator.msMaxTouchPoints > 0 || 'ontouchstart' in window) root.className = 'lg-touch';
     root.innerHTML = '<div class="lg-head"></div><div class="lg-body"></div><div class="lg-cover" id="lg-cover-screen" data-act="cover" style="display:none"><b>▶ 클릭하면 실시간 화면이 나타나요</b></div>';
     document.body.appendChild(root);
     head = root.children[0]; body = root.children[1];

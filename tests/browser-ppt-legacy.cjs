@@ -250,6 +250,18 @@ const officeStub=view=>`window.__settings=window.__settings||{};window.__goto=[]
     assert.equal(await cards.locator('[data-work] img').count(),0);assert.match(await cards.locator('[data-work="legacy-webp"]').innerText(),/구름이 쉬는 베개/);
     await cards.context().close();
 
+    // On a touch screen (an interactive whiteboard) the board's buttons are large enough for a finger and still fit.
+    const fingerContext=await browser.newContext({viewport:{width:1500,height:844},hasTouch:true});await fingerContext.route(OFFICE_JS,route=>route.abort());
+    const finger=await fingerContext.newPage();watch(finger,'touch board');
+    await finger.addInitScript(([key,value])=>{if(!localStorage.getItem(key))localStorage.setItem(key,value);},['celadon-ppt-addin-v1',JSON.stringify({panel:'comparison',link,model:'beauty',three:false})]);
+    await finger.goto(`${base}/ppt-addin/index.html?legacy=1`);await finger.locator('[data-comparison="1"]').waitFor({timeout:15000});
+    const fit=await finger.evaluate(()=>{const heights=[...document.querySelectorAll('#lg-root button')].map(node=>node.getBoundingClientRect().height),body=document.querySelector('.lg-body');
+      return {touch:document.querySelector('#lg-root').className,least:Math.min(...heights),sideways:body.scrollWidth>body.clientWidth+1};});
+    assert.equal(fit.touch,'lg-touch');assert.ok(fit.least>=40,`the smallest button is ${fit.least}px tall`);assert.equal(fit.sideways,false);
+    await finger.locator('[data-act=turn][data-model="comparison-1"][data-step="2"]').tap();
+    assert.equal(await finger.locator('.lg-turn[data-model="comparison-1"]').getAttribute('data-frame'),'2','a tap turns the picture');
+    await fingerContext.close();
+
     // With no class open the board says so and comes back when a class opens.
     const waitingPage=await context.newPage();watch(waitingPage,'waiting board');
     await waitingPage.addInitScript(([key,value])=>localStorage.setItem(key,value),['celadon-ppt-addin-v1',JSON.stringify({panel:'follow',link,model:'beauty'})]);
@@ -279,7 +291,7 @@ const officeStub=view=>`window.__settings=window.__settings||{};window.__goto=[]
     await show.evaluate(()=>window.__viewHandler({activeView:'edit'}));
     await show.locator('[data-act=setup]').waitFor();
     assert.deepEqual(errors,[]);
-    console.log('Old-engine add-in board: setup, anonymous comparison counts, turning pictures, 청자 설명 보기 from the slide, following 아름다움·쓰임·완성작, real 3D (turn, tilt, zoom, kept across redraws, self-turning), falling back to pictures without WebGL, with a missing model and after an empty drawing, pictures of finished works as JPEG where WebP cannot be drawn, waiting for a class, slide-show cover and remote keys passed.');
+    console.log('Old-engine add-in board: setup, anonymous comparison counts, turning pictures, 청자 설명 보기 from the slide, following 아름다움·쓰임·완성작, real 3D (turn, tilt, zoom, kept across redraws, self-turning), falling back to pictures without WebGL, with a missing model and after an empty drawing, pictures of finished works as JPEG where WebP cannot be drawn, large buttons on a touch screen, waiting for a class, slide-show cover and remote keys passed.');
   }finally{
     if(room&&teacher)await control('delete').catch(()=>{});
     await browser.close();
