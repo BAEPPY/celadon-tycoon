@@ -278,6 +278,39 @@ const officeStub=view=>`window.__settings=window.__settings||{};window.__goto=[]
     assert.ok(gallery.fetched.some(url=>url.includes('/api/work-picture?')));assert.ok(!gallery.fetched.some(url=>url.includes('action=artwork')),'the stored WebP is never asked for');
     assert.ok(!(await gallery.locator('#lg-root').innerText()).includes(privateName));
     await gallery.context().close();
+    // 비슷한 주문끼리 비교: the two works answered orders for the same use, so they stand side by side under its name
+    // with the order and what was made in words; a third, for another use, is its own group. Still no names.
+    await api('work',{participantId:students[2].participantId,runId:a3.state.runId,work:{...work,id:'legacy-vessel',orderId:'royal-simple-vessel',shape:'maebyeong',modelId:'maebyeong',technique:'plain',pattern:'',placements:[],title:'비색 매병',explanationUse:'무늬 없이 빛깔을 살린 매병이에요. 술을 담아 두면 좋아요.',explanationBeauty:'어깨는 풍성하게 아래는 좁게 빚어 곡선을 살렸어요.'},preview:webpPreview},{auth:students[2].participantToken});
+    const compare=await boardPage({label:'compare',panel:'compare',query:'&nowebp=1'});
+    await compare.waitForFunction(()=>document.querySelectorAll('.lg-cmp-card img').length===2,{},{timeout:30000});
+    assert.deepEqual(await compare.locator('.lg-chips button').evaluateAll(buttons=>buttons.map(button=>[button.innerText.replace(/\s+/g,''),button.className])),[['베개2','lg-on'],['매병1','']]);
+    assert.match(await compare.locator('.lg-cmp-head').innerText(),/비슷한 주문끼리 비교하기[\s\S]*청자 베개 주문\s*2점[\s\S]*누워서 쉴 때 머리를 받칩니다[\s\S]*같은 점과 다른 점/);
+    assert.deepEqual((await compare.locator('.lg-cmp-card').evaluateAll(cards=>cards.map(card=>[card.querySelector('h2').textContent,...[...card.querySelectorAll('.lg-cmp-facts div')].map(item=>item.textContent)]))).sort(),
+      [['구름이 쉬는 베개','주문왕실 · 학 무늬 · 상감','만든 것학 무늬 · 상감'],['학이 쉬는 청자 베개','주문왕실 · 학 무늬 · 상감','만든 것학 무늬 · 상감']]);
+    // A picture keeps its own shape (that engine has no object-fit), and the whole board fits the slide box.
+    const drawn=await compare.locator('.lg-cmp-card img').first().evaluate(image=>({natural:image.naturalWidth/image.naturalHeight,shown:image.getBoundingClientRect().width/image.getBoundingClientRect().height}));
+    assert.ok(Math.abs(drawn.natural-drawn.shown)<.03,`picture ratio ${drawn.natural} shown as ${drawn.shown}`);
+    assert.equal(await compare.evaluate(()=>{const body=document.querySelector('.lg-body');return body.scrollHeight<=body.clientHeight+1;}),true,'nothing to scroll');
+    assert.ok(!(await compare.locator('#lg-root').innerText()).includes(privateName));
+    // 크게 보기: one work with its whole explanation, and back.
+    await compare.locator('[data-work="legacy-work"] [data-act=compare-open]').click();
+    assert.match(await compare.locator('.lg-cmp-one').innerText(),/학이 쉬는 청자 베개[\s\S]*모양 · 문양 · 쓰임[\s\S]*머리를 받치고 쉬면 좋아요[\s\S]*공들인 부분[\s\S]*또렷하게 만들었어요/);
+    await compare.locator('[data-act=compare-close]').click();assert.equal(await compare.locator('.lg-cmp-card').count(),2);
+    // The other group: one work, a plain one made for an order that left pattern and technique free.
+    await compare.locator('.lg-chips button',{hasText:'매병'}).click();
+    assert.match(await compare.locator('.lg-cmp-head').innerText(),/청자 매병 주문\s*1점[\s\S]*한 명이 받았어요/);
+    assert.deepEqual(await compare.locator('.lg-cmp-facts div').allTextContents(),['주문왕실 · 무늬·기법은 자유','만든 것무늬 없이 표현하기']);
+    assert.equal(await compare.locator('[data-act=works-view]').count(),0,'a box set to the comparison alone has no switch');
+    await compare.context().close();
+    // The works board (also when following the class) has both views one tap apart, and the pictures keep their shape there too.
+    const both=await boardPage({label:'works switch',panel:'works',query:'&nowebp=1'});
+    await both.waitForFunction(()=>document.querySelectorAll('.lg-work img').length===3,{},{timeout:30000});
+    const tile=await both.locator('.lg-work img').first().evaluate(image=>({natural:image.naturalWidth/image.naturalHeight,shown:image.getBoundingClientRect().width/image.getBoundingClientRect().height}));
+    assert.ok(Math.abs(tile.natural-tile.shown)<.03,`works picture ratio ${tile.natural} shown as ${tile.shown}`);
+    await both.locator('[data-act=works-view][data-view=compare]').click();
+    assert.equal(await both.locator('.lg-cmp-card').count(),2);assert.equal(await both.locator('[data-act=works-view].lg-on').innerText(),'비슷한 주문끼리');
+    await both.locator('[data-act=works-view][data-view=all]').click();assert.equal(await both.locator('.lg-work').count(),3);
+    await both.context().close();
     // If the server cannot convert a picture, that work keeps its text card.
     const cards=await boardPage({label:'no conversion',panel:'works',query:'&nowebp=1',before:()=>{}});
     await cards.context().route('**/api/work-picture?*',route=>route.fulfill({contentType:'application/json',body:JSON.stringify({preview:'data:image/webp;base64,UklGRiIAAABXRUJQVlA4IBYAAAAwAQCdASoBAAEADsD+JaQAA3AAAAAA',converted:false})}));
@@ -334,7 +367,7 @@ const officeStub=view=>`window.__settings=window.__settings||{};window.__goto=[]
     assert.deepEqual(await showPlain.locator('#lg-root button').evaluateAll(nodes=>nodes.filter(node=>node.offsetParent!==null).map(node=>node.textContent)),['＋','－']);
     await showPlain.evaluate(()=>window.__viewHandler({activeView:'edit'}));await showPlain.locator('[data-act=setup]').waitFor();
     assert.deepEqual(errors,[]);
-    console.log('Old-engine add-in board: setup, anonymous comparison counts, turning pictures, 청자 설명 보기 from the slide, following 아름다움·쓰임·완성작, real 3D (turn, tilt, zoom, kept across redraws, self-turning), falling back to pictures without WebGL, with a missing model and after an empty drawing, pictures of finished works as JPEG where WebP cannot be drawn, large buttons on a touch screen, plain model view (zoom only, whole box, no self-turning, picture zoom), waiting for a class, slide-show cover and remote keys passed.');
+    console.log('Old-engine add-in board: similar-order comparison (groups, words, 크게 보기), setup, anonymous comparison counts, turning pictures, 청자 설명 보기 from the slide, following 아름다움·쓰임·완성작, real 3D (turn, tilt, zoom, kept across redraws, self-turning), falling back to pictures without WebGL, with a missing model and after an empty drawing, pictures of finished works as JPEG where WebP cannot be drawn, large buttons on a touch screen, plain model view (zoom only, whole box, no self-turning, picture zoom), waiting for a class, slide-show cover and remote keys passed.');
   }finally{
     if(room&&teacher)await control('delete').catch(()=>{});
     await browser.close();

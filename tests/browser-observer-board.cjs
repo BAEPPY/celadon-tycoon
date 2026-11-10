@@ -131,8 +131,38 @@ const privateName='보드비공개학생';
     assert.match(await boardText(works),/완성작\s*1\s*점/);assert.match(await boardText(works),/남은 시간/);
     assert.ok(!(await works.locator('body').innerText()).includes(privateName));
     await following.locator('[data-testid=live-board] .work-card').waitFor({timeout:15000});
+
+    // 비슷한 주문끼리 비교하기 (?show=compare): works whose orders asked for the same use stand side by side on one
+    // screen, the largest group first, with the order and what was made in words — still without names.
+    const friend=await api('join',{code:'탑텐반',number:5,name:'비교친구'},{auth:null}),other=await api('join',{code:'탑텐반',number:6,name:'매병친구'},{auth:null});
+    await api('work',{participantId:friend.participantId,runId:a3.state.runId,work:{...work,id:'board-work-2',orderId:'lady-cloud-rest',pattern:'cloud',title:'구름 베개',placements:[{x:100,y:100,pattern:'cloud'}],explanationUse:'구름 무늬를 넣은 베개예요. 누워서 쉴 때 머리를 받쳐요.',explanationBeauty:'구름 무늬를 파고 흰 흙을 채워 또렷하게 만들었어요.'},preview},{auth:friend.participantToken});
+    await api('work',{participantId:other.participantId,runId:a3.state.runId,work:{...work,id:'board-work-3',orderId:'royal-crane-vessel',shape:'maebyeong',modelId:'maebyeong',title:'학 매병',explanationUse:'학 무늬를 넣은 매병이에요. 귀한 술을 담아 두면 좋아요.'},preview},{auth:other.participantToken});
+    const compare=await teacherContext.newPage();watch(compare,'compare board');
+    await compare.setViewportSize({width:1280,height:720});
+    await compare.goto(`${base}/observe?code=${encodeURIComponent('탑텐반')}&show=compare`);
+    const board=compare.getByTestId('compare-board');await board.waitFor({timeout:15000});
+    await compare.waitForFunction(()=>document.querySelectorAll('.compare-card').length===2&&!document.querySelector('.compare-card .image-wait'),null,{timeout:BOARD_WAIT});
+    assert.deepEqual(await compare.locator('.compare-groups button').evaluateAll(buttons=>buttons.map(button=>[button.innerText.replace(/\s+/g,' ').trim(),button.getAttribute('aria-pressed')])),[['베개 2','true'],['매병 1','false']]);
+    assert.match(await board.locator('.compare-head').innerText(),/청자 베개 주문\s*2점[\s\S]*누워서 쉴 때 머리를 받칩니다[\s\S]*같은 점과 다른 점/);
+    assert.deepEqual(await compare.locator('.compare-card').evaluateAll(cards=>cards.map(card=>[card.querySelector('h3').textContent,...[...card.querySelectorAll('.compare-facts dd')].map(item=>item.textContent)])),
+      [['학이 쉬는 청자 베개','왕실 · 학 무늬 · 상감','학 무늬 · 상감'],['구름 베개','귀족 부인 · 구름 무늬 · 상감','구름 무늬 · 상감']]);
+    // One slide: nothing scrolls, the pictures are equally tall and nothing is cut off inside a card.
+    const fit=await compare.evaluate(()=>({page:document.documentElement.scrollHeight<=innerHeight&&document.documentElement.scrollWidth<=innerWidth,
+      pictures:[...new Set([...document.querySelectorAll('.compare-card .work-preview')].map(node=>Math.round(node.getBoundingClientRect().height)))].length,
+      inside:[...document.querySelectorAll('.compare-details')].every(node=>node.scrollHeight<=node.clientHeight+1),bottom:Math.round(document.querySelector('.compare-cards').getBoundingClientRect().bottom)}));
+    assert.deepEqual({page:fit.page,pictures:fit.pictures,inside:fit.inside},{page:true,pictures:1,inside:true});assert.ok(fit.bottom<=720&&fit.bottom>660,`the cards reach the bottom of the slide (${fit.bottom})`);
+    assert.equal(await compare.locator('.works-toolbar,[data-action=works-view]').count(),0,'a pinned comparison has no other view');
+    for(const name of [privateName,'비교친구','매병친구'])assert.ok(!(await compare.locator('body').innerText()).includes(name));
+    // The other group, and one work enlarged.
+    await compare.locator('.compare-groups button',{hasText:'매병'}).click();
+    assert.match(await board.locator('.compare-head').innerText(),/청자 매병 주문\s*1점[\s\S]*한 명이 받았어요/);assert.equal(await compare.locator('.compare-card').count(),1);
+    await compare.locator('.compare-card [data-action=view-work]').click();await compare.locator('.work-dialog[open]').waitFor();
+    assert.match(await compare.locator('.work-dialog').innerText(),/학 매병/);await compare.locator('[data-close-work]').click();
+    // A following board has both views one tap apart.
+    await following.locator('[data-action=works-view][data-view=compare]').click();await following.getByTestId('compare-board').waitFor();
+    await following.locator('[data-action=works-view][data-view=all]').click();await following.locator('.work-card').first().waitFor();
     assert.deepEqual(errors,[]);
-    console.log('Live board: key-free board on the teacher computer, pinned and following boards, teacher refresh and ↻ reload, PPT link revealing explanations, automatic layout inside a slide frame, ?key fallback, empty state and anonymous works with countdown passed.');
+    console.log('Live board: key-free board on the teacher computer, pinned and following boards, teacher refresh and ↻ reload, PPT link revealing explanations, automatic layout inside a slide frame, ?key fallback, empty state, anonymous works with countdown and the similar-order comparison on one slide passed.');
   }finally{
     if(room&&teacher)await api('control',{command:'delete'}).catch(()=>{});
     await browser.close();

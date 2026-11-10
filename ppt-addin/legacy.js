@@ -6,8 +6,8 @@
 (function () {
   'use strict';
   var LOCAL_KEY = 'celadon-ppt-addin-v1';
-  var PANELS = ['follow', 'comparison', 'beauty', 'uses', 'works', 'game', 'model'];
-  var PANEL_LABELS = {follow: '지금 활동 따라가기', comparison: '세 나라 비교 결과', beauty: '매병·아름다움', uses: '이름·쓰임 짐작', works: '완성작 모음', game: '청자 만들기 게임', model: '청자 돌려 보기',
+  var PANELS = ['follow', 'comparison', 'beauty', 'uses', 'works', 'compare', 'game', 'model'];
+  var PANEL_LABELS = {follow: '지금 활동 따라가기', comparison: '세 나라 비교 결과', beauty: '매병·아름다움', uses: '이름·쓰임 짐작', works: '완성작 모음', compare: '비슷한 주문끼리 비교', game: '청자 만들기 게임', model: '청자 돌려 보기',
     plain: '청자만 크게 보기'};
   // What the form offers: every panel, plus "청자만 크게 보기", which is the model panel with only the zoom buttons.
   var CHOICES = PANELS.concat(['plain']);
@@ -24,7 +24,7 @@
 
   var office = false, editing = true, coverLifted = false, root = null, head = null, body = null;
   var data = null, receivedAt = 0, waiting = false, problem = '', connected = false, pollTimer = null, polling = false, lastRefresh = null, lastCode = '';
-  var view = {object: '1', kind: 'name', exhibit: {1: false, 2: false}, exhibitObject: {1: '1', 2: '1'}, auto: true, setup: false};
+  var view = {object: '1', kind: 'name', exhibit: {1: false, 2: false}, exhibitObject: {1: '1', 2: '1'}, auto: true, setup: false, worksView: 'all', compareGroup: '', comparePage: 0, compareOpen: ''};
   var turnFrames = {}, turnTimer = null, autoModel = 'beauty', lastBody = '', revealBusy = false;
   // "청자만 크게 보기": only the model and two zoom buttons. Where 3D does not work the pictures are enlarged instead.
   var pictureZoom = {};
@@ -248,7 +248,8 @@
     if (state.activity === 2) return 'uses';
     return state.activity === 1 && state.activity1Stage === 'beauty' ? 'beauty' : 'comparison';
   }
-  function activityOf(panel) { return panel === 'works' ? 3 : panel === 'uses' ? 2 : 1; }
+  function isWorks(panel) { return panel === 'works' || panel === 'compare'; }
+  function activityOf(panel) { return isWorks(panel) ? 3 : panel === 'uses' ? 2 : 1; }
   function cloud(words, empty) {
     if (!words || !words.length) return '<p class="lg-empty">' + esc(empty || '아직 모인 생각이 없어요.') + '</p>';
     var most = 1, html = '', i;
@@ -316,11 +317,19 @@
       '<p class="lg-small">많이 나온 생각은 크게, 적게 나온 생각은 작게 보여요. 이름 없이 모아요.</p></div></div></div>';
   }
   function score(work) { return number(work.score && typeof work.score === 'object' ? work.score.total : work.score); }
+  // 전체 작품 / 비슷한 주문끼리: one tap apart on the works board. A box set to the comparison alone has no switch.
+  function comparing(panel) { return panel === 'compare' || (panel === 'works' && view.worksView === 'compare'); }
+  function worksToggle() {
+    if (saved().panel === 'compare') return '';
+    var on = view.worksView === 'compare';
+    return '<span class="lg-toggle"><button type="button" data-act="works-view" data-view="all"' + (on ? '' : ' class="lg-on"') + '>전체 작품</button>' +
+      '<button type="button" data-act="works-view" data-view="compare"' + (on ? ' class="lg-on"' : '') + '>비슷한 주문끼리</button></span>';
+  }
   function worksPanel() {
     var works = ((data && data.works) || []).slice(0);
     works.sort(function (a, b) { return score(b) - score(a) || number(a.submittedAt) - number(b.submittedAt); });
     if (!works.length) return '<p class="lg-empty"><b>손님의 주문에 맞는 청자를 만들어요.</b><br>학생들이 완성한 청자와 설명이 이곳에 모입니다.</p>';
-    var html = '<h2>완성한 청자 <span class="lg-count">' + works.length + '점</span></h2><div class="lg-works">';
+    var html = '<h2 class="lg-works-head">' + worksToggle() + '완성한 청자 <span class="lg-count">' + works.length + '점</span></h2><div class="lg-works">';
     for (var i = 0; i < works.length; i++) {
       var work = works[i], picture = pictures[pictureKey(work)];
       html += '<div class="lg-work" data-work="' + esc(work.id) + '"><div class="lg-work-inner"><div class="lg-work-picture">' +
@@ -328,6 +337,69 @@
         '<b class="lg-score">' + score(work) + '점</b></div><h2>' + esc(work.title || '나의 청자') + '</h2><p>' + esc(work.explanationUse || '') + '</p></div></div>';
     }
     return html + '</div>';
+  }
+  // ---------- 비슷한 주문끼리 비교하기 ----------
+  // Works whose orders asked for the same use (the order's shape), the largest group first; up to four on a page,
+  // shared evenly. Tapping 크게 보기 shows one work with its whole explanation.
+  var COMPARE_PAGE = 4, PLAIN_WORDS = '무늬 없음';
+  function compareGroups() {
+    var works = (data && data.works) || [], groups = [], byKey = {}, i;
+    for (i = 0; i < works.length; i++) {
+      var work = works[i], order = work.order, made = work.made, key = (order && order.shape) || (made && made.shape) || 'other';
+      if (!byKey[key]) { byKey[key] = {key: key, label: (order && order.shapeName) || (made && made.shapeName) || '그 밖의 청자', use: (order && order.use) || '', works: []}; groups.push(byKey[key]); }
+      byKey[key].works.push(work);
+    }
+    for (i = 0; i < groups.length; i++) groups[i].works.sort(function (a, b) { return score(b) - score(a) || number(a.submittedAt) - number(b.submittedAt); });
+    groups.sort(function (a, b) { return b.works.length - a.works.length || (a.label < b.label ? -1 : a.label > b.label ? 1 : 0); });
+    return groups;
+  }
+  function words(parts) { var kept = []; for (var i = 0; i < parts.length; i++) if (parts[i]) kept.push(parts[i]); return kept.join(' · '); }
+  function orderWords(order) {
+    var patterns = order.patterns || [];
+    return words([String(order.customer || '').replace(/의 주문$/, ''), patterns.length ? patterns.join('·') + ' 무늬' : order.techniqueId === 'plain' ? '' : order.technique ? '무늬는 자유' : '무늬·기법은 자유', order.technique]);
+  }
+  function madeWords(made, order) {
+    var patterns = made.patterns || [];
+    return words([order && made.shape === order.shape ? '' : made.shapeName, made.techniqueId === 'plain' ? '' : patterns.length ? patterns.join('·') + ' 무늬' : PLAIN_WORDS, made.technique]);
+  }
+  function comparePicture(work, big) {
+    var picture = pictures[pictureKey(work)];
+    return '<div class="lg-cmp-picture' + (big ? ' lg-cmp-big' : '') + '">' +
+      (picture ? '<img src="' + esc(picture) + '" alt="학생이 완성한 청자">' : '<span>' + (picture === '' ? '그림을 불러오지 못했어요' : '완성한 청자를 불러오고 있어요') + '</span>') +
+      '<b class="lg-score">' + score(work) + '점</b>' + (big ? '' : '<button type="button" class="lg-cmp-open" data-act="compare-open" data-id="' + esc(pictureKey(work)) + '">크게 보기</button>') + '</div>';
+  }
+  function compareFacts(work) {
+    return work.order && work.made ? '<div class="lg-cmp-facts"><div><b>주문</b>' + esc(orderWords(work.order)) + '</div><div><b>만든 것</b>' + esc(madeWords(work.made, work.order)) + '</div></div>' : '';
+  }
+  function comparePanel() {
+    var groups = compareGroups(), i, group = null, html = '';
+    if (!groups.length) return '<p class="lg-empty"><b>손님의 주문에 맞는 청자를 만들어요.</b><br>완성한 청자가 모이면 비슷한 주문끼리 나란히 놓고 비교할 수 있어요.</p>';
+    if (view.compareOpen) {
+      for (i = 0; i < groups.length && !group; i++) for (var w = 0; w < groups[i].works.length; w++) if (pictureKey(groups[i].works[w]) === view.compareOpen) { group = groups[i].works[w]; break; }
+      if (group) return '<div class="lg-cmp-one" data-open="' + esc(group.id) + '"><p class="lg-bar"><button type="button" data-act="compare-close">← 비교 화면으로</button></p><div class="lg-colwrap"><div class="lg-cols">' +
+        '<div class="lg-col lg-wide lg-cmp-card">' + comparePicture(group, true) + '</div><div class="lg-col"><h2 class="lg-exhibit-name">' + esc(group.title || '나의 청자') + '</h2>' + compareFacts(group) +
+        '<p class="lg-exhibit-text"><b>모양 · 문양 · 쓰임</b><br>' + esc(group.explanationUse || '') + '</p><p class="lg-exhibit-text"><b>공들인 부분</b><br>' + esc(group.explanationBeauty || '') + '</p></div></div></div></div>';
+      view.compareOpen = ''; group = null;
+    }
+    for (i = 0; i < groups.length; i++) if (groups[i].key === view.compareGroup) group = groups[i];
+    if (!group) group = groups[0];
+    var pages = Math.max(1, Math.ceil(group.works.length / COMPARE_PAGE)), size = Math.ceil(group.works.length / pages), page = Math.max(0, Math.min(view.comparePage, pages - 1));
+    var shown = group.works.slice(page * size, (page + 1) * size);
+    view.comparePage = page;
+    html += '<div class="lg-chips">' + worksToggle();
+    for (i = 0; i < groups.length; i++) html += '<button type="button" data-act="compare-group" data-id="' + esc(groups[i].key) + '"' + (groups[i] === group ? ' class="lg-on"' : '') + '>' + esc(groups[i].label.replace(/^청자 /, '')) + '<b>' + groups[i].works.length + '</b></button>';
+    html += '</div><div class="lg-cmp-head"><div><span class="lg-label">비슷한 주문끼리 비교하기</span><h2>' + esc(group.label) + ' 주문 <span>' + group.works.length + '점</span></h2>' + (group.use ? '<p>' + esc(group.use) + '</p>' : '') + '</div>' +
+      '<div class="lg-cmp-ask"><p>' + (group.works.length > 1 ? '같은 쓰임의 주문을 받은 친구들의 청자예요.<br><b>무늬·기법·설명</b>에서 같은 점과 다른 점을 찾아봐요.' : '이 쓰임의 주문은 한 명이 받았어요.<br>어떤 모양과 무늬로 만들었는지 함께 살펴봐요.') + '</p></div></div>' +
+      '<div class="lg-cmp lg-cmp-' + shown.length + '" data-group="' + esc(group.key) + '"><div class="lg-colwrap"><div class="lg-cols">';
+    for (i = 0; i < shown.length; i++) {
+      var work = shown[i];
+      html += '<div class="lg-col lg-cmp-card" data-work="' + esc(work.id) + '">' + comparePicture(work, false) + '<div class="lg-cmp-body"><h2>' + esc(work.title || '나의 청자') + '</h2>' + compareFacts(work) +
+        '<p class="lg-cmp-text"><b>쓰임</b>' + esc(work.explanationUse || '') + '</p><p class="lg-cmp-text"><b>공들인 부분</b>' + esc(work.explanationBeauty || '') + '</p></div></div>';
+    }
+    html += '</div></div></div>';
+    if (pages > 1) html += '<p class="lg-cmp-pages"><button type="button" data-act="compare-page" data-step="-1"' + (page === 0 ? ' disabled' : '') + '>← 이전</button><span>' + (page + 1) + ' / ' + pages + '</span>' +
+      '<button type="button" data-act="compare-page" data-step="1"' + (page === pages - 1 ? ' disabled' : '') + '>다음 →</button></p>';
+    return html;
   }
   function modelPanel() {
     var model = saved().model;
@@ -362,10 +434,10 @@
     var state = data && data.state, activity = activityOf(panel), status = state ? state.status : '';
     var live = !!state && state.activity === activity && status === 'active' && (activity !== 1 || (state.activity1Stage === 'beauty') === (panel === 'beauty'));
     var label = !state ? '수업 전' : live ? '진행 중' : status === 'ended' ? '수업 끝' : state.activity === activity && status === 'paused' ? '활동을 마쳤어요' : '준비 중';
-    var done = panel === 'works' ? ((data && data.works) || []).length : panel === 'beauty' ? number(data && data.beauty && data.beauty.respondents) : number(data && data.completionCounts && data.completionCounts[activity]);
+    var done = isWorks(panel) ? ((data && data.works) || []).length : panel === 'beauty' ? number(data && data.beauty && data.beauty.respondents) : number(data && data.completionCounts && data.completionCounts[activity]);
     var time = remaining();
     return '<span class="lg-head-cell lg-title">활동 ' + activity + ' · ' + label + '<b>' + esc(panel === 'beauty' ? BEAUTY_NAME : ACTIVITY_NAMES[activity]) + '</b></span>' +
-      '<span class="lg-head-cell">참여 <b>' + number(data && data.participantCount) + '</b>명</span><span class="lg-head-cell">' + (panel === 'works' ? '완성작' : '모두 작성') + ' <b>' + done + '</b>' + (panel === 'works' ? '점' : '명') + '</span>' +
+      '<span class="lg-head-cell">참여 <b>' + number(data && data.participantCount) + '</b>명</span><span class="lg-head-cell">' + (isWorks(panel) ? '완성작' : '모두 작성') + ' <b>' + done + '</b>' + (isWorks(panel) ? '점' : '명') + '</span>' +
       '<span class="lg-head-cell lg-timer" data-timer>' + (time ? '남은 시간 <b>' + time + '</b>' : '') + '</span>' + buttons;
   }
   function setupMarkup(message) {
@@ -404,10 +476,10 @@
     else {
       if (needsLink(panel) && waiting) html += '<p class="lg-note" data-waiting><b>지금은 열린 수업이 없어요.</b> 수업이 열리면 이 화면에 실시간 결과가 나타나요.</p>';
       else if (needsLink(panel) && !data) html += '<p class="lg-note">수업에 연결하고 있어요…</p>';
-      html += panel === 'comparison' ? comparisonPanel() : panel === 'beauty' ? beautyPanel() : panel === 'uses' ? usesPanel() : panel === 'works' ? worksPanel() : panel === 'model' ? modelPanel() : gamePanel();
+      html += panel === 'comparison' ? comparisonPanel() : panel === 'beauty' ? beautyPanel() : panel === 'uses' ? usesPanel() : comparing(panel) ? comparePanel() : panel === 'works' ? worksPanel() : panel === 'model' ? modelPanel() : gamePanel();
     }
     if (html !== lastBody) { lastBody = html; body.innerHTML = html; body.setAttribute('data-panel', panel); mountTurns(); }
-    if (panel === 'works') loadPictures();
+    if (isWorks(panel)) loadPictures();
     syncAuto(); syncCover();
   }
   function tick() {
@@ -469,6 +541,11 @@
       if (!(data && data.state && data.state.revealed && data.state.revealed[activity])) { reveal(activity); return; }
       view.exhibit[activity] = true;
     } else if (act === 'exhibit-object') view.exhibitObject[activity] = node.getAttribute('data-id');
+    else if (act === 'works-view') { view.worksView = node.getAttribute('data-view') === 'compare' ? 'compare' : 'all'; view.compareOpen = ''; }
+    else if (act === 'compare-group') { view.compareGroup = node.getAttribute('data-id') || ''; view.comparePage = 0; }
+    else if (act === 'compare-page') view.comparePage = Math.max(0, view.comparePage + Number(node.getAttribute('data-step')));
+    else if (act === 'compare-open') view.compareOpen = node.getAttribute('data-id') || '';
+    else if (act === 'compare-close') view.compareOpen = '';
     else if (act === 'cover') { coverLifted = true; syncCover(); return; }
     else return;
     render();

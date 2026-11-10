@@ -36,6 +36,18 @@ const base=process.env.BASE_URL||'http://127.0.0.1:4173';
     assert.deepEqual(await order(),['gallery-3','gallery-10','gallery-2'],'choice survives switching activities');
     await teacher.waitForTimeout(4300);
     assert.equal(await teacher.getAttribute('[data-action=works-sort][data-sort=score]','aria-pressed'),'true','choice survives polling');
+    // 비슷한 주문끼리: the three works answered the same order (a pillow), so they stand side by side with the students'
+    // names, the best score first; a work made as another vessel says which.
+    await teacher.click('[data-action=works-view][data-view=compare]');
+    assert.match(await teacher.locator('.compare-head').innerText(),/청자 베개 주문\s*3점/);
+    assert.deepEqual(await teacher.locator('.compare-card').evaluateAll(cards=>cards.map(card=>[card.dataset.workId,card.querySelector('.student-line').textContent,...[...card.querySelectorAll('.compare-facts dd')].map(item=>item.textContent)])),
+      [['gallery-3','3번 학생3','왕실 · 학 무늬 · 상감','학 무늬 · 상감'],['gallery-10','10번 학생10','왕실 · 학 무늬 · 상감','학 무늬 · 상감'],['gallery-2','2번 학생2','왕실 · 학 무늬 · 상감','청자 매병 · 학 무늬 · 상감']]);
+    assert.equal(await teacher.locator('[data-action=works-sort]').count(),0,'the comparison has its own order');
+    await teacher.waitForFunction(()=>!document.querySelector('.compare-card .image-wait'));
+    await teacher.waitForTimeout(4300);
+    assert.equal(await teacher.locator('.compare-card').count(),3,'the comparison survives polling');
+    await teacher.click('[data-action=works-view][data-view=all]');
+    assert.deepEqual(await order(),['gallery-3','gallery-10','gallery-2'],'back to every work, sorted as before');
     const opener=teacher.locator('[data-work-id="gallery-3"] [data-action=view-work]');
     await opener.click();const dialog=teacher.locator('dialog.work-dialog[open]');
     await dialog.locator('.student-work-viewer [data-status=ready] canvas').waitFor({timeout:30000});
@@ -122,6 +134,6 @@ const base=process.env.BASE_URL||'http://127.0.0.1:4173';
     teacher.once('dialog',prompt=>prompt.dismiss());await deleteButton.click();assert.equal(await teacher.locator('.teacher-stage-nav').count(),1,'cancel preserves class');
     teacher.once('dialog',prompt=>prompt.accept());await deleteButton.click();await teacher.locator('[data-form=create]').waitFor();room=null;
     assert.deepEqual(errors,[]);
-    console.log('Completed works: sorting,faithfulreadonlyrotation/zoom,legacyphotozoom,story+score,keyboard/focus/mobile,observerprivacy,lazy-close/expiry/removal anddeleteconfirmationpassed.');
+    console.log('Completed works: sorting,similar-order comparison with names,faithfulreadonlyrotation/zoom,legacyphotozoom,story+score,keyboard/focus/mobile,observerprivacy,lazy-close/expiry/removal anddeleteconfirmationpassed.');
   }finally{releaseImage?.();releaseModule?.();if(room&&teacher)await teacher.request.post(`${base}/api/classroom`,{headers:{Authorization:`Bearer ${room.teacherToken}`},data:{action:'control',code:room.code,command:'delete'}}).catch(()=>{});await browser.close();}
 })().catch(error=>{console.error(error);process.exitCode=1;});

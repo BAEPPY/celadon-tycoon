@@ -48,7 +48,7 @@ async function observerFromTeacher(){
 // A slide-sized live board for projectors and PowerPoint (Web Viewer): pages shown inside another page, ?board=1 or
 // ?show=… use it. ?show= pins one board; otherwise the board follows the activity the teacher is running.
 function framedPage(){try{return window.self!==window.top;}catch{return true;}}
-const BOARD_PANELS={comparison:{activity:1,view:'comparison'},beauty:{activity:1,view:'beauty'},uses:{activity:2},works:{activity:3}};
+const BOARD_PANELS={comparison:{activity:1,view:'comparison'},beauty:{activity:1,view:'beauty'},uses:{activity:2},works:{activity:3},compare:{activity:3,works:'compare'}};
 const boardQuery=new URLSearchParams(location.search),boardPin=observerMode?BOARD_PANELS[boardQuery.get('show')]||null:null;
 const boardMode=observerMode&&(Boolean(boardPin)||boardQuery.get('board')==='1'||framedPage());
 let session=observerMode?observerSession():teacherMode?stored(SESSION_KEY):loadStudentEntryState(),room=null,teacherData=null,student=null,answers={},offset=0,offsetSamples=[];
@@ -57,6 +57,8 @@ let teacherResultViews={1:'responses',2:'responses'},exhibitObjects={1:'1',2:'1'
 // A board opened with the PPT link ("PPT용 주소") may reveal answers from the slide itself.
 let boardPresenter=false;
 let worksSort=observerMode?'score':'number',workDialog=null;
+// Activity 3 results: every work, or works from similar orders (the same use) side by side, four at a time.
+let worksView=boardPin?.works==='compare'?'compare':'all',compareGroup='',comparePage=0;const COMPARE_PAGE=4;
 let observerInviteDialog=null,observerInviteRequest=null,observerInviteVerified=null,observerInviteModule;
 let drafts={1:{},2:{},beauty:{}},revisions={1:0,2:0,beauty:0},dirty={1:false,2:false,beauty:false},draftChanges={1:0,2:0,beauty:0},submitted={1:false,2:false,beauty:false};
 let viewKey='',teacherSignature='',pollTimer=null,pollRunning=false,pollFailures=0,connectionError='',lastSuccessfulPoll=0;
@@ -314,7 +316,7 @@ function receive(payload,{initial=false}={}){
   if(teacherMode){
     teacherData={...(teacherData||{}),...payload};pruneTeacherWorks();if(initial)teacherActivity=room.activity||1;else if(observerMode&&room.activity&&room.activity!==previous?.activity)teacherActivity=room.activity;
     if(initial||room.activity1Stage!==previous?.activity1Stage)teacherA1View=room.activity1Stage==='beauty'?'beauty':'comparison';
-    if(boardPin){teacherActivity=boardPin.activity;if(boardPin.view)teacherA1View=boardPin.view;}
+    if(boardPin){teacherActivity=boardPin.activity;if(boardPin.view)teacherA1View=boardPin.view;if(boardPin.works)worksView=boardPin.works;}
     for(const activity of [1,2]){
       if(room.revealed?.[activity]&&!previous?.revealed?.[activity]){teacherResultViews[activity]='exhibit';exhibitObjects[activity]='1';}
       else if(!room.revealed?.[activity])teacherResultViews[activity]='responses';
@@ -448,7 +450,7 @@ function teacherObservations(){
 function disposeComparisonViewers(){for(const entry of teacherComparisonViewers.values())entry.viewer.dispose();teacherComparisonViewers.clear();}
 function disposeTeacherBoard(){cloudView?.dispose();cloudView=null;teacherViewer?.viewer.dispose();teacherViewer=null;disposeComparisonViewers();}
 function mountTeacherBoard(){
-  cloudView?.dispose();cloudView=null;
+  cloudView?.dispose();cloudView=null;fitCompareCards();
   const comparisonTargets=[...app.querySelectorAll('[data-teacher-comparison-viewer]')];
   const visibleIds=new Set(comparisonTargets.map(target=>target.dataset.teacherComparisonViewer));
   for(const [id,entry] of teacherComparisonViewers)if(!visibleIds.has(id)){entry.viewer.dispose();teacherComparisonViewers.delete(id);}
@@ -485,9 +487,49 @@ function sortedWorks(){
 }
 function workImageMarkup(work){return workImages.has(workKey(work))?`<img src="${esc(workImages.get(workKey(work)))}" alt="${work.name?`${esc(work.number)}번 ${esc(work.name)} 학생의 완성한 청자`:'학생의 완성한 청자'}">`:'<span class="image-wait">완성한 청자를 불러오고 있어요.</span>';}
 function workExplanationMarkup(work){return `<section><h3>모양 · 문양 · 쓰임</h3><p>${esc(work.explanationUse||'')}</p></section><section><h3>공들인 부분</h3><p>${esc(work.explanationBeauty||'')}</p></section>`;}
+// Works grouped by the use their order asked for (the order's shape): the largest group first.
+function compareGroups(){
+  const groups=new Map();
+  for(const work of teacherData?.works||[]){
+    const key=work.order?.shape||work.made?.shape||'other';
+    if(!groups.has(key))groups.set(key,{key,label:work.order?.shapeName||work.made?.shapeName||'그 밖의 청자',use:work.order?.use||'',works:[]});
+    groups.get(key).works.push(work);
+  }
+  const list=[...groups.values()];
+  for(const group of list)group.works.sort((a,b)=>workScore(b)-workScore(a)||(Number(a.number)||0)-(Number(b.number)||0)||workKey(a).localeCompare(workKey(b)));
+  return list.sort((a,b)=>b.works.length-a.works.length||a.label.localeCompare(b.label,'ko'));
+}
+// "학·구름 무늬 · 상감": what an order asked for, or what was made, in a few words.
+const orderWords=order=>[order.customer.replace(/의 주문$/,''),order.patterns?.length?`${order.patterns.join('·')} 무늬`:order.techniqueId==='plain'?'':order.technique?'무늬는 자유':'무늬·기법은 자유',order.technique].filter(Boolean).join(' · ');
+const madeWords=(made,order)=>[made.shape!==order?.shape?made.shapeName:'',made.techniqueId==='plain'?'':made.patterns?.length?`${made.patterns.join('·')} 무늬`:'무늬 없음',made.technique].filter(Boolean).join(' · ');
+function compareCard(w){
+  const title=w.title||'나의 청자';
+  return `<article class="panel compare-card" data-work-id="${esc(w.id)}"><div class="work-preview" data-work-preview="${esc(workKey(w))}">${workImageMarkup(w)}<span class="work-score">${workScore(w)}점</span><button type="button" class="button secondary work-expand" data-action="view-work" data-work-key="${esc(workKey(w))}" aria-label="${esc(title)} 작품과 설명 크게 보기"><span aria-hidden="true">⛶</span> 크게 보기</button></div><div class="compare-details">${w.name?`<p class="student-line">${esc(w.number)}번 ${esc(w.name)}</p>`:''}<h3>${esc(title)}</h3>${w.order&&w.made?`<dl class="compare-facts"><div><dt>주문</dt><dd>${esc(orderWords(w.order))}</dd></div><div><dt>만든 것</dt><dd>${esc(madeWords(w.made,w.order))}</dd></div></dl>`:''}<p class="compare-text"><b>쓰임</b>${esc(w.explanationUse||'')}</p><p class="compare-text"><b>공들인 부분</b>${esc(w.explanationBeauty||'')}</p></div></article>`;
+}
+// Up to four works on a page, shared evenly (five works are three and two, not four and one).
+function comparePages(works){const pages=Math.max(1,Math.ceil(works.length/COMPARE_PAGE)),size=Math.ceil(works.length/pages);return Array.from({length:pages},(_,index)=>works.slice(index*size,(index+1)*size));}
+function compareMarkup(){
+  const groups=compareGroups(),group=groups.find(item=>item.key===compareGroup)||groups[0],pages=comparePages(group.works),page=Math.min(Math.max(comparePage,0),pages.length-1),shown=pages[page];
+  return `<section class="compare-board" data-testid="compare-board" data-group="${esc(group.key)}"><nav class="compare-groups" aria-label="비슷한 주문 묶음">${groups.map(item=>`<button type="button" data-action="compare-group" data-group="${esc(item.key)}" aria-pressed="${item===group}">${esc(item.label.replace(/^청자 /,''))}<b>${item.works.length}</b></button>`).join('')}</nav><header class="compare-head"><div><span class="activity-label">비슷한 주문끼리 비교하기</span><h2>${esc(group.label)} 주문 <span>${group.works.length}점</span></h2>${group.use?`<p>${esc(group.use)}</p>`:''}</div><p class="compare-ask">${group.works.length>1?'같은 쓰임의 주문을 받은 친구들의 청자예요.<br><strong>무늬·기법·설명</strong>에서 같은 점과 다른 점을 찾아봐요.':'이 쓰임의 주문은 한 명이 받았어요.<br>어떤 모양과 무늬로 만들었는지 함께 살펴봐요.'}</p></header><div class="compare-cards" data-count="${shown.length}">${shown.map(compareCard).join('')}</div>${pages.length>1?`<nav class="compare-pages" aria-label="이 묶음의 작품 넘기기"><button type="button" class="button secondary" data-action="compare-page" data-step="-1" ${page===0?'disabled':''}>← 이전</button><span>${page+1} / ${pages.length}</span><button type="button" class="button secondary" data-action="compare-page" data-step="1" ${page===pages.length-1?'disabled':''}>다음 →</button></nav>`:''}</section>`;
+}
+addEventListener('resize',()=>fitCompareCards());
+// On a board the cards have a fixed height: show as many lines of each explanation as fit (크게 보기 has the rest).
+function fitCompareCards(){
+  // Fewer lines step by step, the second explanation first: 4·4, 4·3, 3·3, 3·2, 2·2, 2·1, 1·1.
+  for(const details of app.querySelectorAll('.board-fit .compare-details')){
+    const texts=[...details.querySelectorAll('.compare-text')],fits=()=>details.scrollHeight<=details.clientHeight+1;
+    details.classList.remove('tight');let lines=[4,4];
+    const apply=()=>texts.forEach((text,index)=>text.style.setProperty('--lines',lines[index]??lines[0]));
+    apply();
+    while(!fits()&&lines[0]+lines[1]>2){if(lines[1]>=lines[0])lines[1]-=1;else lines[0]-=1;apply();}
+    if(!fits())details.classList.add('tight');
+  }
+}
 function teacherWorks(){
-  const works=sortedWorks();
-  return works.length?`<div class="works-toolbar"><h2>완성한 청자 <span>${works.length}점</span></h2><div class="works-sort" role="group" aria-label="작품 정렬">${[['score','점수순'],...(!observerMode?[['number','번호순']]:[])].map(([sort,label])=>`<button type="button" data-action="works-sort" data-sort="${sort}" aria-pressed="${worksSort===sort}">${label}</button>`).join('')}</div></div><div class="works-grid">${works.map(w=>`<article class="panel work-card" data-work-id="${esc(w.id)}"><div class="work-preview" data-work-preview="${esc(workKey(w))}">${workImageMarkup(w)}<span class="work-score">${workScore(w)}점</span></div><div class="work-details">${w.name?`<p class="student-line">${esc(w.number)}번 ${esc(w.name)}</p>`:''}<h2>${esc(w.title||'나의 청자')}</h2>${workExplanationMarkup(w)}<button type="button" class="button secondary work-expand" data-action="view-work" data-work-key="${esc(workKey(w))}" aria-label="${esc(w.title||'나의 청자')} 작품과 설명 크게 보기"><span aria-hidden="true">⛶</span> 크게 보기</button></div></article>`).join('')}</div>`:room?.preview?`<section class="panel teacher-empty"><h2>손님의 주문에 맞는 청자를 만들어요.</h2><p>수업이 열리면 학생들이 완성한 청자와 설명이<br>이곳에 모입니다.</p><a class="button secondary preview-game-link" href="/game" target="_blank" rel="noopener">청자 만들기 게임 해 보기 →</a></section>`:`<section class="panel teacher-empty"><h2>나만의 청자를 빚고 있어요.</h2><p>학생이 작품을 완성하고 설명을 전달하면<br>이곳에 청자와 이야기, 점수가 함께 모입니다.</p></section>`;
+  const works=sortedWorks(),comparing=worksView==='compare';
+  // A board pinned to the comparison (?show=compare) has no switch; elsewhere 전체 작품 and 비슷한 주문끼리 are one tap apart.
+  const views=boardPin?.works?'':`<div class="works-sort works-view" role="group" aria-label="작품 보는 방법">${[['all','전체 작품'],['compare','비슷한 주문끼리']].map(([view,label])=>`<button type="button" data-action="works-view" data-view="${view}" aria-pressed="${worksView===view}">${label}</button>`).join('')}</div>`;
+  return works.length?`${boardPin?.works&&comparing?'':`<div class="works-toolbar"><h2>완성한 청자 <span>${works.length}점</span></h2>${views}${comparing?'':`<div class="works-sort" role="group" aria-label="작품 정렬">${[['score','점수순'],...(!observerMode?[['number','번호순']]:[])].map(([sort,label])=>`<button type="button" data-action="works-sort" data-sort="${sort}" aria-pressed="${worksSort===sort}">${label}</button>`).join('')}</div>`}</div>`}${comparing?compareMarkup():`<div class="works-grid">${works.map(w=>`<article class="panel work-card" data-work-id="${esc(w.id)}"><div class="work-preview" data-work-preview="${esc(workKey(w))}">${workImageMarkup(w)}<span class="work-score">${workScore(w)}점</span></div><div class="work-details">${w.name?`<p class="student-line">${esc(w.number)}번 ${esc(w.name)}</p>`:''}<h2>${esc(w.title||'나의 청자')}</h2>${workExplanationMarkup(w)}<button type="button" class="button secondary work-expand" data-action="view-work" data-work-key="${esc(workKey(w))}" aria-label="${esc(w.title||'나의 청자')} 작품과 설명 크게 보기"><span aria-hidden="true">⛶</span> 크게 보기</button></div></article>`).join('')}</div>`}`:room?.preview?`<section class="panel teacher-empty"><h2>손님의 주문에 맞는 청자를 만들어요.</h2><p>수업이 열리면 학생들이 완성한 청자와 설명이<br>이곳에 모입니다.</p><a class="button secondary preview-game-link" href="/game" target="_blank" rel="noopener">청자 만들기 게임 해 보기 →</a></section>`:`<section class="panel teacher-empty"><h2>나만의 청자를 빚고 있어요.</h2><p>학생이 작품을 완성하고 설명을 전달하면<br>이곳에 청자와 이야기, 점수가 함께 모입니다.</p></section>`;
 }
 function workDialogMarkup(work){
   const breakdown=Number.isFinite(work.objectiveScore)&&Number.isFinite(work.explanationScore)?`<small>주문·제작 ${work.objectiveScore}점 · 설명 ${work.explanationScore}점</small>`:'';
@@ -654,7 +696,7 @@ function renderTeacher(){
   if(!teacherMode||!(session?.teacherToken||session?.observerToken))return;
   syncWorkDialog();
   if(observerInviteDialog&&!sameObserverInviteSession(observerInviteDialog.identity))closeObserverInvite({restoreFocus:false});
-  const status=effectiveStatus(),dataSignature=JSON.stringify({state:{...room,serverNow:0},participants:teacherData?.participants,participantCount:teacherData?.participantCount,completionCounts:teacherData?.completionCounts,comparison:teacherData?.comparison,observations:teacherData?.observations,works:teacherData?.works,reveal:teacherData?.reveal,teacherActivity,teacherObject,cloudKind,teacherResultViews,exhibitObjects,worksSort,teacherA1View,beauty:teacherData?.beauty,status,controlBusy});
+  const status=effectiveStatus(),dataSignature=JSON.stringify({state:{...room,serverNow:0},participants:teacherData?.participants,participantCount:teacherData?.participantCount,completionCounts:teacherData?.completionCounts,comparison:teacherData?.comparison,observations:teacherData?.observations,works:teacherData?.works,reveal:teacherData?.reveal,teacherActivity,teacherObject,cloudKind,teacherResultViews,exhibitObjects,worksSort,worksView,compareGroup,comparePage,teacherA1View,beauty:teacherData?.beauty,status,controlBusy});
   if(settingsDirty&&viewKey==='teacher'){updateTimer();updateConnection();return;}
   if(viewKey==='teacher'&&teacherSignature===dataSignature){updateTimer();updateConnection();if(teacherActivity===3)loadWorkImages();return;}
   teacherSignature=dataSignature;viewKey='teacher';disposeViewers();cloudView?.dispose();cloudView=null;
@@ -662,7 +704,7 @@ function renderTeacher(){
   const completed=teacherBeautyView()?Number(teacherData?.beauty?.respondents)||0:teacherActivity===3?(teacherData?.works||[]).length:observerMode?Number(teacherData?.completionCounts?.[teacherActivity])||0:(teacherData?.participants||[]).filter(p=>p[`activity${teacherActivity}Complete`]).length;
   if(boardMode){
     const name=teacherBeautyView()?BEAUTY_NAME:ACTIVITY_NAMES[teacherActivity],state=room.preview?'수업 전':live?'진행 중':status==='ended'?'수업 끝':room.activity===teacherActivity&&status==='paused'?'활동을 마쳤어요':'준비 중';
-    app.innerHTML=`<div class="board-shell" data-testid="live-board"><header class="board-status"><div class="board-title"><span>활동 ${teacherActivity} · ${state}</span><strong>${esc(name)}</strong></div><div class="board-metrics"><span>참여 <strong>${participantCount}</strong>명</span><span>${teacherActivity===3?'완성작':'모두 작성'} <strong>${completed}</strong>${teacherActivity===3?'점':'명'}</span></div>${timerMarkup()}<span class="pill" data-connection>연결됨</span><button class="board-refresh" type="button" data-action="board-reload" aria-label="이 화면 새로고침" title="이 화면 새로고침">↻</button></header>${observerPreviewNote()}<div class="teacher-content">${teacherContent()}</div></div>`;
+    app.innerHTML=`<div class="board-shell${teacherActivity===3&&worksView==='compare'&&(teacherData?.works||[]).length?' board-fit':''}" data-testid="live-board"><header class="board-status"><div class="board-title"><span>활동 ${teacherActivity} · ${state}</span><strong>${esc(name)}</strong></div><div class="board-metrics"><span>참여 <strong>${participantCount}</strong>명</span><span>${teacherActivity===3?'완성작':'모두 작성'} <strong>${completed}</strong>${teacherActivity===3?'점':'명'}</span></div>${timerMarkup()}<span class="pill" data-connection>연결됨</span><button class="board-refresh" type="button" data-action="board-reload" aria-label="이 화면 새로고침" title="이 화면 새로고침">↻</button></header>${observerPreviewNote()}<div class="teacher-content">${teacherContent()}</div></div>`;
     updateTimer();updateConnection();mountTeacherBoard();if(teacherActivity===3)loadWorkImages();return;
   }
   app.innerHTML=`<div class="lesson-shell teacher-shell">${header()}<div class="teacher-workspace"><section class="teacher-main"><div class="teacher-overview"><div><span class="activity-label">고려의 문화 · 함께 생각하는 시간</span><h1>${TITLE}</h1></div></div>${observerPreviewNote()}<nav class="teacher-stage-nav" aria-label="교사용 활동 선택">${[1,2,3].map(n=>`<button class="${teacherActivity===n?'active':''}" data-action="teacher-activity" data-activity="${n}">${room.activity===n&&status==='active'?'<i class="live-dot"></i>':''}<span><b>${n}</b> ${ACTIVITY_NAMES[n]}</span></button>`).join('')}</nav><div class="teacher-content">${teacherContent()}</div></section><aside class="teacher-sidebar" aria-label="교사용 수업 진행"><section class="teacher-control-bar"><span class="activity-label">수업 진행</span><div class="stage-caption">${teacherBeautyView()?BEAUTY_NAME:ACTIVITY_NAMES[teacherActivity]}<small>${observerMode?(room.preview?'수업이 열리면 실시간으로 보여요.':live?'학생들이 활동하고 있어요.':status==='active'?`지금은 활동 ${room.activity}${room.activity===2?'가':'이'} 진행 중이에요.`:status==='ended'?'수업을 마쳤어요.':room.activity===teacherActivity&&status==='paused'?'학생들이 선생님을 보고 있어요.':'아직 진행하지 않은 활동이에요.'):live?(timeExpired()?'입력이 마감됐어요. 활동을 마쳐 주세요.':'학생들이 활동하고 있어요.'):status==='active'?`지금은 활동 ${room.activity}${room.activity===2?'가':'이'} 진행 중이에요. 먼저 활동을 마쳐 주세요.`:room.activity===teacherActivity&&status==='paused'?'학생들이 선생님을 보고 있어요.':status==='ended'?'수업을 마쳤어요.':'시작하면 학생 화면이 함께 열립니다.'}</small></div>${timerMarkup()}<div class="teacher-metrics"><span>참여 <strong>${participantCount}</strong>명</span><span>${teacherActivity===3?'완성작':'모두 작성'} <strong>${completed}</strong>${teacherActivity===3?'점':'명'}</span></div>${teacherActionMarkup(live,status)}</section>${status==='paused'?'<div class="teacher-pause-note">학생 화면은 지금<br>“크롬북을 닫고 선생님을 보세요”</div>':''}${observerMode?'':participantsMarkup()+teacherSettings()+'<section class="panel teacher-data-actions"><button class="button danger small" data-action="delete-room">수업 데이터 삭제</button><p>학생 정보 · 답변 · 작품을 삭제합니다.</p></section>'}</aside></div></div>`;
@@ -677,7 +719,7 @@ function pruneTeacherWorks(){
   for(const key of workDesigns.keys())if(!currentKeys.has(key))workDesigns.delete(key);
   if(kept.length===works.length)return false;
   // The settings form can defer a board rerender; expired images and text must still leave the DOM now.
-  for(const preview of app.querySelectorAll('.work-card [data-work-preview]'))if(!currentKeys.has(preview.dataset.workPreview))preview.closest('.work-card')?.remove();
+  for(const preview of app.querySelectorAll('.work-card [data-work-preview],.compare-card [data-work-preview]'))if(!currentKeys.has(preview.dataset.workPreview))preview.closest('.work-card,.compare-card')?.remove();
   teacherData={...teacherData,works:kept};return true;
 }
 function pruneLocalGameData(){try{pruneGameSaves(localStorage);}catch{}}
@@ -878,6 +920,9 @@ async function handleClick(event){
     if(action==='teacher-a1-view'){teacherA1View=button.dataset.view==='beauty'?'beauty':'comparison';settingsDirty=false;renderTeacher();return;}
     if(action==='start-beauty'){settingsDirty=false;await control('start-beauty');return;}
     if(action==='teacher-object'){teacherObject=button.dataset.id;renderTeacher();return;}
+    if(action==='works-view'){worksView=button.dataset.view==='compare'?'compare':'all';comparePage=0;renderTeacher();if(teacherActivity===3)loadWorkImages();app.querySelector(`[data-action="works-view"][data-view="${worksView}"]`)?.focus({preventScroll:true});return;}
+    if(action==='compare-group'){compareGroup=button.dataset.group||'';comparePage=0;renderTeacher();loadWorkImages();app.querySelector(`[data-action="compare-group"][aria-pressed=true]`)?.focus({preventScroll:true});return;}
+    if(action==='compare-page'){comparePage=Math.max(0,comparePage+(Number(button.dataset.step)||0));renderTeacher();loadWorkImages();app.querySelector('[data-action="compare-page"]:not(:disabled)')?.focus({preventScroll:true});return;}
     if(action==='works-sort'){worksSort=!observerMode&&button.dataset.sort==='number'?'number':'score';renderTeacher();app.querySelector(`[data-action="works-sort"][data-sort="${worksSort}"]`)?.focus({preventScroll:true});return;}
     if(action==='view-work'){openWorkDialog(button.dataset.workKey);return;}
     // From a PPT slide: opening the explanations reveals them to the class, like the teacher's 함께 정답 보기.

@@ -71,12 +71,54 @@ html,body{margin:0;height:100%}
 .lg-work{display:inline-block;vertical-align:top;width:20%;padding:.3rem}
 .lg-work-inner{background:#fff;border:1px solid #d9e3e6;border-radius:.6rem;padding:.5rem;overflow:hidden}
 .lg-work-picture{position:relative;height:0;padding-top:75%;border-radius:.4rem;background:#f5f1e6;overflow:hidden}
-.lg-work-picture img{position:absolute;top:0;left:0;width:100%;height:100%}
+/* A picture keeps its own shape, as large as fits its box (no object-fit in that engine). */
+.lg-work-picture img,.lg-cmp-picture img{position:absolute;top:50%;left:50%;width:auto;height:auto;max-width:100%;max-height:100%;-ms-transform:translate(-50%,-50%);transform:translate(-50%,-50%)}
 .lg-work-picture span{position:absolute;left:0;right:0;top:40%;text-align:center;font-size:.72rem;color:#8a7f6c;padding:0 .4rem}
 .lg-score{position:absolute;right:.3rem;top:.3rem;background:#078e91;color:#fff;border-radius:1rem;padding:.05rem .5rem;font-size:.78rem;font-weight:700}
 .lg-work h2{font-size:.92rem;margin-top:.35rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .lg-work p{font-size:.76rem;color:#56646e;height:2.2rem;overflow:hidden;margin-top:.15rem}
 .lg-center{text-align:center}
+/* 비슷한 주문끼리 비교하기: chips for the groups, a heading with the question, up to four works side by side. */
+.lg-chips{margin:0 0 .45rem}
+.lg-toggle{float:right;margin-left:.8rem}
+#lg-root .lg-toggle button{margin-left:.25rem;font-size:.8rem}
+.lg-works-head{overflow:hidden;line-height:2rem;margin-bottom:.2rem}
+#lg-root .lg-works-head .lg-count{float:none;margin-left:.4rem}
+#lg-root .lg-chips button{border-radius:1.3rem;margin:0 .3rem .2rem 0;padding:.3rem .8rem;font-size:.85rem;color:#56707a;border-color:#d5e3e3}
+#lg-root .lg-chips button.lg-on{background:#078e91;border-color:#078e91;color:#fff}
+.lg-chips button b{display:inline-block;margin-left:.4rem;padding:0 .4rem;border-radius:1rem;background:#eaf0f1;color:#56707a;font-size:.72rem}
+.lg-chips button.lg-on b{background:#3aa7a9;color:#fff}
+.lg-cmp-head{display:table;width:100%;border:1px solid #cfe5e1;border-radius:.6rem;background:#eef9f6;margin-bottom:.55rem}
+.lg-cmp-head>div{display:table-cell;vertical-align:middle;padding:.45rem .8rem}
+#lg-root .lg-cmp-head h2{font-size:1.4rem;line-height:1.3}
+.lg-cmp-head h2 span{font-size:.9rem;color:#067477;margin-left:.4rem}
+.lg-cmp-head p{font-size:.78rem;color:#55707a}
+.lg-cmp-head .lg-cmp-ask{width:47%}
+.lg-cmp-ask p{border-left:.22rem solid #ee764f;border-radius:.2rem .5rem .5rem .2rem;background:#fff;padding:.4rem .7rem;font-size:.86rem;line-height:1.5;color:#33474f}
+.lg-cmp-ask b{color:#db633e}
+.lg-cmp{margin:0 auto}
+.lg-cmp-1{width:46%}
+.lg-cmp-2{width:78%}
+.lg-col.lg-cmp-card{padding:0;overflow:hidden}
+.lg-cmp-picture{position:relative;height:10.4rem;background:#f5f1e6;overflow:hidden;text-align:center}
+.lg-cmp-picture span{position:absolute;left:0;right:0;top:42%;font-size:.76rem;color:#8a7f6c;padding:0 .5rem}
+.lg-cmp-picture .lg-score{font-size:.95rem;padding:.1rem .6rem}
+#lg-root .lg-cmp-open{position:absolute;right:.35rem;bottom:.35rem;font-size:.74rem;padding:.25rem .55rem}
+#lg-root.lg-touch .lg-cmp-open{font-size:.82rem;padding:.4rem .7rem}
+.lg-cmp-body{padding:.5rem .7rem .65rem}
+#lg-root .lg-cmp-body h2{font-size:1.02rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lg-cmp-facts{margin:.35rem 0;padding:.3rem .5rem;border-radius:.4rem;background:#f3f8f7;font-size:.76rem;line-height:1.55;color:#33474f}
+.lg-cmp-facts div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lg-cmp-facts b{display:inline-block;width:3.4rem;color:#368d86}
+.lg-cmp-text{font-size:.8rem;line-height:1.45;max-height:2.9em;overflow:hidden;margin-top:.3rem;color:#33474f}
+.lg-cmp-text b{font-size:.7rem;color:#368d86;margin-right:.4rem}
+.lg-cmp-pages{text-align:center;margin-top:.5rem}
+.lg-cmp-pages span{display:inline-block;margin:0 .9rem;font-size:.86rem;font-weight:700;color:#56707a}
+/* One work, large: the picture keeps its own shape (as wide as its column). */
+.lg-cmp-picture.lg-cmp-big{height:auto;min-height:12rem}
+.lg-cmp-picture.lg-cmp-big img{position:static;display:block;width:100%;height:auto;max-height:none;-ms-transform:none;transform:none}
+.lg-cmp-one .lg-cmp-facts{font-size:.9rem;margin:.5rem 0 .7rem}
+.lg-cmp-one .lg-exhibit-text{line-height:1.6}
 /* 청자만 크게 보기: the model as large as the box (a square as tall as the box), two zoom buttons in the corner. */
 .lg-plain{position:absolute;top:0;left:0;right:0;bottom:0;overflow:hidden;background:#f5f7f8;background:radial-gradient(ellipse at 50% 45%,#ffffff 0%,#eef2f3 80%)}
 .lg-plain .lg-turn-box{width:100vh;max-width:100%;margin:0 auto;border-radius:0;overflow:hidden;background:none}
