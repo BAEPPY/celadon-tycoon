@@ -38,7 +38,14 @@ async function input(page,touch){
    const feedback=await page.locator('.dry-zone-progress').boundingBox(),surface=JSON.parse(await canvas.getAttribute('data-surface-bounds'));
    assert.ok(feedback.y+feedback.height<=initialBox.y+surface.y*initialBox.height+1||feedback.y>=initialBox.y+(surface.y+surface.height)*initialBox.height-1,'drying progress stays clear of the vessel');
    const rack=await page.locator('.station-rack').boundingBox();assert.ok(feedback.y>=rack.y+rack.height-1,'the tool tray does not cover progress');
-   async function setAside(){await canvas.scrollIntoViewIfNeeded();const r=await canvas.boundingBox();await gesture.down({x:r.x+12,y:r.y+20});await gesture.up();}
+   // Park the idle fan on empty workbench at the left edge, level with the middle.
+   // The canvas's top corners are not empty in landscape: the pause and cancel
+   // buttons sit there, so a tap in a corner toggles pause instead of moving the fan.
+   async function setAside(){
+    await canvas.scrollIntoViewIfNeeded();const r=await canvas.boundingBox(),spot={x:r.x+12,y:r.y+r.height/2};
+    assert.equal(await page.evaluate(({x,y})=>document.elementFromPoint(x,y)?.classList.contains('kiln-inplace-canvas'),spot),true,'the fan is set aside on the workbench itself, not on a control');
+    await gesture.down(spot);await gesture.up();
+   }
 
    async function atZone(zone,offset=0){
     await canvas.scrollIntoViewIfNeeded();const r=await canvas.boundingBox(),b=JSON.parse(await canvas.getAttribute('data-surface-bounds')),tool=JSON.parse(await canvas.getAttribute('data-tool-bounds'));
