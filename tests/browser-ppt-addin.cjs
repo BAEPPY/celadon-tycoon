@@ -136,17 +136,18 @@ const officeStub=view=>`window.__settings=window.__settings||{};window.__saved=0
     await fresh.locator('#form button[type=submit]').click();
     assert.equal(await fresh.evaluate(()=>window.__settings.cover),true);
 
-    // PowerPoint 2016/2019 without Microsoft 365 may use Internet Explorer 11 or old Edge: the page says so instead
-    // of staying blank (simulated by making modern syntax fail to compile).
+    // PowerPoint 2016/2019 without Microsoft 365 use Internet Explorer 11 or old Edge: the page hands over to its
+    // old-engine board instead of staying blank (simulated by making modern syntax fail to compile; that board has
+    // its own suite, browser-ppt-legacy.cjs).
     const oldContext=await browser.newContext({viewport:{width:720,height:480}});
     await oldContext.addInitScript(()=>{const F=window.Function;window.Function=function(...args){if(String(args[args.length-1]).includes('?.'))throw new SyntaxError('old engine');return F(...args);};});
     await oldContext.route(OFFICE_JS,route=>route.abort());
     const old=await oldContext.newPage();watch(old,'old engine');
     await old.goto(`${base}/ppt-addin/index.html`);
-    await old.locator('#old-engine').waitFor({timeout:10000});
-    assert.match(await old.locator('#old-engine').innerText(),/실시간 화면을 띄울 수 없어요/);
+    await old.locator('#lg-root #lg-form').waitFor({timeout:15000});
+    assert.match(await old.locator('#lg-root').innerText(),/옛 웹 엔진/);assert.equal(await old.locator('#setup').isVisible(),false);
     assert.deepEqual(errors,[]);
-    console.log('PowerPoint add-in: manifest and icons served, link validation, remembered choice outside Office, draggable 3D model page, per-instance Office settings, shared link on the next slide, slide-show view without controls, remote keys moving slides, click-to-reveal cover, old-engine notice and direct board on open passed.');
+    console.log('PowerPoint add-in: manifest and icons served, link validation, remembered choice outside Office, draggable 3D model page, per-instance Office settings, shared link on the next slide, slide-show view without controls, remote keys moving slides, click-to-reveal cover, hand-over to the old-engine board and direct board on open passed.');
   }finally{
     if(room&&teacher)await control('delete').catch(()=>{});
     await browser.close();
