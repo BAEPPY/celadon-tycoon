@@ -46,6 +46,8 @@ const officeStub=view=>`window.__settings=window.__settings||{};window.__goto=[]
     await usual.close();
     const page=await context.newPage();watch(page,'old-engine board');
     const requests=[];page.on('request',request=>requests.push(request.url()));
+    // First the board as it is where 3D does not work (3D switched off here): pictures that turn.
+    await page.addInitScript(key=>{if(!localStorage.getItem(key))localStorage.setItem(key,JSON.stringify({three:false}));},'celadon-ppt-addin-v1');
     await page.goto(`${base}/ppt-addin/index.html?legacy=1`);
     await page.locator('#lg-form').waitFor({timeout:15000});
     assert.equal(await page.locator('#setup').isVisible(),false,'the usual form stays hidden');
@@ -72,7 +74,7 @@ const officeStub=view=>`window.__settings=window.__settings||{};window.__goto=[]
     const turn=page.locator('.lg-turn[data-model="comparison-1"]');
     assert.match(await turn.evaluate(el=>el.style.backgroundImage),/\/assets\/lesson\/turntable\/comparison-1\.jpg/);
     assert.match((await page.request.get(`${base}/assets/lesson/turntable/comparison-1.jpg`)).headers()['content-type'],/^image\/jpeg/);
-    assert.ok(!requests.some(url=>url.endsWith('.glb')),'no 3D model is fetched');
+    assert.ok(!requests.some(url=>url.endsWith('.glb')||url.includes('/vendor/')),'with 3D off no model or 3D library is fetched');
     const box=await turn.boundingBox();assert.ok(Math.abs(box.width-box.height)<2&&box.width>60,'the picture is square');
     assert.equal(await turn.getAttribute('data-frame'),'0');
     await page.mouse.move(box.x+box.width/2,box.y+box.height/2);await page.mouse.down();await page.mouse.move(box.x+box.width/2-box.width/3,box.y+box.height/2,{steps:6});await page.mouse.up();
@@ -145,6 +147,81 @@ const officeStub=view=>`window.__settings=window.__settings||{};window.__goto=[]
     assert.equal(await model.getAttribute('data-frame'),stopped);assert.match(await page.locator('[data-act=auto]').innerText(),/천천히 돌리기/);
     await page.close();
 
+    // Real 3D where the engine's WebGL works: the old three.js draws the models, which turn, tilt and zoom.
+    const boardPage=async(options={})=>{
+      const boardContext=await browser.newContext({viewport:{width:1000,height:562}});await boardContext.route(OFFICE_JS,route=>route.abort());
+      if(options.block)await boardContext.route(options.block,route=>route.abort());
+      const board=await boardContext.newPage();watch(board,options.label||'3D board');board.fetched=[];board.on('request',request=>board.fetched.push(request.url()));
+      if(options.before)await board.addInitScript(options.before);
+      await board.addInitScript(([key,value])=>{if(!localStorage.getItem(key))localStorage.setItem(key,value);},['celadon-ppt-addin-v1',JSON.stringify({panel:options.panel||'comparison',link,model:options.model||'beauty'})]);
+      await board.goto(`${base}/ppt-addin/index.html?legacy=1`);return board;
+    };
+    const solid=await boardPage();
+    await solid.waitForFunction(()=>document.querySelectorAll('.lg-turn[data-3d=ready]').length===3,{},{timeout:60000});
+    for(const file of ['/vendor/three-r116.min.js','/vendor/GLTFLoader-r116.js','/ppt-addin/legacy-3d.js','/assets/lesson/comparison-1.glb'])assert.ok(solid.fetched.some(url=>url.endsWith(file)),file);
+    assert.ok(!solid.fetched.some(url=>url.includes('promise-polyfill')),'the Promise stand-in is only for engines without Promise');
+    assert.ok(!solid.fetched.some(url=>url.includes('/detail/')),'the light models are used');
+    const canvas=solid.locator('.lg-turn[data-model="comparison-1"] canvas');
+    const look=()=>canvas.evaluate(node=>{const data=node.getContext('2d').getImageData(0,0,node.width,node.height).data;let solidPixels=0,sum=0;
+      for(let i=0;i<data.length;i+=40){if(data[i+3]>200)solidPixels++;sum=(sum+data[i]*3+data[i+1]*5+data[i+2]*7+data[i+3])%1000003;}return {solidPixels,sum};});
+    const angle=()=>solid.evaluate(()=>window.__legacy3d.state('comparison-1'));
+    const first=await look();assert.ok(first.solidPixels>200,'the model is drawn');
+    assert.equal(await solid.locator('.lg-turn[data-model="comparison-1"]').evaluate(node=>node.style.backgroundImage),'none','the pictures step aside');
+    assert.equal(await solid.locator('[data-act=zoom][data-model="comparison-1"]').count(),2);assert.equal(await solid.locator('[data-act=reset-view][data-model="comparison-1"]').count(),1);
+    const area=await canvas.boundingBox();
+    await solid.mouse.move(area.x+area.width/2,area.y+area.height/2);await solid.mouse.down();
+    await solid.mouse.move(area.x+area.width/2+area.width/4,area.y+area.height/2+area.height/10,{steps:5});await solid.waitForTimeout(250);await solid.mouse.up();
+    let state=await angle();
+    assert.ok(Math.abs(state.yaw-Math.PI/4)<0.05,`dragging a quarter of the width turns 45 degrees (${state.yaw})`);assert.ok(state.pitch>0.2,'dragging down tilts it');
+    assert.notEqual((await look()).sum,first.sum,'the picture changed');
+    await solid.locator('[data-act=turn][data-model="comparison-1"][data-step="-2"]').click();
+    await solid.waitForFunction(yaw=>Math.abs(window.__legacy3d.state('comparison-1').yaw-yaw-Math.PI/6)<0.01,state.yaw,{timeout:5000});
+    await solid.locator('[data-act=zoom][data-model="comparison-1"][data-factor="1.25"]').click();assert.equal((await angle()).zoom,1.25);
+    // New numbers redraw the cards; the model keeps the way it was turned.
+    const turned=await angle();
+    await api('join',{code:'탑텐반',number:12,name:'넷째학생'},{auth:null});
+    await solid.waitForFunction(()=>/아직 고르지 않은 학생 1명/.test(document.querySelector('[data-comparison="1"]').innerText),{},{timeout:15000});
+    await solid.waitForFunction(()=>document.querySelectorAll('.lg-turn[data-3d=ready]').length===3,{},{timeout:15000});
+    assert.deepEqual(await angle(),turned);assert.ok((await look()).solidPixels>200);
+    await solid.locator('[data-act=reset-view][data-model="comparison-1"]').click();
+    state=await angle();assert.equal(state.yaw,0);assert.equal(state.zoom,1);
+    // 청자 돌려 보기 turns by itself in 3D until it is stopped; switching 3D off in the form brings the pictures back.
+    await solid.locator('[data-act=setup]').click();await solid.locator('input[name=lg-panel][value=model]').check();await solid.locator('#lg-model').selectOption('observation-5');
+    assert.equal(await solid.locator('#lg-three').isChecked(),true);await solid.locator('.lg-submit').click();
+    await solid.locator('.lg-turn[data-model="observation-5"][data-3d=ready]').waitFor({timeout:60000});
+    assert.match(await solid.locator('.lg-turn-hint').innerText(),/끌어서 돌리고 기울여/);
+    const yawNow=()=>solid.evaluate(()=>window.__legacy3d.state('observation-5').yaw);
+    const yaw1=await yawNow();await solid.waitForTimeout(600);const yaw2=await yawNow();assert.ok(yaw2>yaw1,'it turns by itself');
+    await solid.locator('[data-act=auto]').click();const yaw3=await yawNow();await solid.waitForTimeout(500);assert.equal(await yawNow(),yaw3);
+    await solid.locator('[data-act=setup]').click();await solid.locator('#lg-three').uncheck();
+    await Promise.all([solid.waitForEvent('load'),solid.locator('.lg-submit').click()]);
+    await solid.locator('.lg-turn[data-model="observation-5"]').waitFor();await solid.waitForTimeout(1500);
+    assert.equal(await solid.locator('.lg-turn[data-3d=ready]').count(),0);
+    assert.match(await solid.locator('.lg-turn').evaluate(node=>node.style.backgroundImage),/turntable\/observation-5\.jpg/);
+    await solid.context().close();
+    // Where 3D cannot be trusted the board notices by itself and keeps the pictures:
+    // a model that does not arrive, an engine without WebGL, and a drawing that comes out empty.
+    const partial=await boardPage({label:'one model missing',block:'**/assets/lesson/comparison-2.glb'});
+    await partial.waitForFunction(()=>document.querySelectorAll('.lg-turn[data-3d=ready]').length===2,{},{timeout:60000});
+    const missing=partial.locator('.lg-turn[data-model="comparison-2"]');
+    assert.equal(await missing.getAttribute('data-3d'),null);assert.match(await missing.evaluate(node=>node.style.backgroundImage),/turntable\/comparison-2\.jpg/);
+    assert.equal(await partial.locator('[data-act=zoom][data-model="comparison-2"]').count(),0);assert.equal(await partial.locator('[data-act=zoom][data-model="comparison-1"]').count(),2);
+    await partial.locator('[data-act=turn][data-model="comparison-2"][data-step="2"]').click();assert.equal(await missing.getAttribute('data-frame'),'2','its pictures still turn');
+    await partial.context().close();
+    const flat=await boardPage({label:'no WebGL',before:()=>{const original=HTMLCanvasElement.prototype.getContext;HTMLCanvasElement.prototype.getContext=function(type){return /webgl/.test(type)?null:original.apply(this,arguments);};}});
+    await flat.locator('[data-comparison="1"]').waitFor({timeout:15000});await flat.waitForTimeout(1500);
+    assert.ok(!flat.fetched.some(url=>url.includes('/vendor/')||url.endsWith('.glb')),'without WebGL nothing for 3D is fetched');
+    assert.match(await flat.locator('.lg-turn[data-model="comparison-1"]').evaluate(node=>node.style.backgroundImage),/turntable\/comparison-1\.jpg/);
+    await flat.context().close();
+    const empty=await boardPage({label:'empty drawing',before:()=>{const original=CanvasRenderingContext2D.prototype.drawImage;CanvasRenderingContext2D.prototype.drawImage=function(source){if(source instanceof HTMLCanvasElement)return;return original.apply(this,arguments);};}});
+    await empty.waitForFunction(()=>window.__legacy3d&&window.__legacy3d.reason,{},{timeout:60000});
+    assert.match(await empty.evaluate(()=>window.__legacy3d.reason),/nothing recognisable was drawn/);
+    await empty.waitForTimeout(500);
+    assert.equal(await empty.locator('.lg-turn canvas').count(),0);assert.equal(await empty.locator('[data-act=zoom]').count(),0);
+    assert.match(await empty.locator('.lg-turn[data-model="comparison-1"]').evaluate(node=>node.style.backgroundImage),/turntable\/comparison-1\.jpg/);
+    await empty.locator('[data-act=turn][data-model="comparison-1"][data-step="2"]').click();assert.equal(await empty.locator('.lg-turn[data-model="comparison-1"]').getAttribute('data-frame'),'2');
+    await empty.context().close();
+
     // With no class open the board says so and comes back when a class opens.
     const waitingPage=await context.newPage();watch(waitingPage,'waiting board');
     await waitingPage.addInitScript(([key,value])=>localStorage.setItem(key,value),['celadon-ppt-addin-v1',JSON.stringify({panel:'follow',link,model:'beauty'})]);
@@ -174,7 +251,7 @@ const officeStub=view=>`window.__settings=window.__settings||{};window.__goto=[]
     await show.evaluate(()=>window.__viewHandler({activeView:'edit'}));
     await show.locator('[data-act=setup]').waitFor();
     assert.deepEqual(errors,[]);
-    console.log('Old-engine add-in board: setup, anonymous comparison counts, turning pictures, 청자 설명 보기 from the slide, following 아름다움·쓰임·완성작, model turning, waiting for a class, slide-show cover and remote keys passed.');
+    console.log('Old-engine add-in board: setup, anonymous comparison counts, turning pictures, 청자 설명 보기 from the slide, following 아름다움·쓰임·완성작, real 3D (turn, tilt, zoom, kept across redraws, self-turning), falling back to pictures without WebGL, with a missing model and after an empty drawing, waiting for a class, slide-show cover and remote keys passed.');
   }finally{
     if(room&&teacher)await control('delete').catch(()=>{});
     await browser.close();
