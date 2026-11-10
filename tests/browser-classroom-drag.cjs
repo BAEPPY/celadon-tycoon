@@ -32,7 +32,7 @@ const base=process.env.BASE_URL||'http://127.0.0.1:4173';
     }
     assert.deepEqual(persisted,expected,'the server persisted the same answers');
     await student.waitForFunction(()=>document.querySelector('[data-save-status]')?.dataset.status==='saved');
-    assert.deepEqual(await values(),expected,'visible nameplates match the chosen countries');
+    assert.deepEqual(await values(),{'1':'','2':'','3':'',...expected},'visible nameplates match the chosen countries');
   }
   async function dragPoints(country,target){
     const from=await student.locator(`[data-country-chip=${country}]`).boundingBox(),to=await student.locator(target).boundingBox();
@@ -84,12 +84,25 @@ const base=process.env.BASE_URL||'http://127.0.0.1:4173';
     for(const pointer of ['mouse','touch'])assert.equal(events.filter(event=>event.type==='pointerup'&&event.pointerType===pointer).length,3,`all three ${pointer} drags completed`);
     assert.equal(events.some(event=>['pointercancel','dragstart','drop'].includes(event.type)),false,'placement does not depend on native HTML drag-and-drop or scroll-cancelled touch gestures');
 
+    // Each country name tag exists once. With all three placed the tray shows where each one is.
+    const tray=()=>student.locator('[data-country-chip]').evaluateAll(chips=>Object.fromEntries(chips.map(chip=>[chip.dataset.countryChip,chip.classList.contains('used')?chip.dataset.usedLabel:''])));
+    assert.deepEqual(await tray(),{yuan:'청자 2',goryeo:'청자 3',japan:'청자 1'});
+    assert.match(await student.locator('.country-tray').innerText(),/나라마다 하나씩/);
+    assert.equal(await student.locator('[data-country-chip=japan]').getAttribute('aria-label'),'일본 이름표, 청자 1에 붙어 있어요');
+    assert.equal(await student.locator('[data-country-chip=japan]').evaluate(chip=>getComputedStyle(chip,'::after').content),'"청자 1"','the tray says where the tag is');
+    assert.deepEqual(await student.locator('#country-1 option').allInnerTexts(),['나라 이름표 놓기','원 (청자 2에서 옮기기)','고려 (청자 3에서 옮기기)','일본']);
+
     await student.setViewportSize({width:1024,height:600});
+    // Dragging 고려 (on 청자 3) to 청자 1 moves it: 청자 3 is empty again and 일본, which was on 청자 1, is back in the tray.
     await drag('goryeo','[data-viewer="1"] .lesson-viewer__canvas','1');
-    await saved({'1':'goryeo','2':'yuan','3':'goryeo'});
+    assert.match(await student.locator('#classroom-toast').innerText(),/고려 이름표를 청자 3에서 떼어 청자 1에 붙였어요/);
+    await saved({'1':'goryeo','2':'yuan'});
+    assert.deepEqual(await tray(),{yuan:'청자 2',goryeo:'청자 1',japan:''});
+    assert.deepEqual(await student.locator('#country-3 option').allInnerTexts(),['나라 이름표 놓기','원 (청자 2에서 옮기기)','고려 (청자 1에서 옮기기)','일본']);
     await student.screenshot({path:'/tmp/classroom-country-drag-1024.png'});
     await student.reload();await student.locator('#country-1').waitFor();
-    assert.deepEqual(await values(),{'1':'goryeo','2':'yuan','3':'goryeo'},'same-tab reload restores mouse and touch answers');
+    assert.deepEqual(await values(),{'1':'goryeo','2':'yuan','3':''},'same-tab reload restores mouse and touch answers');
+    assert.deepEqual(await tray(),{yuan:'청자 2',goryeo:'청자 1',japan:''},'and which tags are in use');
 
     // A click-selected chip can be placed on the native select without opening its popup.
     await student.locator('[data-country-chip=japan]').click();
@@ -101,12 +114,27 @@ const base=process.env.BASE_URL||'http://127.0.0.1:4173';
     await student.locator('#country-2').click();
     assert.equal(await student.locator('#country-2').inputValue(),'japan');
     assert.equal(await student.locator('[data-country-chip][aria-pressed=true]').count(),0);
+    assert.deepEqual(await tray(),{yuan:'',goryeo:'청자 1',japan:'청자 2'},'원, which 일본 replaced, is back in the tray');
     // The original keyboard-select alternative stays usable without a selected chip.
     await student.locator('#country-3').focus();await student.keyboard.press('Home');await student.keyboard.press('ArrowDown');
     await saved({'1':'goryeo','2':'japan','3':'yuan'});
+    // A tag chosen with the keyboard and placed by a click also moves: 일본 leaves 청자 2 for 청자 3.
     await student.locator('[data-country-chip=japan]').focus();await student.keyboard.press('Enter');
     await student.locator('[data-country-drop="3"] .object-title').click();
-    await saved({'1':'goryeo','2':'japan','3':'japan'});
+    assert.match(await student.locator('#classroom-toast').innerText(),/일본 이름표를 청자 2에서 떼어 청자 3에 붙였어요/);
+    await saved({'1':'goryeo','3':'japan'});
+    assert.deepEqual(await tray(),{yuan:'',goryeo:'청자 1',japan:'청자 3'});
+    // Choosing a used country in a ceramic's own list moves it too, and never leaves the same country on two ceramics.
+    await student.locator('#country-2').selectOption('goryeo');
+    assert.match(await student.locator('#classroom-toast').innerText(),/고려 이름표를 청자 1에서 떼어 청자 2에 붙였어요/);
+    await saved({'2':'goryeo','3':'japan'});
+    await student.locator('#country-1').selectOption('goryeo');
+    await saved({'1':'goryeo','3':'japan'});
+    // The server refuses the same country twice, whatever sends it.
+    const identityNow=await student.evaluate(()=>JSON.parse(sessionStorage.getItem('celadon-classroom-student-v1')));
+    const twice=await student.request.post(`${base}/api/classroom`,{headers:{Authorization:`Bearer ${identityNow.participantToken}`},data:{action:'answer',code:identityNow.code,participantId:identityNow.participantId,activity:1,runId:(await record()).runId,clientRevision:9999,answers:{1:'goryeo',2:'goryeo',3:'japan'}}});
+    assert.equal(twice.status(),400);assert.equal((await twice.json()).code,'duplicate-country');
+    assert.deepEqual((await record()).answers,{'1':'goryeo','3':'japan'},'nothing was saved from it');
 
     // Touch cancellation, leaving the cards, and pausing cannot write an answer.
     await beginDrag('yuan','[data-viewer="1"] .lesson-viewer__canvas','touch');
@@ -134,6 +162,6 @@ const base=process.env.BASE_URL||'http://127.0.0.1:4173';
     await student.mouse.move(completedTarget.x+completedTarget.width/2,completedTarget.y+completedTarget.height/2,{steps:15});await student.mouse.up();
     assert.deepEqual(await record(),completed,'the completed activity stays immutable after a pointer drag attempt');assert.equal(answerRequests.length,requestsAfterCompletion);
     assert.deepEqual(errors,[]);
-    console.log('Country nameplates: trusted direct mouse and CDP touch drags on select/canvas/card, 1024×600, persistence/reload, click/keyboard alternatives, touch cancellation, outside release, pause and completion locks passed.');
+    console.log('Country nameplates: trusted direct mouse and CDP touch drags on select/canvas/card, 1024×600, persistence/reload, click/keyboard alternatives, one tag per country (moved, shown in the tray, refused twice by the server), touch cancellation, outside release, pause and completion locks passed.');
   }finally{if(teacherSession)await control('delete').catch(()=>{});await browser.close();}
 })().catch(error=>{console.error(error);process.exit(1);});

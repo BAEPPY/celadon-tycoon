@@ -57,7 +57,7 @@ const base=process.env.BASE_URL||'http://127.0.0.1:4173';
     assert.equal(await student.locator('.completion-dialog[open]').count(),1,'polls and reload preserve the confirmed wait screen');
     const confirmed=await call('state',{auth:identity.participantToken,body:{participantId:identity.participantId}});
     assert.equal(confirmed.value.answers[1].submitted,true);assert.equal(confirmed.value.state.settings.submitButton,false);
-    assert.equal((await call('answer',{method:'POST',auth:identity.participantToken,body:{participantId:identity.participantId,activity:1,runId:confirmed.value.state.runId,clientRevision:999,answers:{1:'yuan',2:'yuan',3:'yuan'}}})).status,409,'confirmed activity 1 cannot be edited even when optional submission is off');
+    assert.equal((await call('answer',{method:'POST',auth:identity.participantToken,body:{participantId:identity.participantId,activity:1,runId:confirmed.value.state.runId,clientRevision:999,answers:{1:'goryeo',2:'japan',3:'yuan'}}})).status,409,'confirmed activity 1 cannot be edited even when optional submission is off');
     await capture(student,'completion-wait');
     await teacher.locator('[data-action=pause]').click();await student.getByTestId('lock-screen').waitFor();assert.equal(await student.locator('.completion-dialog').count(),0);
     console.log('Completion: default button, incomplete gating, failed-save retry, server acknowledgement, Escape protection, reload/poll persistence and teacher-close passed.');

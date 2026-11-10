@@ -199,6 +199,20 @@ test('fixed join code replacement requires the current teacher, deletes the repl
   assert.equal((await service.join({code: '탑텐반', number: 1, name: '다음 학생'})).code, replacement.code);
 });
 
+test('each country name tag can be on one ceramic only', async () => {
+  const f = await fixture(), student = await f.join(4), run = await f.control('start', 1);
+  const send = (answers, clientRevision) => f.service.answer({code: f.room.code, participantId: student.participantId, activity: 1, runId: run.state.runId, clientRevision, answers}, student.participantToken);
+  // Two or three of the same country are refused and nothing is kept from them.
+  for (const answers of [{1: 'goryeo', 2: 'goryeo'}, {1: 'yuan', 2: 'japan', 3: 'yuan'}, {1: 'japan', 2: 'japan', 3: 'japan'}]) await rejectsCode(send(answers, 1), 'duplicate-country');
+  assert.deepEqual((await f.service.state({code: f.room.code, participantId: student.participantId}, student.participantToken)).answers[1]?.answers ?? {}, {});
+  // One, two or three different countries are fine, and so is taking a tag off again.
+  await send({2: 'goryeo'}, 1); await send({1: 'yuan', 2: 'goryeo'}, 2); await send({1: 'goryeo', 3: 'japan'}, 3);
+  const kept = await send({1: 'japan', 2: 'yuan', 3: 'goryeo'}, 4);
+  assert.deepEqual(kept.answers[1].answers, {1: 'japan', 2: 'yuan', 3: 'goryeo'});
+  const summary = await f.service.overview({code: f.room.code}, f.room.teacherToken);
+  assert.deepEqual(summary.comparison.map(item => item.choices.find(choice => choice.count === 1).country), ['japan', 'yuan', 'goryeo']);
+});
+
 test('a Korean teacher passcode matches however it was composed, and short or missing ones are ignored', async () => {
   // The settings page and a keyboard can deliver the same word precomposed (NFC) or as separate jamo (NFD).
   const word = '청자교실', composed = word.normalize('NFC'), decomposed = word.normalize('NFD');

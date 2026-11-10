@@ -5,6 +5,9 @@ const assert=require('node:assert/strict');
 const {chromium}=require('playwright');
 
 const base=process.env.BASE_URL||'http://127.0.0.1:4173';
+// A board checks the class every few seconds, but while it is still drawing its 3D models (slow without a graphics
+// card, as in this test browser) the next check waits. These steps test that the board follows, not how fast.
+const BOARD_WAIT=45000;
 const privateName='보드비공개학생';
 
 (async()=>{
@@ -47,7 +50,7 @@ const privateName='보드비공개학생';
 
     // An unpinned board follows the teacher to 아름다움 찾기; a pinned one keeps showing its board.
     await control('pause');await control('start-beauty');
-    await following.locator('[data-testid=live-board] .beauty-board').waitFor({timeout:15000});
+    await following.locator('[data-testid=live-board] .beauty-board').waitFor({timeout:BOARD_WAIT});
     assert.match(await boardText(following),/고려청자의 아름다움 찾기/);
     await pinned.waitForTimeout(5000);
     assert.equal(await pinned.locator('[data-comparison-result="1"]').count(),1,'?show=comparison stays on the comparison results');
@@ -57,7 +60,7 @@ const privateName='보드비공개학생';
     await teacher.click('.manage-menu>summary');await teacher.click('[data-action=refresh-boards]');
     await teacher.waitForFunction(()=>document.querySelector('#classroom-toast')?.textContent.includes('새로고침'));
     await Promise.all(reloads);
-    await following.locator('[data-testid=live-board] .beauty-board').waitFor({timeout:15000});
+    await following.locator('[data-testid=live-board] .beauty-board').waitFor({timeout:BOARD_WAIT});
     await pinned.locator('[data-testid=live-board] [data-comparison-result="1"]').waitFor({timeout:15000});
     await following.evaluate(()=>{window.__stayed=true;});await following.waitForTimeout(6000);
     assert.equal(await following.evaluate(()=>window.__stayed),true,'a board reloads once per press, not on every poll');

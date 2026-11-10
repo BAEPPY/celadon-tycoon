@@ -57,6 +57,7 @@ label.check{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:7
       <label class="choice"><input type="radio" name="panel" value="works"> 완성작 모음</label>
       <label class="choice"><input type="radio" name="panel" value="game"> 청자 만들기 게임</label>
       <label class="choice"><input type="radio" name="panel" value="model"> 3D 청자 돌려 보기</label>
+      <label class="choice"><input type="radio" name="panel" value="plain"> 3D 청자만 크게 보기</label>
     </fieldset>
     <label class="field" id="model-field" hidden>돌려 볼 3D 청자
       <select id="model">
@@ -71,7 +72,6 @@ label.check{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:7
         <option value="observation-5">쓰임 짐작 · 청자 5</option>
       </select>
     </label>
-    <label class="check" id="plain-field" hidden><input type="checkbox" id="plain"> 청자만 크게 보기 (버튼은 확대·축소만)</label>
     <label class="check"><input type="checkbox" id="cover"> 슬라이드 쇼에서는 가려 두었다가 클릭하면 나타나기</label>
     <label class="field" id="link-field">PPT용 주소
       <input type="url" id="link" autocomplete="off" spellcheck="false" placeholder="선생님 화면 → 수업 관리 → PPT용 주소 복사">
@@ -150,24 +150,26 @@ $('cover-screen').addEventListener('click', () => {
 });
 function showSetup(message = '') {
   const {panel, link, model} = saved();
-  $('model').value = model; $('cover').checked = saved().cover; $('plain').checked = saved().plain; $('cover-screen').hidden = true;
+  $('model').value = model; $('cover').checked = saved().cover; $('cover-screen').hidden = true;
   $('board').hidden = true; $('change').hidden = true; $('setup').hidden = false; $('error').textContent = message;
-  const choice = document.querySelector(`input[name=panel][value="${panel || 'follow'}"]`); if (choice) choice.checked = true;
+  // "3D 청자만 크게 보기" is the model box with only the zoom buttons; it is kept as the model panel plus `plain`.
+  const choice = document.querySelector(`input[name=panel][value="${panel === 'model' && saved().plain ? 'plain' : panel || 'follow'}"]`); if (choice) choice.checked = true;
   $('link').value = link || local.read().link || '';
   syncLinkField();
 }
+function chosenPanel() { const value = document.querySelector('input[name=panel]:checked')?.value; return value === 'plain' ? {panel: 'model', plain: true} : {panel: value, plain: false}; }
 function syncLinkField() {
-  const panel = document.querySelector('input[name=panel]:checked')?.value;
-  $('link-field').hidden = !needsLink(panel); $('model-field').hidden = panel !== 'model'; $('plain-field').hidden = panel !== 'model';
+  const panel = chosenPanel().panel;
+  $('link-field').hidden = !needsLink(panel); $('model-field').hidden = panel !== 'model';
 }
 $('form').addEventListener('change', syncLinkField);
 $('form').addEventListener('submit', async event => {
   event.preventDefault();
-  const panel = document.querySelector('input[name=panel]:checked')?.value, text = $('link').value.trim();
+  const {panel, plain} = chosenPanel(), text = $('link').value.trim();
   if (!PANELS.includes(panel)) return;
   if (needsLink(panel) && !parseLink(text)) { $('error').textContent = 'PPT용 주소를 확인해 주세요. 선생님 화면 → 수업 관리 → “PPT용 주소 복사”로 복사한 주소를 붙여 넣어 주세요.'; return; }
   const model = MODELS.includes($('model').value) ? $('model').value : 'beauty';
-  await save(panel, parseLink(text) ? text : saved().link, model, $('cover').checked, $('plain').checked);
+  await save(panel, parseLink(text) ? text : saved().link, model, $('cover').checked, plain);
   showBoard();
 });
 $('change').addEventListener('click', () => showSetup());

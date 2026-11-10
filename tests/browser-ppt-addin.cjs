@@ -79,8 +79,10 @@ const officeStub=view=>`window.__settings=window.__settings||{};window.__saved=0
     assert.equal(await plain.locator('#board').getAttribute('src'),'/model?id=observation-2','the model choice is remembered');
     // 청자만 크게 보기: nothing but the model and the two zoom buttons; it is still turned by dragging.
     assert.equal(await plain.locator('#model-field').isVisible(),false);
-    await plain.locator('#change').click();assert.equal(await plain.locator('#plain-field').isVisible(),true);
-    await plain.locator('#model').selectOption('beauty');await plain.locator('#plain').check();await plain.locator('#form button[type=submit]').click();
+    await plain.locator('#change').click();
+    assert.match(await plain.locator('label.choice:has(input[value=plain])').innerText(),/3D 청자만 크게 보기/);
+    await plain.locator('input[name=panel][value=plain]').check();assert.equal(await plain.locator('#model-field').isVisible(),true);assert.equal(await plain.locator('#link-field').isHidden(),true);
+    await plain.locator('#model').selectOption('beauty');await plain.locator('#form button[type=submit]').click();
     assert.equal(await plain.locator('#board').getAttribute('src'),'/model?id=beauty&plain=1');
     const only=plain.frameLocator('#board');
     await only.locator('[data-model-viewer][data-viewer-status=ready]').waitFor({timeout:60000});
@@ -93,8 +95,8 @@ const officeStub=view=>`window.__settings=window.__settings||{};window.__saved=0
     const closer=await only.locator('[data-model-viewer] canvas').screenshot();assert.ok(!still.equals(closer),'확대 brings the model closer');
     await plain.mouse.move(area.x+area.width/2,area.y+area.height/2);await plain.mouse.down();await plain.mouse.move(area.x+area.width/2+120,area.y+area.height/2,{steps:6});await plain.mouse.up();await plain.waitForTimeout(500);
     assert.ok(!closer.equals(await only.locator('[data-model-viewer] canvas').screenshot()),'dragging still turns it');
-    await plain.locator('#change').click();assert.equal(await plain.locator('#plain').isChecked(),true,'the choice is remembered');
-    await plain.locator('#plain').uncheck();await plain.locator('#form button[type=submit]').click();
+    await plain.locator('#change').click();assert.equal(await plain.locator('input[name=panel][value=plain]').isChecked(),true,'the choice is remembered');
+    await plain.locator('input[name=panel][value=model]').check();await plain.locator('#form button[type=submit]').click();
     assert.equal(await plain.locator('#board').getAttribute('src'),'/model?id=beauty');
     const missing=await plainContext.newPage();watch(missing,'missing model');
     await missing.goto(`${base}/model?id=nope`);await missing.getByTestId('model-missing').waitFor({timeout:15000});
