@@ -6,7 +6,7 @@ const CUSTOMER_ASSET_WAIT_MS=3000;
 export const TUTORIAL_STEPS=Object.freeze([
   {title:'흙 반죽',image:'01-knead.png',caption:'흙을 꼭꼭 누르고 밀어 공기를 빼요.'},
   {title:'모양 빚기',image:'02-shape.png',caption:'흙을 늘리고 눌러 만들고 싶은 모양으로 빚어요.'},
-  {title:'무늬 파기',image:'03-carve.png',caption:'찍기나 그리기로 도자기 표면에 무늬를 파요.'},
+  {title:'무늬 파기',image:'03-carve.png',caption:'찍기나 그리기로 무늬를 파요. 두 가지 이상을 섞어 4개 이상 넣어요.'},
   {title:'색흙 채우고 닦기',image:'04-inlay.png',caption:'파인 무늬에 색흙을 채운 뒤 겉을 닦아 무늬를 드러내요.'},
   {title:'말리고 굽기',image:'05-fire.png',caption:'부채로 건조 → 초벌 → 붓으로 유약 바르기 → 재벌'},
   {title:'좋은 청자 고르기',image:'06-inspect.png',caption:'네 점을 살펴 불량품 세 점을 깨고 가장 좋은 한 점을 골라요.'},

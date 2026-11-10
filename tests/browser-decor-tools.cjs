@@ -67,6 +67,22 @@ const reachable=(page,selector)=>page.locator(selector).evaluate(el=>{const r=el
     const second=await surfacePoint(page,.7,.6);await page.mouse.click(second.x,second.y);
     await page.waitForFunction(key=>JSON.parse(localStorage.getItem(key)).draft.placements.length===2,KEY);
 
+    // The next step stays locked until the vessel carries four motifs of at least two kinds; the bench counts them.
+    const bench=async()=>({locked:await page.locator('[data-action=inlay-fill]').isDisabled(),count:(await page.locator('.motif-check').innerText()).replace(/\s+/g,' '),rule:await page.locator('.motif-rule').innerText()});
+    assert.deepEqual(await bench(),{locked:true,count:'무늬 2/4개 종류 1/2가지',rule:'무늬를 두 가지 이상 섞어 4개 이상 넣으면 다음으로 갈 수 있어요.'});
+    assert.match(await page.locator('.order-summary').innerText(),/학 3개 · 구름\(운\) 2개/,'the order names each pattern with its number');
+    await page.click('[data-pattern=cloud]');await page.waitForSelector('.illustration-viewport[data-status=ready]');
+    const third=await surfacePoint(page,.2,.62);await page.mouse.click(third.x,third.y);
+    await page.waitForFunction(key=>JSON.parse(localStorage.getItem(key)).draft.placements.length===3,KEY);
+    assert.deepEqual([(await bench()).locked,(await bench()).count],[true,'무늬 3/4개 종류 2/2가지'],'two kinds, but only three motifs');
+    const fourth=await surfacePoint(page,.8,.62);await page.mouse.click(fourth.x,fourth.y);
+    await page.waitForFunction(key=>JSON.parse(localStorage.getItem(key)).draft.placements.length===4,KEY);
+    assert.deepEqual(await bench(),{locked:false,count:'무늬 4/4개 종류 2/2가지',rule:'좋아요! 주문과 견주어 본 뒤 다음 순서로 가요.'});
+    assert.deepEqual((await saved(page)).placements.map(mark=>mark.pattern),['crane','crane','cloud','cloud']);
+    // Taking one away locks it again.
+    await page.click('[data-action=undo]');assert.equal((await bench()).locked,true);
+    await page.mouse.click(fourth.x,fourth.y);await page.waitForFunction(key=>JSON.parse(localStorage.getItem(key)).draft.placements.length===4,KEY);
+
     // Two colours together: white on the left motif, dark on the right one.
     await page.click('[data-action=inlay-fill]');await page.waitForSelector('.inlay-canvas[data-mode=fill]');
     assert.equal(await page.locator('[data-action=inlay-refill]').isDisabled(),true,'nothing to redo yet');
@@ -90,7 +106,7 @@ const reachable=(page,selector)=>page.locator(selector).evaluate(el=>{const r=el
     assert.equal(await page.locator('[data-action=inlay-refill]').isDisabled(),false);
     await page.click('[data-action=inlay-refill]');
     await page.waitForFunction(key=>{const draft=JSON.parse(localStorage.getItem(key)).draft;return draft.inlay.fill.length===0&&draft.inlay.dark.length===0;},KEY);
-    work=await saved(page);assert.equal(work.inlay.fillDone,false);assert.equal(work.inlay.slip,'dark');assert.equal(work.placements.length,2,'the carved motifs stay');
+    work=await saved(page);assert.equal(work.inlay.fillDone,false);assert.equal(work.inlay.slip,'dark');assert.equal(work.placements.length,4,'the carved motifs stay');
     assert.match(await page.locator('.inlay-status').innerText(),/0% 채웠어요/);
     assert.equal(await page.locator('[data-action=inlay-refill]').isDisabled(),true);
     colours=await slipPixels(page);assert.ok(Math.abs(colours.light-bare.light)<20&&Math.abs(colours.dark-bare.dark)<20,`no slip is left on the vessel: ${JSON.stringify({bare,colours})}`);

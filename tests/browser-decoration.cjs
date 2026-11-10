@@ -42,7 +42,10 @@ async function pixels(page){return page.locator('.illustration-viewport>canvas')
   assert.equal(await canvasImage(page),scaledImage,'a full turn preserves the size and position of each stamp');
   await page.click('[data-action=undo]');assert.equal(await canvasImage(page),smallImage,'undo removes only the most recent sized stamp');
   const sizeBounds=await page.locator('.stamp-size-control').boundingBox();assert.ok(sizeBounds.x>=0&&sizeBounds.y>=0&&sizeBounds.x+sizeBounds.width<=viewport.width&&sizeBounds.y+sizeBounds.height<=viewport.height,'stamp size control remains readable on screen');
+  // Three motifs of two kinds: one more is needed before the colour slip.
   await seed(page,draft({placements:[{uv:[.5,.55],surfaceAngle:0,pattern:'cloud'},{uv:[.68,.38],surfaceAngle:.7,pattern:'lotus'},{uv:[.5,.55],surfaceAngle:Math.PI,pattern:'cloud'}]}));
+  assert.equal(await page.locator('[data-action=inlay-fill]').isDisabled(),true);assert.equal((await page.locator('.motif-check').innerText()).replace(/\s+/g,' '),'무늬 3/4개 종류 2/2가지');
+  await seed(page,draft({placements:[{uv:[.5,.55],surfaceAngle:0,pattern:'cloud'},{uv:[.68,.38],surfaceAngle:.7,pattern:'lotus'},{uv:[.5,.55],surfaceAngle:Math.PI,pattern:'cloud'},{uv:[.32,.38],surfaceAngle:-.7,pattern:'lotus'}]}));
   assert.match(await page.locator('[data-pattern=cloud]').innerText(),/구름.*운/s);
   const help=page.getByRole('button',{name:'상감 설명',exact:true});await help.hover();await page.waitForSelector('#tip-inlay',{state:'visible'});
   const tooltip=await page.locator('#tip-inlay').boundingBox();assert.ok(tooltip.width>=220&&tooltip.height>=55,'large readable technique help');await page.mouse.move(5,5);

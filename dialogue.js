@@ -1,4 +1,5 @@
 import {castForOrder} from './characters.js';
+import {motifRequest} from './domain.js';
 
 /** Curated classroom dialogue. Requirements remain in the order data; these lines change only voice. */
 export const ORDER_QUOTES = Object.freeze({
@@ -11,7 +12,7 @@ export const ORDER_QUOTES = Object.freeze({
  'noble-lotus-rest':'잠잘 때 머리를 받치려 하오. 다른 색의 흙을 넣은 연꽃 무늬로 꾸며 주시오.',
  'royal-quiet-rest':'잠시 누워 쉴 때 머리를 받칠 것이 필요하오. 모양을 잘 다듬고, 장식은 그대가 정해 보시오.',
  'lady-crane-rest':'누워 쉴 때 머리 아래에 둘 것이 필요하오. 날아가는 학 무늬를 넣어 주시오.',
- 'noble-cloud-rest':'머리를 받치고 누워 쉴 물건을 부탁하오. 구름 무늬를 넣되, 위치와 개수는 그대가 정하시오.',
+ 'noble-cloud-rest':'머리를 받치고 누워 쉴 물건을 부탁하오. 구름 무늬를 넣되, 놓을 자리는 그대가 정하시오.',
  'royal-crane-pour':'연회에서 물을 따르려 하오. 손잡이와 주둥이를 만들고, 학 무늬는 다른 색 흙으로 넣어 주시오.',
  'lady-cloud-pour':'손님께 물을 따를 물건이 필요하오. 구름 무늬를 파서 다른 색 흙으로 채워 주시오.',
  'noble-lotus-pour':'연회에서 술을 담아 따르려 하오. 손잡이를 달고 연꽃 무늬를 상감으로 넣어 주시오.',
@@ -57,7 +58,13 @@ export const ORDER_QUOTES = Object.freeze({
  'example-poemGourdBottle':'조롱박 병의 형태로 내용물을 담을 병을 부탁하오. 연꽃과 글자 무늬를 모두 상감으로 표현해 주시오.',
 });
 
-export function orderQuote(order){return ORDER_QUOTES[order?.id] || String(order?.quote || '쓰임에 맞는 청자를 빚어 주시오.');}
+// What the customer says, ending with the pattern part of the order (kinds and numbers) in the same way of speaking.
+export function orderQuote(order){
+ const spoken=ORDER_QUOTES[order?.id];
+ if(!spoken)return String(order?.quote || '쓰임에 맞는 청자를 빚어 주시오.');
+ const request=motifRequest(order,{archaic:true});
+ return request?`${spoken} ${request}`:spoken;
+}
 
 const REVIEWS=Object.freeze({
  king:{

@@ -145,7 +145,7 @@ const privateName='보드비공개학생';
     assert.deepEqual(await compare.locator('.compare-groups button').evaluateAll(buttons=>buttons.map(button=>[button.innerText.replace(/\s+/g,' ').trim(),button.getAttribute('aria-pressed')])),[['베개 2','true'],['매병 1','false']]);
     assert.match(await board.locator('.compare-head').innerText(),/청자 베개 주문\s*2점[\s\S]*누워서 쉴 때 머리를 받칩니다[\s\S]*같은 점과 다른 점/);
     assert.deepEqual(await compare.locator('.compare-card').evaluateAll(cards=>cards.map(card=>[card.querySelector('h3').textContent,...[...card.querySelectorAll('.compare-facts dd')].map(item=>item.textContent)])),
-      [['학이 쉬는 청자 베개','왕실 · 학 무늬 · 상감','학 무늬 · 상감'],['구름 베개','귀족 부인 · 구름 무늬 · 상감','구름 무늬 · 상감']]);
+      [['학이 쉬는 청자 베개','왕실 · 학 3·구름 2 · 상감','학 1 · 상감'],['구름 베개','귀족 부인 · 구름 3·학 2 · 상감','구름 1 · 상감']]);
     // One slide: nothing scrolls, the pictures are equally tall and nothing is cut off inside a card.
     const fit=await compare.evaluate(()=>({page:document.documentElement.scrollHeight<=innerHeight&&document.documentElement.scrollWidth<=innerWidth,
       pictures:[...new Set([...document.querySelectorAll('.compare-card .work-preview')].map(node=>Math.round(node.getBoundingClientRect().height)))].length,

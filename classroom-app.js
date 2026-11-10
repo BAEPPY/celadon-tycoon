@@ -499,9 +499,11 @@ function compareGroups(){
   for(const group of list)group.works.sort((a,b)=>workScore(b)-workScore(a)||(Number(a.number)||0)-(Number(b.number)||0)||workKey(a).localeCompare(workKey(b)));
   return list.sort((a,b)=>b.works.length-a.works.length||a.label.localeCompare(b.label,'ko'));
 }
-// "학·구름 무늬 · 상감": what an order asked for, or what was made, in a few words.
-const orderWords=order=>[order.customer.replace(/의 주문$/,''),order.patterns?.length?`${order.patterns.join('·')} 무늬`:order.techniqueId==='plain'?'':order.technique?'무늬는 자유':'무늬·기법은 자유',order.technique].filter(Boolean).join(' · ');
-const madeWords=(made,order)=>[made.shape!==order?.shape?made.shapeName:'',made.techniqueId==='plain'?'':made.patterns?.length?`${made.patterns.join('·')} 무늬`:'무늬 없음',made.technique].filter(Boolean).join(' · ');
+// "학 3·구름 2 · 상감": what an order asked for, or what was made, in a few words (works kept before the numbers were
+// recorded have the pattern names alone: "학·구름 무늬").
+const motifWords=item=>item.motifs?.length?item.motifs.map(motif=>`${motif.name} ${motif.count}`).join('·'):item.patterns?.length?`${item.patterns.join('·')} 무늬`:'';
+const orderWords=order=>[order.customer.replace(/의 주문$/,''),motifWords(order)||(order.techniqueId==='plain'?'':order.technique?'무늬는 자유':'무늬·기법은 자유'),order.technique].filter(Boolean).join(' · ');
+const madeWords=(made,order)=>[made.shape!==order?.shape?made.shapeName:'',made.techniqueId==='plain'?'':motifWords(made)||'무늬 없음',made.technique].filter(Boolean).join(' · ');
 function compareCard(w){
   const title=w.title||'나의 청자';
   return `<article class="panel compare-card" data-work-id="${esc(w.id)}"><div class="work-preview" data-work-preview="${esc(workKey(w))}">${workImageMarkup(w)}<span class="work-score">${workScore(w)}점</span><button type="button" class="button secondary work-expand" data-action="view-work" data-work-key="${esc(workKey(w))}" aria-label="${esc(title)} 작품과 설명 크게 보기"><span aria-hidden="true">⛶</span> 크게 보기</button></div><div class="compare-details">${w.name?`<p class="student-line">${esc(w.number)}번 ${esc(w.name)}</p>`:''}<h3>${esc(title)}</h3>${w.order&&w.made?`<dl class="compare-facts"><div><dt>주문</dt><dd>${esc(orderWords(w.order))}</dd></div><div><dt>만든 것</dt><dd>${esc(madeWords(w.made,w.order))}</dd></div></dl>`:''}<p class="compare-text"><b>쓰임</b>${esc(w.explanationUse||'')}</p><p class="compare-text"><b>공들인 부분</b>${esc(w.explanationBeauty||'')}</p></div></article>`;
