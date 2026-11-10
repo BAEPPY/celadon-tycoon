@@ -86,7 +86,7 @@ const base = process.env.BASE_URL || 'http://127.0.0.1:4173';
   };
   try {
     await teacher.goto(`${base}/teacher`);
-    await teacher.locator('[data-form=create] button').click();
+    await teacher.locator('[data-form=create] button[type=submit]').click();
     await teacher.locator('.teacher-room-code strong').waitFor();
     session = await teacher.evaluate(() => JSON.parse(localStorage.getItem('celadon-classroom-teacher-v1')));
     await ready(teacher);

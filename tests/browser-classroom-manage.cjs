@@ -18,7 +18,7 @@ const base = process.env.BASE_URL || 'http://127.0.0.1:4173';
   }
   try {
     teacher = await page('teacher');
-    await teacher.goto(`${base}/teacher`); await teacher.locator('[data-form=create] button').click();
+    await teacher.goto(`${base}/teacher`); await teacher.locator('[data-form=create] button[type=submit]').click();
     const code = (await teacher.locator('.teacher-room-code strong').innerText()).trim();
     assert.equal(code,'탑텐반');
     assert.equal(await teacher.locator('[data-action=delete-room]').isVisible(),true,'teacher can find data deletion without opening a menu');
