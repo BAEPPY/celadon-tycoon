@@ -60,8 +60,15 @@ async function pixels(page){return page.locator('.illustration-viewport>canvas')
   const finished=await saved(page);assert.equal(finished.inlay.wipeDone,true);assert.equal(finished.decorDone,true);assert.equal(finished.decorPhase,2);assert.equal(await page.locator('[data-action=next-decor]').isDisabled(),false);
   await page.screenshot({path:`/tmp/inlay-integrated-wiped-${viewport.width}.png`});await page.click('[data-action=next-decor]');assert.equal((await saved(page)).step,2);assert.ok(await page.locator('.kiln-scene').count());
   await seed(page,{...finished,step:2,firing:['dry','biscuit','glaze','fire'],viewFrame:0});await page.waitForTimeout(200);const dark=await pixels(page);
-  await seed(page,{...finished,step:2,firing:['dry','biscuit','glaze','fire'],viewFrame:0,clay:{...finished.clay,slip:'white'},inlay:{...finished.inlay,slip:'white'}});await page.waitForTimeout(200);const white=await pixels(page);
+  assert.equal(finished.clay.slip,'dark');assert.deepEqual([...finished.inlay.dark].sort(),finished.inlay.targets.map(target=>target.key).sort(),'every place of a dark work is recorded as dark');
+  await seed(page,{...finished,step:2,firing:['dry','biscuit','glaze','fire'],viewFrame:0,clay:{...finished.clay,slip:'white'},inlay:{...finished.inlay,slip:'white',dark:[]}});await page.waitForTimeout(200);const white=await pixels(page);
   assert.ok(white.bright>dark.bright+100,'white slip remains light after firing');assert.ok(dark.dark>white.dark+100,'dark slip remains dark after firing');
+  // Works saved before the two colours could be mixed have no per-place colours and keep their single colour.
+  const {dark:omitted,...legacyInlay}=finished.inlay;
+  await seed(page,{...finished,step:2,firing:['dry','biscuit','glaze','fire'],viewFrame:0,inlay:legacyInlay});await page.waitForTimeout(200);const legacyDark=await pixels(page);
+  assert.ok(legacyDark.dark>white.dark+100,'an older dark work still fires dark');
+  await seed(page,{...finished,step:2,firing:['dry','biscuit','glaze','fire'],viewFrame:0,clay:{...finished.clay,slip:'white'},inlay:{...legacyInlay,slip:'white'}});await page.waitForTimeout(200);const legacyWhite=await pixels(page);
+  assert.ok(legacyWhite.bright>dark.bright+100,'an older white work still fires light');
   await seed(page,draft({technique:'openwork'}));const before=await pixel(page);const spot=await point(page,.5,.55);await page.mouse.click(spot.x,spot.y);await page.waitForTimeout(220);const inside=await pixel(page);assert.ok(inside[3]>240&&inside[0]<before[0]-10);
   await rotate(page,12);assert.ok((await pixel(page))[0]>inside[0]+10);const far=await point(page,.5,.55);await page.mouse.click(far.x,far.y);await page.waitForTimeout(220);assert.ok((await pixel(page))[3]<20,'both walls must be cut before background shows');
   const layout=await page.evaluate(()=>({width:innerWidth,height:innerHeight,scrollX:document.documentElement.scrollWidth,scrollY:document.documentElement.scrollHeight}));assert.ok(layout.scrollX<=layout.width&&layout.scrollY<=layout.height);assert.deepEqual(errors,[]);

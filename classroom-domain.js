@@ -22,7 +22,11 @@ export const CLASSROOM_JOIN_CODE = '탑텐반';
 // Optional server-only passcode (Vercel env CLASSROOM_TEACHER_PASSCODE). When set, opening a class requires it unless the
 // teacher is replacing their own class from the same browser; with it, a teacher whose browser data was wiped can take
 // 탑텐반 back. Without it, whoever opens a class while 탑텐반 is free gets the code.
-export function configuredTeacherPasscode(value = process.env.CLASSROOM_TEACHER_PASSCODE) { return typeof value === 'string' && value.trim().length >= 4 ? value.trim() : ''; }
+// Both sides are normalised the same way, so a Korean passcode matches however the keyboard or the settings page composed it.
+export function configuredTeacherPasscode(value = process.env.CLASSROOM_TEACHER_PASSCODE) {
+  const passcode = typeof value === 'string' ? value.normalize('NFKC').trim() : '';
+  return passcode.length >= 4 ? passcode : '';
+}
 const joinAliasKey = () => `${classroomPrefix()}/aliases/tapten.json`;
 const ALIAS_IN_USE = '탑텐반 수업이 이미 열려 있어요. 이 수업을 만든 선생님의 브라우저에서 새 수업을 열어 주세요.';
 const emptyAnswer = () => ({runId: '', clientRevision: 0, submitted: false, answers: {}});
@@ -198,7 +202,7 @@ export function finishedWork(raw) {
   const work = {id: validateWorkId(raw.id), step: 4, orderId: raw.orderId, shape: raw.shape, modelId: input.modelId,
     technique: raw.technique, pattern: input.pattern, drawingLabel: input.drawingLabel, title: input.title,
     explanationUse: input.explanationUse, explanationBeauty: input.explanationBeauty,
-    clay: {slip: raw.clay?.slip === 'dark' ? 'dark' : 'white'}, decorDone: raw.decorDone === true,
+    clay: {slip: ['dark', 'mixed'].includes(raw.clay?.slip) ? raw.clay.slip : 'white'}, decorDone: raw.decorDone === true,
     firing: Array.isArray(raw.firing) ? raw.firing.slice(0, 4).map(value => clean(value, 20)) : [],
     placements: (Array.isArray(raw.placements) ? raw.placements : []).slice(0, 1200).filter(point => point && Number.isFinite(point.x) && Number.isFinite(point.y)).map(point => ({x: point.x, y: point.y, pattern: clean(point.pattern || raw.pattern, 30)})),
     strokes: (Array.isArray(raw.strokes) ? raw.strokes : []).slice(0, 600).map(stroke => ({points: Array.isArray(stroke?.points) ? stroke.points.slice(0, 2).map(() => [0, 0]) : []})),

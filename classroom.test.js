@@ -4,7 +4,7 @@ import {randomBytes} from 'node:crypto';
 import {mkdtemp, readFile, rm} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import {ClassroomService, WORK_UPLOAD_GRACE_MS, WORK_RETENTION_MS, finishedWork} from './classroom-domain.js';
+import {ClassroomService, WORK_UPLOAD_GRACE_MS, WORK_RETENTION_MS, configuredTeacherPasscode, finishedWork} from './classroom-domain.js';
 import {BlobClassroomStore, FileClassroomStore, StoreConflict, classroomPrefix, classroomStorageStatus} from './classroom-store.js';
 import {createClassroomHandler, MAX_CLASSROOM_BODY_BYTES} from './api/classroom.js';
 import {createCleanupHandler} from './api/cleanup-classroom.js';
@@ -197,6 +197,20 @@ test('fixed join code replacement requires the current teacher, deletes the repl
   await rejectsCode(service.join({code: '탑텐반', number: 3, name: '학생'}), 'room-not-found');
   const replacement = await service.create({joinCode: '탑텐반'});
   assert.equal((await service.join({code: '탑텐반', number: 1, name: '다음 학생'})).code, replacement.code);
+});
+
+test('a Korean teacher passcode matches however it was composed, and short or missing ones are ignored', async () => {
+  // The settings page and a keyboard can deliver the same word precomposed (NFC) or as separate jamo (NFD).
+  const word = '청자교실', composed = word.normalize('NFC'), decomposed = word.normalize('NFD');
+  assert.notEqual(composed, decomposed);
+  for (const [configured, typed] of [[composed, decomposed], [decomposed, composed], [` ${composed} `, composed], ['청자１２３４', '청자1234']]) {
+    const service = new ClassroomService(new MemoryStore(), {teacherPasscode: configured});
+    await rejectsCode(service.create({joinCode: '탑텐반', passcode: '청자교시'}), 'teacher-passcode');
+    assert.ok((await service.create({joinCode: '탑텐반', passcode: typed})).code);
+  }
+  assert.equal(configuredTeacherPasscode(decomposed), composed);
+  assert.equal(configuredTeacherPasscode('청자'), '', 'fewer than four letters is not a passcode');
+  assert.equal(configuredTeacherPasscode(undefined), '');
 });
 
 test('with a teacher passcode set, only the teacher can open or take back 탑텐반, and replacing a class deletes it', async () => {
@@ -538,6 +552,13 @@ test('수업 결과 내려받기 gives the teacher one row per student with thei
   const handler = createClassroomHandler({store: f.store});
   assert.equal((await request(handler, {query: {action: 'results', code}, auth: f.room.teacherToken})).body.rows.length, 2);
   assert.equal((await request(handler, {query: {action: 'results', code}, auth: observerToken})).statusCode, 403);
+});
+
+test('a work that mixed white and dark slip keeps that fact and its accepted AI check when it is sent', () => {
+  const mixed = finishedWork(rawWork({clay: {slip: 'mixed'}}));
+  assert.equal(mixed.work.clay.slip, 'mixed'); assert.equal(mixed.work.assessment.source, 'ai', 'the check was made for the same work on both sides');
+  assert.equal(finishedWork(rawWork({clay: {slip: 'dark'}})).work.clay.slip, 'dark');
+  assert.equal(finishedWork(rawWork({clay: {slip: 'rainbow'}})).work.clay.slip, 'white');
 });
 
 test('activity 1 done works with the default settings and persists until a new run', async () => {

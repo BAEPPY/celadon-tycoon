@@ -376,7 +376,12 @@ dialog.student-manager::backdrop{background:#1c2b3055}
 /* Teacher passcode on the 새 수업 열기 form (only when the server has one configured). */
 .passcode-field{display:grid;gap:6px;margin:0 0 12px;font-size:15px}
 .passcode-field[hidden]{display:none}
-.passcode-field input{min-height:46px}
+.passcode-row{display:flex;gap:8px;align-items:stretch}
+.passcode-row input{flex:1;min-width:0;min-height:46px}
+.passcode-row input.masked{-webkit-text-security:disc}
+.passcode-row input.masked::placeholder{-webkit-text-security:none}
+.welcome-form .passcode-row .button{flex:none;width:auto;min-width:72px;min-height:46px;margin-top:0}
+.passcode-field small{color:#7b665f;font-size:13px;line-height:1.4}
 /* Live board for projectors and PowerPoint slides: status line + the current board, no header or side panel. */
 body.board-mode{border-top-width:0}
 .board-shell{min-height:100dvh;display:flex;flex-direction:column;gap:10px;padding:10px 14px 12px}
@@ -415,3 +420,7 @@ body.model-mode{border-top-width:0;background:#f6f8f8}
 .preflight-list li[data-state=warn] .preflight-mark{background:#e2a100}.preflight-list li[data-state=warn] .preflight-mark::after{content:'!'}
 .preflight-list li[data-state=fail] .preflight-mark{background:#d1483c}.preflight-list li[data-state=fail] .preflight-mark::after{content:'×'}
 .preflight-footer{display:flex;justify-content:flex-end;margin-top:12px}
+/* Observer page while no class is open: browsable preview with a notice. */
+.observer-preview-note{margin:0 0 14px;padding:11px 15px;border-radius:9px;border:1px solid #cfe5df;background:#eef8f5;color:#2f6a60;font-size:15px;line-height:1.6;word-break:keep-all}
+.board-shell .observer-preview-note{margin:0}
+.teacher-empty .preview-game-link{display:inline-flex;margin-top:16px;text-decoration:none}

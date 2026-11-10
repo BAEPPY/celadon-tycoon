@@ -18,7 +18,7 @@
 .decoration-scene .station-nav .small-button,.inlay-scene .station-nav .small-button{font-size:16px;min-height:40px}
 .inlay-canvas{position:absolute;inset:0;width:100%;height:100%;z-index:7;touch-action:none;cursor:none}
 .inlay-canvas:focus-visible{outline:2px dashed #bc9661;outline-offset:-5px;border-radius:18px}
-.inlay-canvas[data-complete=true]{pointer-events:none}
+.inlay-canvas.inlay-wipe[data-complete=true]{pointer-events:none}
 .inlay-scene .vessel-turns{z-index:9}
 .inlay-choices{display:flex;justify-content:center;gap:18px;align-items:stretch;flex:1;min-width:0}
 .inlay-choice{display:flex;align-items:center;justify-content:center;gap:12px;min-width:220px;padding:10px 20px;border:2px solid #a17a69;border-radius:9px;background:#fff3db;font:inherit;font-size:22px;color:#73544e;box-shadow:0 3px #b89678}
@@ -29,3 +29,22 @@
 .inlay-status{font-size:18px!important;color:#557753}
 .inlay-keyboard{font-size:14px!important;color:#8d715e}
 @media(max-height:650px){.decoration-scene .station-info,.inlay-scene .station-info{padding:12px;gap:9px}.decoration-scene .station-info h2,.inlay-scene .station-info h2{font-size:20px}.decoration-scene .station-info p,.inlay-scene .station-info p{font-size:16px;line-height:1.4}.decoration-scene .pattern-bin span{font-size:12px}.decoration-scene .pattern-bin small{font-size:10px}.decoration-scene .rack-techniques .small-button{font-size:12px;min-height:22px}.decoration-scene .station-nav .primary,.inlay-scene .station-nav .primary{font-size:18px;min-height:40px}.inlay-choice{min-width:200px;font-size:19px;padding:7px 14px}.inlay-status{font-size:16px!important}}
+/* 크게 보기: the vessel takes the whole station so a stamp or a brush stroke lands where the child means it to. */
+.zoom-toggle{position:absolute;top:8px;right:8px;z-index:11;display:flex;align-items:center;gap:6px;min-height:40px;padding:6px 13px;border:2px solid #a98072;border-radius:20px;background:#fff3dfed;color:#63474b;font:inherit;font-size:15px;box-shadow:0 3px #bd978366;cursor:pointer}
+.zoom-toggle i{font-style:normal;font-size:17px;line-height:1}
+.zoom-toggle.selected{background:#dfe9cf;border-color:#6f8c62}
+.zoom-toggle:focus-visible{outline:2px solid #517552;outline-offset:2px}
+.zoom-note{font-size:14px!important;line-height:1.45!important;padding:8px 10px;border-radius:7px;background:#e9f0dc;color:#4f6b47}
+.station-scene.is-zoomed .station-rack{visibility:hidden}
+.inlay-scene.is-zoomed .station-rack{visibility:visible;top:46px;left:calc(23% + 34px);right:auto;width:auto;height:auto;min-height:0;padding:0;background:none;border:0;box-shadow:none;z-index:11}
+.inlay-scene.is-zoomed .inlay-choices{flex-direction:column;gap:6px}
+.inlay-scene.is-zoomed .inlay-choice{justify-content:flex-start;gap:7px;min-width:0;min-height:38px;padding:4px 12px 4px 8px;font-size:15px;border-radius:19px;background:#fff3dfed;box-shadow:0 2px #b89678}
+.inlay-scene.is-zoomed .inlay-choice.selected{background:#f2dfae}
+.inlay-scene.is-zoomed .inlay-choice small{display:none}
+.inlay-scene.is-zoomed .inlay-choice .soil-swatch{width:24px;height:23px;box-shadow:none}
+.station-scene.is-zoomed .station-workspace{top:38px;bottom:8px;left:calc(23% + 26px);right:calc(18% + 10px);z-index:9;background:#fff8e9f7;border:2px solid #b08b78;border-radius:14px;box-shadow:0 6px 18px #5a3b3033}
+.station-scene.is-zoomed .station-workspace>.workpiece{max-width:none}
+.hand-tools.inlay-tools{top:auto;bottom:78px;grid-template-columns:1fr}
+@media(max-height:650px){.hand-tools.inlay-tools{bottom:66px}}
+@media (max-width:600px),(max-width:1023px) and (pointer:coarse){.zoom-toggle,.zoom-note{display:none}.shop-game .hand-tools.inlay-tools{inset:auto;grid-template-columns:1fr}}
+@media(max-height:650px){.zoom-note{display:none}}

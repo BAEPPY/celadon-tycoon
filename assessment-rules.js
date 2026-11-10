@@ -62,7 +62,7 @@ function meaningful(text) { return text.length >= 5 && (text.match(/[가-힣]/g)
 function response(score, feedback) { return {score, feedback}; }
 export function explanationHints(work = {}) {
   const input=assessmentInput(work),names={cloud:'구름',crane:'학',lotus:'연꽃',peony:'모란',chrysanthemum:'국화',plum:'매화',bamboo:'대나무',willow:'버드나무',grape:'포도',wildflower:'풀꽃',text:'글자'};
-  const motif=names[input.patterns[0]||input.drawingLabel]||'무늬',slip=input.slip==='dark'?'검은 흙':'흰 흙';
+  const motif=names[input.patterns[0]||input.drawingLabel]||'무늬',slip=input.slip==='dark'?'검은 흙':input.slip==='mixed'?'흰 흙과 검은 흙':'흰 흙';
   const examples = {
     pillow: '예: 머리를 놓는 곳을 오목하게 빚은 베개예요. 누웠을 때 머리를 안정적으로 받쳐 주기 때문에 쉴 때 쓰면 좋아요.',
     stool: '예: 윗면이 평평하고 몸통이 튼튼한 의자예요. 사람의 몸을 단단히 받쳐 주기 때문에 앉아서 쉬기 좋아요.',

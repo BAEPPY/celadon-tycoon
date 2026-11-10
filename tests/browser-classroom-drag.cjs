@@ -63,7 +63,7 @@ const base=process.env.BASE_URL||'http://127.0.0.1:4173';
     assert.equal(await student.locator('[data-country-chip][aria-pressed=true]').count(),0,'releasing a drag does not select a chip through a follow-up click');
   }
   try{
-    await teacher.goto(`${base}/teacher`);await teacher.locator('[data-form=create] button').click();await teacher.locator('.teacher-room-code strong').waitFor();
+    await teacher.goto(`${base}/teacher`);await teacher.locator('[data-form=create] button[type=submit]').click();await teacher.locator('.teacher-room-code strong').waitFor();
     teacherSession=await teacher.evaluate(()=>JSON.parse(localStorage.getItem('celadon-classroom-teacher-v1')));
     await control('settings',{settings:{durations:{1:180}}});
     await student.goto(`${base}/lesson?code=${encodeURIComponent('탑텐반')}`);

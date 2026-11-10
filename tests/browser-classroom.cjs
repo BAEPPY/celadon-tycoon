@@ -40,7 +40,7 @@ async function capture(page, label) {
       return {status:response.status(),value:await response.json()};
     };
     const health=await api('health');assert.equal(health.status,200);assert.equal(health.value.storage,'filesystem');
-    await teacher.goto(`${base}/teacher`);await teacher.locator('[data-form=create] button').click();
+    await teacher.goto(`${base}/teacher`);await teacher.locator('[data-form=create] button[type=submit]').click();
     await teacher.locator('.teacher-room-code strong').waitFor();teacherSession=await session(teacher,true);
     assert.match(teacherSession.code,/^[A-Z2-9]{6}$/);
     assert.equal(await teacher.locator('.teacher-room-code strong').innerText(),'탑텐반');

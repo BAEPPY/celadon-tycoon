@@ -16,7 +16,8 @@ const techniques = new Set(TECHNIQUES.map(value => value.id));
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 const number = (value, min, max) => typeof value === 'number' && Number.isFinite(value) && value >= min && value <= max;
 const optional = (value, fallback, min, max) => value === undefined || value === null ? fallback : number(value, min, max) ? value : null;
-const slip = value => value === undefined || value === null ? 'white' : ['white', 'dark'].includes(value) ? value : null;
+// 'mixed' is the summary of a work that used white and dark slip together; inlay.dark then lists the dark cells.
+const slip = value => value === undefined || value === null ? 'white' : ['white', 'dark', 'mixed'].includes(value) ? value : null;
 
 function coordinate(raw) {
   if (!object(raw)) return null;
@@ -85,9 +86,10 @@ export function sanitizeWorkDesign(raw) {
   }
   if (raw.inlay !== undefined && raw.inlay !== null) {
     if (!object(raw.inlay)) return null;
-    const inlaySlip = slip(raw.inlay.slip ?? claySlip), fill = inlayCells(raw.inlay.fill), wipe = inlayCells(raw.inlay.wipe);
-    if (inlaySlip === null || fill === null || wipe === null) return null;
-    design.inlay = {slip: inlaySlip, fillDone: raw.inlay.fillDone === true, wipeDone: raw.inlay.wipeDone === true, fill, wipe};
+    const inlaySlip = slip(raw.inlay.slip ?? claySlip), fill = inlayCells(raw.inlay.fill), wipe = inlayCells(raw.inlay.wipe), dark = inlayCells(raw.inlay.dark);
+    if (inlaySlip === null || fill === null || wipe === null || dark === null) return null;
+    design.inlay = {slip: inlaySlip, fillDone: raw.inlay.fillDone === true, wipeDone: raw.inlay.wipeDone === true, fill, wipe,
+      ...(Array.isArray(raw.inlay.dark) ? {dark} : {})};
   }
   return new TextEncoder().encode(JSON.stringify(design)).byteLength <= MAX_WORK_DESIGN_BYTES ? design : null;
 }

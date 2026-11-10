@@ -20,7 +20,7 @@ const base=process.env.BASE_URL||'http://127.0.0.1:4173';
   const control=async(command,extra={})=>{const response=await call('control',{method:'POST',body:{command,...extra}});assert.equal(response.status,200,JSON.stringify(response.value));return response.value;};
   async function capture(page,label){for(const [width,height] of [[1366,768],[1024,600]]){await page.setViewportSize({width,height});await page.waitForTimeout(120);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);await page.screenshot({path:`/tmp/classroom-${label}-${width}.png`});}await page.setViewportSize({width:1366,height:768});}
   try{
-    await teacher.goto(`${base}/teacher`);await teacher.locator('[data-form=create] button').click();await teacher.locator('.teacher-room-code strong').waitFor();
+    await teacher.goto(`${base}/teacher`);await teacher.locator('[data-form=create] button[type=submit]').click();await teacher.locator('.teacher-room-code strong').waitFor();
     teacherSession=await teacher.evaluate(()=>JSON.parse(localStorage.getItem('celadon-classroom-teacher-v1')));
     // Leave enough wall time for real GLBs and the reload/ack assertions;
     // timeout behavior is covered separately by the main classroom tests.
