@@ -1,5 +1,5 @@
 import {createHash, createHmac, randomBytes, timingSafeEqual} from 'node:crypto';
-import {ORDERS, SHAPES, TECHNIQUES, evaluateWork} from './domain.js';
+import {ORDERS, PATTERNS, SHAPES, TECHNIQUES, evaluateWork} from './domain.js';
 import {assessmentInput, normalizeAssessment, rubricAssessment} from './assessment-rules.js';
 import {classroomPrefix, StoreConflict} from './classroom-store.js';
 import {sanitizeWorkDesign} from './work-design.js';
@@ -197,6 +197,20 @@ function previewImage(raw) {
     : bytes.subarray(0, 4).toString() === 'RIFF' && bytes.subarray(8, 12).toString() === 'WEBP';
   if (!valid || bytes.length > 307200) fail(400, 'invalid-preview', '작품 사진을 다시 준비해 주세요.');
   return raw;
+}
+// What the customer asked for and what the student made, in words, kept with a finished work so the boards can put
+// works from similar orders (the same use) side by side without knowing the game's order list.
+const named = (list, id) => list.find(item => item.id === id)?.name || '';
+export function orderDigest(work) {
+  const order = ORDERS.find(item => item.id === work.orderId);
+  if (!order) return null;
+  const shape = SHAPES.find(item => item.id === order.shape), patterns = order.requiredPatterns || (order.pattern === 'any' ? [] : [order.pattern]);
+  return {id: order.id, shape: order.shape, shapeName: shape?.name || '', use: shape?.use || '', customer: order.customer, title: order.title, quote: order.quote,
+    techniqueId: order.technique, technique: order.technique === 'any' ? '' : named(TECHNIQUES, order.technique), patterns: patterns.map(id => named(PATTERNS, id)).filter(Boolean)};
+}
+export function madeDigest(work) {
+  const patterns = [...new Set([...work.placements.map(point => point.pattern), work.drawingLabel].filter(Boolean))].map(id => named(PATTERNS, id)).filter(Boolean);
+  return {shape: work.shape, shapeName: named(SHAPES, work.shape), techniqueId: work.technique, technique: named(TECHNIQUES, work.technique), patterns: work.technique === 'plain' ? [] : patterns};
 }
 export function finishedWork(raw) {
   if (!raw || raw.step !== 4 || !ORDERS.some(order => order.id === raw.orderId) || !SHAPES.some(shape => shape.id === raw.shape) || !TECHNIQUES.some(technique => technique.id === raw.technique)) fail(400, 'unfinished-work', '완성한 작품만 선생님께 보낼 수 있어요.');
@@ -686,7 +700,8 @@ export class ClassroomService {
     // A new run can reuse a client ID without an older cleanup touching the new image.
     const imageId = hash(`${room.runId}\0${initialStudent.tokenHash}\0${work.id}`).slice(0, 32) + (raw.expiresAt === undefined ? '' : `-x${raw.expiresAt.toString(36)}`), key = artworkKey(code, id, imageId);
     const summary = {id: work.id, imageId, runId: room.runId, title: work.title, shape: work.shape, score: score.total,
-      objectiveScore: score.objective, explanationScore: score.explanation, explanationUse: work.explanationUse, explanationBeauty: work.explanationBeauty, submittedAt: this.now()};
+      objectiveScore: score.objective, explanationScore: score.explanation, explanationUse: work.explanationUse, explanationBeauty: work.explanationBeauty, submittedAt: this.now(),
+      order: orderDigest(work), made: madeDigest(work)};
     summary.expiresAt = Math.min(summary.submittedAt + WORK_RETENTION_MS, raw.expiresAt ?? Infinity);
     const priorArt = await this.store.read(key);
     let createdHere = false;

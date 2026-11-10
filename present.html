@@ -45,7 +45,7 @@ body.big #note{font-size:20px;padding:14px 22px}
 'use strict';
 // What may be shown is a fixed list: the game, a 3D model, or a live board of a class. Nothing else is ever framed.
 const MODELS = ['beauty', 'comparison-1', 'comparison-2', 'comparison-3', 'observation-1', 'observation-2', 'observation-3', 'observation-4', 'observation-5'];
-const BOARDS = {follow: '지금 활동 따라가기', comparison: '세 나라 비교 결과', beauty: '아름다움 찾기', uses: '이름·쓰임 짐작', works: '완성작 모음'};
+const BOARDS = {follow: '지금 활동 따라가기', comparison: '세 나라 비교 결과', beauty: '아름다움 찾기', uses: '이름·쓰임 짐작', works: '완성작 모음', compare: '비슷한 주문끼리 비교'};
 const $ = id => document.getElementById(id);
 const query = new URLSearchParams(location.search), open = query.get('open') || 'game';
 function target() {

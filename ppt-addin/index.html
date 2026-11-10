@@ -55,6 +55,7 @@ label.check{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:7
       <label class="choice"><input type="radio" name="panel" value="beauty"> 매병 3D·아름다움</label>
       <label class="choice"><input type="radio" name="panel" value="uses"> 이름·쓰임 짐작</label>
       <label class="choice"><input type="radio" name="panel" value="works"> 완성작 모음</label>
+      <label class="choice"><input type="radio" name="panel" value="compare"> 비슷한 주문끼리 비교</label>
       <label class="choice"><input type="radio" name="panel" value="game"> 청자 만들기 게임</label>
       <label class="choice"><input type="radio" name="panel" value="model"> 3D 청자 돌려 보기</label>
       <label class="choice"><input type="radio" name="panel" value="plain"> 3D 청자만 크게 보기</label>
@@ -89,7 +90,7 @@ label.check{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:7
 'use strict';
 // Each inserted add-in keeps its own choice in the presentation (Office settings); the observer link is also kept
 // on this computer so the next slide's add-in fills it in. Outside PowerPoint the page works with local storage only.
-const LOCAL_KEY = 'celadon-ppt-addin-v1', PANELS = ['follow', 'comparison', 'beauty', 'uses', 'works', 'game', 'model'];
+const LOCAL_KEY = 'celadon-ppt-addin-v1', PANELS = ['follow', 'comparison', 'beauty', 'uses', 'works', 'compare', 'game', 'model'];
 // 3D models need no class link: they are the lesson's public models, activity 2 ones under their blind labels.
 const MODELS = ['beauty', 'comparison-1', 'comparison-2', 'comparison-3', 'observation-1', 'observation-2', 'observation-3', 'observation-4', 'observation-5'];
 const needsLink = panel => panel !== 'game' && panel !== 'model';

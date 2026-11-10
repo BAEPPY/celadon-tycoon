@@ -4,7 +4,7 @@ import {randomBytes} from 'node:crypto';
 import {mkdtemp, readFile, rm} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import {ClassroomService, WORK_UPLOAD_GRACE_MS, WORK_RETENTION_MS, configuredTeacherPasscode, finishedWork} from './classroom-domain.js';
+import {ClassroomService, WORK_UPLOAD_GRACE_MS, WORK_RETENTION_MS, configuredTeacherPasscode, finishedWork, orderDigest, madeDigest} from './classroom-domain.js';
 import {BlobClassroomStore, FileClassroomStore, StoreConflict, classroomPrefix, classroomStorageStatus} from './classroom-store.js';
 import {createClassroomHandler, MAX_CLASSROOM_BODY_BYTES} from './api/classroom.js';
 import {createCleanupHandler} from './api/cleanup-classroom.js';
@@ -706,6 +706,29 @@ test('finished work preserves multiline AI evaluation and recomputes score inste
   assert.equal((await f.service.artwork(imageQuery, student.participantToken)).preview, png);
   await rejectsCode(f.service.artwork(imageQuery, other.participantToken), 'student-auth');
   await rejectsCode(f.service.state({code: f.room.code, participantId: student.participantId}, other.participantToken), 'student-auth');
+});
+
+test('a finished work keeps what was ordered and what was made in words, so boards can compare similar orders', async () => {
+  // The order: which vessel (its use), who asked, and the pattern and technique asked for ('' and [] when left free).
+  assert.deepEqual(orderDigest({orderId: 'royal-rest'}), {id: 'royal-rest', shape: 'pillow', shapeName: '청자 베개', use: '누워서 쉴 때 머리를 받칩니다.', customer: '왕실의 주문',
+    title: orderDigest({orderId: 'royal-rest'}).title, quote: orderDigest({orderId: 'royal-rest'}).quote, techniqueId: 'inlay', technique: '상감', patterns: ['학']});
+  const free = orderDigest({orderId: 'royal-simple-vessel'});
+  assert.deepEqual([free.shape, free.shapeName, free.techniqueId, free.technique, free.patterns], ['maebyeong', '청자 매병', 'any', '', []]);
+  assert.deepEqual(orderDigest({orderId: 'example-maebyeong'}).patterns, ['학', '구름'], 'every pattern an order requires');
+  assert.equal(orderDigest({orderId: 'no-such-order'}), null);
+  // What was made: the patterns really placed (each once), none for a plain work.
+  assert.deepEqual(madeDigest({shape: 'maebyeong', technique: 'inlay', drawingLabel: '', placements: [{pattern: 'crane'}, {pattern: 'cloud'}, {pattern: 'crane'}]}),
+    {shape: 'maebyeong', shapeName: '청자 매병', techniqueId: 'inlay', technique: '상감', patterns: ['학', '구름']});
+  assert.deepEqual(madeDigest({shape: 'pitcher', technique: 'plain', drawingLabel: '', placements: [{pattern: 'crane'}]}).patterns, []);
+  // Teachers and visitors both get the two digests with a work; visitors still get no name or number.
+  const f = await fixture(), student = await f.join(1, '비교 학생'), {state} = await f.control('start', 3);
+  await f.service.submitWork({code: f.room.code, participantId: student.participantId, runId: state.runId, work: rawWork(), preview: png}, student.participantToken);
+  const [teacherWork] = (await f.service.overview({code: f.room.code}, f.room.teacherToken)).works;
+  assert.deepEqual([teacherWork.order.shape, teacherWork.order.customer, teacherWork.made.shape, teacherWork.made.technique, teacherWork.made.patterns], ['pillow', '왕실의 주문', 'pillow', '상감', ['학']]);
+  const {observerToken} = await f.control('observer-link');
+  const [seen] = (await f.service.observe({code: f.room.code}, observerToken)).works;
+  assert.deepEqual(seen.order, teacherWork.order); assert.deepEqual(seen.made, teacherWork.made);
+  assert.equal(seen.name, undefined); assert.equal(seen.number, undefined); assert.ok(!JSON.stringify(seen).includes('비교 학생'));
 });
 
 test('unfinished works, invalid images, oversized images, and writes under a different student are rejected', async () => {

@@ -435,3 +435,80 @@ body.model-plain{background:#fff}
 .observer-preview-note{margin:0 0 14px;padding:11px 15px;border-radius:9px;border:1px solid #cfe5df;background:#eef8f5;color:#2f6a60;font-size:15px;line-height:1.6;word-break:keep-all}
 .board-shell .observer-preview-note{margin:0}
 .teacher-empty .preview-game-link{display:inline-flex;margin-top:16px;text-decoration:none}
+
+/* Activity 3 · 비슷한 주문끼리 비교하기: works whose orders asked for the same use, side by side (four at a time). */
+.works-toolbar{flex-wrap:wrap}.works-toolbar .works-view{margin-left:auto}
+.compare-board{display:flex;flex-direction:column;gap:12px;min-width:0}
+.compare-groups{display:flex;flex-wrap:wrap;gap:6px}
+.compare-groups button{display:inline-flex;align-items:center;gap:7px;min-height:40px;padding:6px 14px;border:1px solid #d5e3e3;border-radius:999px;background:#fff;color:#56707a;font-size:15px;font-weight:700}
+.compare-groups button b{min-width:24px;padding:1px 7px;border-radius:999px;background:#eaf0f1;color:#56707a;font-size:13px;text-align:center}
+.compare-groups button[aria-pressed=true]{background:var(--jade);border-color:var(--jade);color:#fff}
+.compare-groups button[aria-pressed=true] b{background:#ffffff33;color:#fff}
+.compare-head{display:flex;align-items:center;justify-content:space-between;gap:10px 28px;flex-wrap:wrap;padding:14px 20px;border:1px solid #cfe5e1;border-radius:12px;background:linear-gradient(100deg,#e8f7f5,#f6fbf9)}
+.compare-head .activity-label{margin-bottom:2px}
+.compare-head h2{font-size:26px;line-height:1.3;letter-spacing:-.02em}.compare-head h2 span{margin-left:8px;font-size:18px;color:var(--jade-dark)}
+.compare-head h2+p{margin-top:3px;font-size:15px;color:#55707a}
+.compare-ask{flex:0 1 auto;padding:9px 16px;border-left:4px solid var(--coral);border-radius:4px 10px 10px 4px;background:#fff;font-size:16px;line-height:1.55;color:#33474f}
+.compare-ask strong{color:var(--coral-dark)}
+.compare-cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;min-height:0}
+.compare-cards[data-count="1"]{grid-template-columns:minmax(0,560px);justify-content:center}
+.compare-cards[data-count="2"]{grid-template-columns:repeat(2,minmax(0,560px));justify-content:center}
+.compare-cards[data-count="3"]{grid-template-columns:repeat(3,minmax(0,1fr))}
+.compare-card{display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden}
+.compare-card .work-preview{flex:none;height:190px}
+.compare-details{display:flex;flex-direction:column;gap:8px;flex:1;min-height:0;padding:12px 14px 14px}
+.compare-details .student-line{font-size:14px;color:#73878f;margin-bottom:-4px}
+.compare-details h3{font-size:19px;font-weight:750;line-height:1.35;word-break:keep-all;overflow-wrap:anywhere}
+.compare-facts{display:grid;gap:4px;margin:0;padding:8px 10px;border-radius:8px;background:#f3f8f7}
+.compare-facts div{display:grid;grid-template-columns:54px minmax(0,1fr);gap:6px;align-items:baseline}
+.compare-facts dt{font-size:13px;font-weight:700;color:#368d86}
+.compare-facts dd{margin:0;font-size:14px;line-height:1.45;color:#33474f;word-break:keep-all;overflow-wrap:anywhere}
+.compare-text{font-size:15px;line-height:1.55;color:#33474f;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:4;overflow:hidden}
+.compare-text b{display:block;font-size:13px;color:#368d86}
+.compare-card .work-expand{position:absolute;right:10px;bottom:10px;margin:0;min-height:36px;padding:5px 11px;font-size:14px;background:#fffffff2}
+.compare-pages{display:flex;align-items:center;justify-content:center;gap:16px;font-weight:700;color:#56707a}
+.compare-pages .button{min-height:40px;padding:6px 16px;font-size:15px}
+@media(max-width:1100px){.compare-cards,.compare-cards[data-count="3"]{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:620px){.compare-cards,.compare-cards[data-count="2"],.compare-cards[data-count="3"]{grid-template-columns:1fr}.compare-head h2{font-size:22px}}
+/* On a board (a slide): exactly one screen. The cards share the width and the height left under the heading; the
+   pictures are equally tall, explanations show as many lines as fit (--lines, set by fitCompareCards), and 크게 보기
+   opens the whole work. */
+.compare-text{-webkit-line-clamp:var(--lines,4)}
+@media(min-width:900px) and (min-height:480px){
+  /* Every size inside follows the box (--cf), so a small box on a slide and a full-screen 전자칠판 look the same. */
+  .board-shell.board-fit{height:100dvh;min-height:0;overflow:hidden;--cf:clamp(11px,min(1.2vw,2.13vh),30px)}
+  .board-fit .teacher-content{display:flex;flex-direction:column;min-height:0}
+  .board-fit .works-toolbar{flex:none;margin-bottom:8px}
+  .board-fit .compare-board{flex:1;min-height:0;gap:.6em;font-size:var(--cf)}
+  .board-fit .compare-groups,.board-fit .compare-head,.board-fit .compare-pages{flex:none}
+  .board-fit .compare-groups{gap:.4em}
+  .board-fit .compare-groups button{min-height:2.6em;padding:.3em .95em;font-size:1em;gap:.45em}
+  .board-fit .compare-groups button b{font-size:.85em;min-width:1.7em;padding:.05em .5em}
+  .board-fit .compare-head{padding:.55em 1.1em;gap:.5em 1.6em}
+  .board-fit .compare-head .activity-label{font-size:.9em;margin-bottom:.1em}
+  .board-fit .compare-head h2{font-size:1.7em}.board-fit .compare-head h2 span{font-size:.68em}
+  .board-fit .compare-head h2+p{font-size:.95em;margin-top:.15em}
+  .board-fit .compare-ask{font-size:1.05em;padding:.5em 1em}
+  .board-fit .compare-cards{flex:1;gap:.8em;grid-template-rows:minmax(0,1fr)}
+  .board-fit .compare-cards[data-count="1"]{grid-template-columns:minmax(0,46%)}
+  .board-fit .compare-cards[data-count="2"]{grid-template-columns:repeat(2,minmax(0,38%))}
+  .board-fit .compare-cards[data-count="3"]{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .board-fit .compare-cards[data-count="4"]{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .board-fit .compare-card{display:grid;grid-template-rows:minmax(0,46%) minmax(0,1fr)}
+  .board-fit .compare-card .work-preview{height:auto;min-height:0}
+  .board-fit .work-score{font-size:1.4em;height:1.9em;min-width:2.6em;padding:0 .45em;right:.55em;top:.55em}
+  .board-fit .compare-card .work-expand{font-size:.9em;min-height:2.5em;padding:.3em .8em;right:.6em;bottom:.6em}
+  .board-fit .compare-card .work-expand>span{font-size:1.2em}
+  .board-fit .compare-details{padding:.65em .9em .75em;gap:.45em;overflow:hidden}
+  .board-fit .compare-details>*{flex:none}
+  .board-fit .compare-details .student-line{font-size:.9em;margin-bottom:-.2em}
+  .board-fit .compare-details h3{font-size:1.25em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .board-fit .compare-facts{padding:.5em .65em;gap:.25em}
+  .board-fit .compare-facts div{grid-template-columns:3.6em minmax(0,1fr);gap:.4em}
+  .board-fit .compare-facts dt{font-size:.85em}
+  .board-fit .compare-facts dd{font-size:.92em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .board-fit .compare-text{font-size:1em}
+  .board-fit .compare-text b{display:inline;margin-right:.45em;font-size:.85em}
+  .board-fit .compare-pages{gap:1em;font-size:1em}.board-fit .compare-pages .button{min-height:2.5em;padding:.3em 1em;font-size:.95em}
+  .board-fit .compare-details.tight .compare-facts{display:none}
+}

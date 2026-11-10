@@ -56,6 +56,7 @@ const base=process.env.BASE_URL||'http://127.0.0.1:4173';
     assert.deepEqual(await shown('?open=model&id=../../teacher'),{src:'/model?id=beauty',title:'청자 돌려 보기'});
     const key='k'.repeat(43);
     assert.deepEqual(await shown(`?open=works&code=${encodeURIComponent('탑텐반')}#key=${key}`),{src:`/observe?code=${encodeURIComponent('탑텐반')}&show=works#key=${key}`,title:'완성작 모음'});
+    assert.deepEqual(await shown(`?open=compare&code=${encodeURIComponent('탑텐반')}#key=${key}`),{src:`/observe?code=${encodeURIComponent('탑텐반')}&show=compare#key=${key}`,title:'비슷한 주문끼리 비교'});
     assert.deepEqual(await shown(`?open=follow&code=abc234#key=${key}`),{src:`/observe?code=ABC234&board=1#key=${key}`,title:'지금 활동 따라가기'});
     assert.deepEqual(await shown('?open=comparison&code=%3Cscript%3E#key=short'),{src:`/observe?code=${encodeURIComponent('탑텐반')}&show=comparison`,title:'세 나라 비교 결과'});
     for(const address of ['','?open=https://example.com','?open=//example.com/x','?open=teacher','?open=javascript:alert(1)'])assert.deepEqual(await shown(address),{src:'/game',title:'청자 만들기 게임'},address);

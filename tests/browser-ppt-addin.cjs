@@ -120,6 +120,9 @@ const officeStub=view=>`window.__settings=window.__settings||{};window.__saved=0
     assert.equal(await second.locator('#link').inputValue(),link,'a new add-in on the next slide gets the link from this computer');
     await second.locator('input[name=panel][value=works]').check();await second.locator('#form button[type=submit]').click();
     assert.match(await second.locator('#board').getAttribute('src'),/show=works/);
+    // 비슷한 주문끼리 비교 is a choice of its own, shown by the comparison board of the site.
+    await second.locator('#change').click();await second.locator('input[name=panel][value=compare]').check();await second.locator('#form button[type=submit]').click();
+    assert.match(await second.locator('#board').getAttribute('src'),/show=compare/);assert.equal(await second.evaluate(()=>window.__settings.panel),'compare');
     // A presentation opened in slide show with a saved panel goes straight to the board.
     const showContext=await browser.newContext({viewport:{width:900,height:560}});
     await showContext.route(OFFICE_JS,route=>route.fulfill({contentType:'text/javascript',body:`window.__settings=${JSON.stringify({panel:'comparison',link})};`+officeStub('read')}));
