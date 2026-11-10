@@ -71,6 +71,7 @@ label.check{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:7
         <option value="observation-5">쓰임 짐작 · 청자 5</option>
       </select>
     </label>
+    <label class="check" id="plain-field" hidden><input type="checkbox" id="plain"> 청자만 크게 보기 (버튼은 확대·축소만)</label>
     <label class="check"><input type="checkbox" id="cover"> 슬라이드 쇼에서는 가려 두었다가 클릭하면 나타나기</label>
     <label class="field" id="link-field">PPT용 주소
       <input type="url" id="link" autocomplete="off" spellcheck="false" placeholder="선생님 화면 → 수업 관리 → PPT용 주소 복사">
@@ -106,9 +107,10 @@ function parseLink(text) {
     return {code, key};
   } catch { return null; }
 }
-function boardUrl(panel, link, model) {
+function boardUrl(panel, link, model, plain) {
   if (panel === 'game') return '/game';
-  if (panel === 'model') return `/model?${new URLSearchParams({id: model})}`;
+  // "청자만 크게 보기": only the model and the two zoom buttons.
+  if (panel === 'model') return `/model?${new URLSearchParams({id: model, ...(plain ? {plain: '1'} : {})})}`;
   const params = new URLSearchParams({code: link.code});
   if (panel === 'follow') params.set('board', '1'); else params.set('show', panel);
   return `/observe?${params}#${new URLSearchParams({key: link.key})}`;
@@ -117,20 +119,20 @@ function saved() {
   const doc = office ? Office.context.document.settings : null, mine = local.read();
   const panel = (doc ? doc.get('panel') : mine.panel) || null, link = (doc && doc.get('link')) || mine.link || null, model = (doc ? doc.get('model') : mine.model) || 'beauty';
   return {panel: PANELS.includes(panel) ? panel : null, link: parseLink(link) ? link : null, model: MODELS.includes(model) ? model : 'beauty',
-    cover: Boolean(doc ? doc.get('cover') : mine.cover), panelSaved: Boolean(doc ? doc.get('panel') : mine.panel)};
+    cover: Boolean(doc ? doc.get('cover') : mine.cover), plain: Boolean(doc ? doc.get('plain') : mine.plain), panelSaved: Boolean(doc ? doc.get('panel') : mine.panel)};
 }
-function save(panel, link, model, cover) {
-  local.write({...(link ? {link} : {}), ...(office ? {} : {panel, model, cover})});
+function save(panel, link, model, cover, plain) {
+  local.write({...(link ? {link} : {}), ...(office ? {} : {panel, model, cover, plain})});
   if (!office) return Promise.resolve();
   const settings = Office.context.document.settings;
-  settings.set('panel', panel); settings.set('model', model); settings.set('cover', cover); if (link) settings.set('link', link);
+  settings.set('panel', panel); settings.set('model', model); settings.set('cover', cover); settings.set('plain', plain); if (link) settings.set('link', link);
   return new Promise(resolve => settings.saveAsync(() => resolve()));
 }
 function showBoard() {
-  const {panel, link, model} = saved(), parsed = link && parseLink(link);
+  const {panel, link, model, plain} = saved(), parsed = link && parseLink(link);
   if (!panel || (needsLink(panel) && !parsed)) return showSetup();
   $('setup').hidden = true;
-  const src = boardUrl(panel, parsed || {}, model);
+  const src = boardUrl(panel, parsed || {}, model, plain);
   if ($('board').getAttribute('src') !== src) $('board').setAttribute('src', src);
   $('board').hidden = false; $('change').hidden = !editing;
   $('change').textContent = saved().cover ? '화면 바꾸기 · 클릭하면 나타나기' : '화면 바꾸기';
@@ -148,7 +150,7 @@ $('cover-screen').addEventListener('click', () => {
 });
 function showSetup(message = '') {
   const {panel, link, model} = saved();
-  $('model').value = model; $('cover').checked = saved().cover; $('cover-screen').hidden = true;
+  $('model').value = model; $('cover').checked = saved().cover; $('plain').checked = saved().plain; $('cover-screen').hidden = true;
   $('board').hidden = true; $('change').hidden = true; $('setup').hidden = false; $('error').textContent = message;
   const choice = document.querySelector(`input[name=panel][value="${panel || 'follow'}"]`); if (choice) choice.checked = true;
   $('link').value = link || local.read().link || '';
@@ -156,7 +158,7 @@ function showSetup(message = '') {
 }
 function syncLinkField() {
   const panel = document.querySelector('input[name=panel]:checked')?.value;
-  $('link-field').hidden = !needsLink(panel); $('model-field').hidden = panel !== 'model';
+  $('link-field').hidden = !needsLink(panel); $('model-field').hidden = panel !== 'model'; $('plain-field').hidden = panel !== 'model';
 }
 $('form').addEventListener('change', syncLinkField);
 $('form').addEventListener('submit', async event => {
@@ -165,7 +167,7 @@ $('form').addEventListener('submit', async event => {
   if (!PANELS.includes(panel)) return;
   if (needsLink(panel) && !parseLink(text)) { $('error').textContent = 'PPT용 주소를 확인해 주세요. 선생님 화면 → 수업 관리 → “PPT용 주소 복사”로 복사한 주소를 붙여 넣어 주세요.'; return; }
   const model = MODELS.includes($('model').value) ? $('model').value : 'beauty';
-  await save(panel, parseLink(text) ? text : saved().link, model, $('cover').checked);
+  await save(panel, parseLink(text) ? text : saved().link, model, $('cover').checked, $('plain').checked);
   showBoard();
 });
 $('change').addEventListener('click', () => showSetup());

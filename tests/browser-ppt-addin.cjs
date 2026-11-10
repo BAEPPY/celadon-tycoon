@@ -77,6 +77,25 @@ const officeStub=view=>`window.__settings=window.__settings||{};window.__saved=0
     assert.ok(!before.equals(await model.locator('[data-model-viewer] canvas').screenshot()),'dragging turns the model');
     await plain.reload();
     assert.equal(await plain.locator('#board').getAttribute('src'),'/model?id=observation-2','the model choice is remembered');
+    // 청자만 크게 보기: nothing but the model and the two zoom buttons; it is still turned by dragging.
+    assert.equal(await plain.locator('#model-field').isVisible(),false);
+    await plain.locator('#change').click();assert.equal(await plain.locator('#plain-field').isVisible(),true);
+    await plain.locator('#model').selectOption('beauty');await plain.locator('#plain').check();await plain.locator('#form button[type=submit]').click();
+    assert.equal(await plain.locator('#board').getAttribute('src'),'/model?id=beauty&plain=1');
+    const only=plain.frameLocator('#board');
+    await only.locator('[data-model-viewer][data-viewer-status=ready]').waitFor({timeout:60000});
+    const visible=await only.locator('.lesson-viewer__control').evaluateAll(nodes=>nodes.filter(node=>node.offsetParent!==null).map(node=>node.getAttribute('aria-label')));
+    assert.deepEqual(visible,['확대하기','축소하기'],'only the zoom buttons show');
+    assert.equal(await only.locator('.model-caption').count(),0);assert.equal(await only.locator('.lesson-viewer__hint').isVisible(),false);
+    assert.equal(await only.locator('body').evaluate(node=>node.scrollHeight<=innerHeight&&node.scrollWidth<=innerWidth),true);
+    const area=await plain.locator('#board').boundingBox(),still=await only.locator('[data-model-viewer] canvas').screenshot();
+    await only.locator('.lesson-viewer__control[aria-label="확대하기"]').click();await plain.waitForTimeout(500);
+    const closer=await only.locator('[data-model-viewer] canvas').screenshot();assert.ok(!still.equals(closer),'확대 brings the model closer');
+    await plain.mouse.move(area.x+area.width/2,area.y+area.height/2);await plain.mouse.down();await plain.mouse.move(area.x+area.width/2+120,area.y+area.height/2,{steps:6});await plain.mouse.up();await plain.waitForTimeout(500);
+    assert.ok(!closer.equals(await only.locator('[data-model-viewer] canvas').screenshot()),'dragging still turns it');
+    await plain.locator('#change').click();assert.equal(await plain.locator('#plain').isChecked(),true,'the choice is remembered');
+    await plain.locator('#plain').uncheck();await plain.locator('#form button[type=submit]').click();
+    assert.equal(await plain.locator('#board').getAttribute('src'),'/model?id=beauty');
     const missing=await plainContext.newPage();watch(missing,'missing model');
     await missing.goto(`${base}/model?id=nope`);await missing.getByTestId('model-missing').waitFor({timeout:15000});
 
@@ -148,7 +167,7 @@ const officeStub=view=>`window.__settings=window.__settings||{};window.__saved=0
     await old.locator('#lg-root #lg-form').waitFor({timeout:15000});
     assert.match(await old.locator('#lg-root').innerText(),/옛 웹 엔진/);assert.equal(await old.locator('#setup').isVisible(),false);
     assert.deepEqual(errors,[]);
-    console.log('PowerPoint add-in: manifest and icons served, link validation, remembered choice outside Office, draggable 3D model page, per-instance Office settings, shared link on the next slide, slide-show view without controls, remote keys moving slides, click-to-reveal cover, hand-over to the old-engine board and direct board on open passed.');
+    console.log('PowerPoint add-in: manifest and icons served, link validation, remembered choice outside Office, draggable 3D model page, plain model view with zoom only, per-instance Office settings, shared link on the next slide, slide-show view without controls, remote keys moving slides, click-to-reveal cover, hand-over to the old-engine board and direct board on open passed.');
   }finally{
     if(room&&teacher)await control('delete').catch(()=>{});
     await browser.close();

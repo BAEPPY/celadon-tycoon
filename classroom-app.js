@@ -963,7 +963,9 @@ function renderModelPage(){
   const id=new URLSearchParams(location.search).get('id')||'beauty',artifact=Object.hasOwn(MODEL_PAGES,id)?MODEL_PAGES[id]:null;
   if(!artifact){app.innerHTML='<section class="waiting board-empty" data-testid="model-missing"><div class="waiting-inner"><h1>3D 청자를 찾지 못했어요</h1><p>주소를 다시 확인해 주세요.</p></div></section>';return;}
   const label=id==='beauty'?BEAUTY_ARTIFACT.label:`${id.startsWith('comparison')?'세 나라 비교':'쓰임 짐작'} · 청자 ${artifact.id}`;
-  app.innerHTML=`<main class="model-shell" data-testid="model-page" data-model-id="${esc(id)}"><div class="model-stage viewer-host" data-model-viewer></div><p class="model-caption"><strong>${esc(label)}</strong></p></main>`;
+  // ?plain=1 (the add-in's "청자만 크게 보기"): only the model and the two zoom buttons; it is still turned by dragging.
+  const plain=new URLSearchParams(location.search).get('plain')==='1';document.body.classList.toggle('model-plain',plain);
+  app.innerHTML=`<main class="model-shell" data-testid="model-page" data-model-id="${esc(id)}"><div class="model-stage viewer-host" data-model-viewer></div>${plain?'':`<p class="model-caption"><strong>${esc(label)}</strong></p>`}</main>`;
   mountLessonViewer(app.querySelector('[data-model-viewer]'),artifact,{expand:false,detail:true});
 }
 async function boot(){

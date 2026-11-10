@@ -137,7 +137,7 @@
   function draw(view) {
     var item = records[view.id];
     if (!item || item.state !== 'ready' || !ensureRenderer() || !inPage(view.node)) return;
-    var ratio = Math.min(window.devicePixelRatio || 1, 2), w = Math.max(1, Math.round(view.node.offsetWidth * ratio)), h = Math.max(1, Math.round(view.node.offsetHeight * ratio));
+    var ratio = Math.min(window.devicePixelRatio || 1, 2), w = Math.max(1, Math.round(view.box.offsetWidth * ratio)), h = Math.max(1, Math.round(view.box.offsetHeight * ratio));
     try {
       if (view.canvas.width !== w || view.canvas.height !== h) { view.canvas.width = w; view.canvas.height = h; }
       renderer.setSize(w, h, false); place(item, w / h); renderer.render(item.scene, item.camera);
@@ -182,7 +182,7 @@
     return {view: view, x: x, y: y, time: now()};
   }
   function move(grip, x, y) {
-    var item = records[grip.view.id], width = grip.view.node.offsetWidth || 200, time = now(), turned = (x - grip.x) / width * Math.PI;
+    var item = records[grip.view.id], width = Math.min(grip.view.box.offsetWidth, grip.view.box.offsetHeight) || 200, time = now(), turned = (x - grip.x) / width * Math.PI;
     item.yaw += turned; item.pitch = clamp(item.pitch + (y - grip.y) / width * 1.4, -0.35, 1.15);
     item.velocity = time > grip.time ? clamp(turned / (time - grip.time), -0.012, 0.012) : 0;
     grip.x = x; grip.y = y; grip.time = time; item.dirty = true; schedule();
@@ -222,14 +222,17 @@
   api.usable = function () { return !broken && !!THREE && !!THREE.GLTFLoader; };
   // Is this model on screen in 3D (so the pictures are not needed)?
   api.shown = function (id) { return !broken && !!records[id] && records[id].state === 'ready' && records[id].checked === true; };
-  api.mount = function (node, id) {
+  // `frame` (optional) is a larger element the drawing should fill instead of the model's own square, so an
+  // enlarged model is not cut off at the square's edges.
+  api.mount = function (node, id, frame) {
     if (!api.usable() || (records[id] && records[id].state === 'error')) return false;
     var canvas = document.createElement('canvas'), context = null;
     try { context = canvas.getContext('2d'); } catch (e) { context = null; }
     if (!context) return false;
     canvas.className = 'lg-3d'; canvas.setAttribute('aria-hidden', 'true'); canvas.style.display = 'none';
-    node.appendChild(canvas);
-    var view = {node: node, id: id, canvas: canvas, context: context, shown: false};
+    var box = frame || node;
+    box.appendChild(canvas);
+    var view = {node: node, box: box, id: id, canvas: canvas, context: context, shown: false};
     views.push(view); listen(view);
     var item = record(id);
     if (item.state === 'ready') draw(view);
@@ -245,7 +248,7 @@
     var item = records[id]; if (!item || item.state !== 'ready') return;
     item.velocity = 0; item.turn = {from: item.yaw, to: (item.turn ? item.turn.to : item.yaw) + radians, start: now()}; schedule();
   };
-  api.zoom = function (id, factor) { var item = records[id]; if (!item || item.state !== 'ready') return; item.zoom = clamp(item.zoom * factor, 0.6, 3); item.dirty = true; schedule(); };
+  api.zoom = function (id, factor) { var item = records[id]; if (!item || item.state !== 'ready') return; item.zoom = clamp(item.zoom * factor, 0.6, 4); item.dirty = true; schedule(); };
   api.reset = function (id) { var item = records[id]; if (!item || item.state !== 'ready') return; item.yaw = 0; item.pitch = START_PITCH; item.zoom = 1; item.velocity = 0; item.turn = null; item.dirty = true; schedule(); };
   api.auto = function (id) { autoId = id || null; lastTime = 0; if (autoId) schedule(); };
   api.autoId = function () { return autoId; };

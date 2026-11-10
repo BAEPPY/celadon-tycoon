@@ -77,6 +77,13 @@ html,body{margin:0;height:100%}
 .lg-work h2{font-size:.92rem;margin-top:.35rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .lg-work p{font-size:.76rem;color:#56646e;height:2.2rem;overflow:hidden;margin-top:.15rem}
 .lg-center{text-align:center}
+/* 청자만 크게 보기: the model as large as the box (a square as tall as the box), two zoom buttons in the corner. */
+.lg-plain{position:absolute;top:0;left:0;right:0;bottom:0;overflow:hidden;background:#f5f7f8;background:radial-gradient(ellipse at 50% 45%,#ffffff 0%,#eef2f3 80%)}
+.lg-plain .lg-turn-box{width:100vh;max-width:100%;margin:0 auto;border-radius:0;overflow:hidden;background:none}
+.lg-plain .lg-turn{border-radius:0}
+.lg-plain-keys{position:absolute;right:.8rem;bottom:.8rem;z-index:2}
+#lg-root .lg-plain-keys button{display:block;width:3.2rem;height:3.2rem;margin-top:.5rem;padding:0;font-size:1.6rem;line-height:1;border-radius:1.6rem;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.18)}
+#lg-root .lg-plain-setup{position:absolute;right:.8rem;top:.8rem;z-index:2;opacity:.9}
 .lg-model-name{font-size:1.2rem;font-weight:700;margin-top:.2rem}
 .lg-form{max-width:36rem;margin:0 auto;background:#fff;border:1px solid #d9e3e6;border-radius:.7rem;padding:.9rem 1.1rem}
 .lg-form h1{margin:0 0 .5rem;font-size:1.15rem}
