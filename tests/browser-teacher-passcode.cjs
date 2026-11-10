@@ -28,7 +28,7 @@ const PASSCODE='청자교실 공개수업',port=Number(process.env.PASSCODE_TEST
     assert.equal(await input.evaluate(el=>el.type),'text');
     assert.equal(await input.getAttribute('autocomplete'),'off');assert.equal(await input.getAttribute('autocapitalize'),'off');assert.equal(await input.getAttribute('spellcheck'),'false');
     assert.equal(await page.locator('label[for=teacher-passcode]').innerText(),'선생님 확인 번호');
-    assert.match(await page.locator('#teacher-passcode-hint').innerText(),/한글·영어·숫자 모두 쓸 수 있어요/);
+    assert.match(await page.locator('#teacher-passcode-hint').innerText(),/미리 정해 둔 번호를 넣는 칸이에요\. 한글·영어·숫자 모두 쓸 수 있고/);assert.equal(await input.getAttribute('placeholder'),'미리 정해 둔 확인 번호');
     const masking=()=>input.evaluate(el=>getComputedStyle(el).webkitTextSecurity);
     assert.equal(await masking(),'disc','the letters are hidden while typing');
     assert.equal(await input.evaluate(el=>getComputedStyle(el,'::placeholder').webkitTextSecurity),'none','the hint inside the box stays readable');
