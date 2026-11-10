@@ -53,6 +53,8 @@ html,body{margin:0;height:100%}
 .lg-word{display:inline-block;margin:.18rem .3rem;padding:.1rem .5rem;border-radius:.5rem;background:#eef6f5;color:#0b5f61;font-weight:700;word-break:break-all}
 .lg-word small{font-size:.7rem;font-weight:400;color:#5d7b7c;margin-left:.25rem}
 .lg-empty{text-align:center;color:#687783;padding:1.6rem .5rem;font-size:.95rem}
+.lg-address{font-family:inherit;font-size:.86rem;width:24rem;max-width:90%;margin:.7rem 0;padding:.4rem .5rem;border:1px solid #c9d8dc;border-radius:.4rem;text-align:center;color:#25313b;background:#fff}
+#lg-root a.lg-open{display:inline-block;padding:.55rem 1.2rem;border-radius:.5rem;background:#078e91;color:#fff;text-decoration:none}
 .lg-tabs{text-align:center;margin:.3rem 0}
 .lg-tabs button{min-width:2rem;margin:0 .12rem}
 .lg-meta span{display:inline-block;margin:0 .3rem .3rem 0;padding:.1rem .55rem;border-radius:1rem;background:#e8f7f5;color:#067477;font-size:.78rem;font-weight:700}
