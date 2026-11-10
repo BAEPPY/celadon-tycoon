@@ -48,7 +48,8 @@
     "test:observer-board": "node tests/browser-observer-board.cjs",
     "test:ppt-addin": "node tests/browser-ppt-addin.cjs",
     "test:model-prefetch": "node tests/browser-model-prefetch.cjs",
-    "test:teacher-tools": "node tests/browser-teacher-tools.cjs"
+    "test:teacher-tools": "node tests/browser-teacher-tools.cjs",
+    "test:decor-tools": "node tests/browser-decor-tools.cjs"
   },
   "dependencies": {
     "@vercel/blob": "2.8.2",

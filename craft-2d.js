@@ -393,6 +393,8 @@ export class Craft2D {
     }
     this.filledCells = new Set(this.work.inlay?.fill || []);
     this.wipedCells = new Set(this.work.inlay?.wipe || []);
+    // White and dark slip can be mixed: `dark` lists the dark cells. Older works have one colour for everything.
+    this.darkCells = Array.isArray(this.work.inlay?.dark) ? new Set(this.work.inlay.dark) : null;
     const open = this.work.technique === "openwork",
       strokes = [
         ...(this.work.strokes || []),
@@ -480,7 +482,10 @@ export class Craft2D {
     for(const stroke of this.work.strokes||[])for(const p of stroke.points||[]){const a=this.anchor(p);add({angle:a.angle,level:a.level});}
     return [...cells.values()];
   }
-  inlayColor() { return (this.work.inlay?.slip || this.work.clay?.slip)==='dark' ? '#342d30' : '#fff0d3'; }
+  inlayColor(point) {
+    const dark = this.darkCells ? this.darkCells.has(inlayCell(point.angle,point.level)) : (this.work.inlay?.slip || this.work.clay?.slip)==='dark';
+    return dark ? '#342d30' : '#fff0d3';
+  }
   inlayState(point) {
     const state=this.work.inlay;
     if(!state)return {filled:this.work.decorPhase>0,clean:this.work.decorPhase>=2};
@@ -557,8 +562,9 @@ export class Craft2D {
     const state=this.inlayState(a),clean=state.clean,filled=state.filled;
     c.save();c.lineCap='round';c.lineJoin='round';
     const line=()=>{c.beginPath();c.moveTo(pa.uv[0]*c.canvas.width,pa.uv[1]*c.canvas.height);c.lineTo(pb.uv[0]*c.canvas.width,pb.uv[1]*c.canvas.height);c.stroke();};
-    if(filled&&!clean){c.globalAlpha=.42;c.strokeStyle=this.inlayColor();c.lineWidth=width*3.4;line();c.globalAlpha=1;}
-    c.strokeStyle=filled?this.inlayColor():'#89624f';c.lineWidth=width*Math.max(.5,(pa.squeeze+pb.squeeze)/2);line();c.restore();
+    const slip=filled?this.inlayColor(a):null;
+    if(filled&&!clean){c.globalAlpha=.42;c.strokeStyle=slip;c.lineWidth=width*3.4;line();c.globalAlpha=1;}
+    c.strokeStyle=filled?slip:'#89624f';c.lineWidth=width*Math.max(.5,(pa.squeeze+pb.squeeze)/2);line();c.restore();
   }
   mark(c, mark, open, erase = false) {
     const paths=this.motifSurfacePaths(mark,open),size=Math.min(c.canvas.width,c.canvas.height)*.00103*normalizeStampSize(mark.stampSize);

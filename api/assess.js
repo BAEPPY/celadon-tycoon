@@ -72,7 +72,7 @@ export function assessmentContext(input) {
   const shape = SHAPES.find(s => s.id === input.shape), technique = TECHNIQUES.find(t => t.id === input.technique);
   return {actualWork: {shape: shape?.name, use: shape?.use, feature: shape?.feature, technique: technique?.name,
     techniqueDescription: technique?.description, motifs: [...new Set([...input.patterns, input.drawingLabel].filter(Boolean))].map(id => PATTERNS.find(p => p.id === id)?.name).filter(Boolean),
-    inlayClay: input.slip === 'dark' ? '자토: 어두운 무늬' : '백토: 밝은 무늬', title: input.title},
+    inlayClay: input.slip === 'dark' ? '자토: 어두운 무늬' : input.slip === 'mixed' ? '백토와 자토를 함께 사용: 밝은 무늬와 어두운 무늬' : '백토: 밝은 무늬', title: input.title},
     studentExplanations: {use: input.explanationUse, beauty: input.explanationBeauty}};
 }
 function completionRequest(input, model) {

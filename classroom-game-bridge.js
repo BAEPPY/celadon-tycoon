@@ -40,7 +40,7 @@ export function classroomWorkPayload(work) {
     points: (Array.isArray(stroke?.points) ? stroke.points : []).slice(0, 2).map(point => ({x: Number(point?.x) || 0, y: Number(point?.y) || 0})),
   }));
   result.clay = {body: work.clay?.body === true, prepared: work.clay?.prepared === true,
-    kneads: Number(work.clay?.kneads) || 0, slip: work.clay?.slip === 'dark' ? 'dark' : 'white'};
+    kneads: Number(work.clay?.kneads) || 0, slip: ['dark', 'mixed'].includes(work.clay?.slip) ? work.clay.slip : 'white'};
   result.inspection = {done: work.inspection?.done === true};
   if (work.assessment && typeof work.assessment === 'object') {
     const assessment = work.assessment;

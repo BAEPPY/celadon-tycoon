@@ -540,6 +540,13 @@ test('수업 결과 내려받기 gives the teacher one row per student with thei
   assert.equal((await request(handler, {query: {action: 'results', code}, auth: observerToken})).statusCode, 403);
 });
 
+test('a work that mixed white and dark slip keeps that fact and its accepted AI check when it is sent', () => {
+  const mixed = finishedWork(rawWork({clay: {slip: 'mixed'}}));
+  assert.equal(mixed.work.clay.slip, 'mixed'); assert.equal(mixed.work.assessment.source, 'ai', 'the check was made for the same work on both sides');
+  assert.equal(finishedWork(rawWork({clay: {slip: 'dark'}})).work.clay.slip, 'dark');
+  assert.equal(finishedWork(rawWork({clay: {slip: 'rainbow'}})).work.clay.slip, 'white');
+});
+
 test('activity 1 done works with the default settings and persists until a new run', async () => {
   const f = await fixture(), student = await f.join(1), {state} = await f.control('start', 1);
   assert.equal(state.settings.submitButton, false);

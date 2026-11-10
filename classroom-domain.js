@@ -198,7 +198,7 @@ export function finishedWork(raw) {
   const work = {id: validateWorkId(raw.id), step: 4, orderId: raw.orderId, shape: raw.shape, modelId: input.modelId,
     technique: raw.technique, pattern: input.pattern, drawingLabel: input.drawingLabel, title: input.title,
     explanationUse: input.explanationUse, explanationBeauty: input.explanationBeauty,
-    clay: {slip: raw.clay?.slip === 'dark' ? 'dark' : 'white'}, decorDone: raw.decorDone === true,
+    clay: {slip: ['dark', 'mixed'].includes(raw.clay?.slip) ? raw.clay.slip : 'white'}, decorDone: raw.decorDone === true,
     firing: Array.isArray(raw.firing) ? raw.firing.slice(0, 4).map(value => clean(value, 20)) : [],
     placements: (Array.isArray(raw.placements) ? raw.placements : []).slice(0, 1200).filter(point => point && Number.isFinite(point.x) && Number.isFinite(point.y)).map(point => ({x: point.x, y: point.y, pattern: clean(point.pattern || raw.pattern, 30)})),
     strokes: (Array.isArray(raw.strokes) ? raw.strokes : []).slice(0, 600).map(stroke => ({points: Array.isArray(stroke?.points) ? stroke.points.slice(0, 2).map(() => [0, 0]) : []})),

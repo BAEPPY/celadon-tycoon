@@ -24,6 +24,8 @@ import {tutorialMarkup,TUTORIAL_STEPS,walkingCustomerMarkup,CustomerArrival} fro
 const app=document.querySelector('#app'),popup=document.querySelector('#popup'),museum=document.querySelector('#museum');
 const KEY=classroomStorageKey(),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let clayGame,inlayGame,inspectionGame,galleryCraft,galleryOriginal,assessmentRequest,classroomBridge,choosingVariant=false;
+// 크게 보기 on the decoration table: a view setting only, never part of the saved work.
+let decorZoom=false;const DECOR_ZOOM=1.18;
 let tutorialSeen=false,pendingEntry=null,tutorialSession=null,customerArrival=null,renderedPhoneStage=null;
 const emptyState=()=>({history:[],gallery:[],draft:null,sound:false});
 let state=emptyState(),work=null,screen='cover',craft,sculpt,mini,busy=false,toastTimer,modelModule,modelToken=0,selectedCatalog='pillow',galleryPage=0,retentionTimer;
@@ -57,13 +59,13 @@ function render(){
  const enteredPhoneStage=phoneStage!==renderedPhoneStage;renderedPhoneStage=phoneStage;
  customerArrival?.pause();
  sculpt?.dispose();sculpt=null;clayGame?.dispose();clayGame=null;inlayGame?.dispose();inlayGame=null;inspectionGame?.dispose();inspectionGame=null;craft?.el.remove();
- const content=screen==='cover'?cover():screen==='reaction'?reviewMarkup(work):screen==='counter'||screen==='counter-delivery'?counterScreen():screen==='clay'?clayMarkup(work):screen==='inspection'?inspectionMarkup(work):stationMarkup(work,{choosingVariant});
+ const content=screen==='cover'?cover():screen==='reaction'?reviewMarkup(work):screen==='counter'||screen==='counter-delivery'?counterScreen():screen==='clay'?clayMarkup(work):screen==='inspection'?inspectionMarkup(work):stationMarkup(work,{choosingVariant,zoomed:decorZoom});
  app.innerHTML=`<div class="game-window shop-game ${screen==='cover'?'is-cover':'is-playing'} is-${screen}">${hud()}${content}</div>`;
  const piece=document.querySelector('#workpiece');
  if(piece&&work?.shape){
-  craft??=new Craft2D(stampPattern,addStroke,()=>toast('도자기 그림을 불러오지 못했어요. 다시 형태를 골라 주세요.'),()=>save());craft.mount(piece,work,stage());
+  craft??=new Craft2D(stampPattern,addStroke,()=>toast('도자기 그림을 불러오지 못했어요. 다시 형태를 골라 주세요.'),()=>save());craft.mount(piece,work,stage());craft.setZoom(decorZoom&&screen==='game'&&work.step===1?DECOR_ZOOM:1);
   if(screen==='game'&&work.step===0&&!choosingVariant&&work.knead<3&&!work.sculpt?.complete)sculpt=new SculptGame(craft,work,value=>{if(!save())return;const bar=document.querySelector('.sculpt-progress i'),status=document.querySelector('#sculpt-status'),next=document.querySelector('[data-action=next-shape]');if(bar)bar.style.width=`${value.fraction*100}%`;if(status)status.textContent=value.complete?'통과! 목표 모양을 잘 빚었어요.':`모양 일치 ${Math.floor(value.fraction*100)}% · 목표 90%`;if(next)next.disabled=!value.complete;if(value.complete)document.querySelector('.sculpt-canvas')?.classList.add('completed');});
-  if(screen==='game'&&work.step===1&&['fill','wipe','done'].includes(work.inlayMode))inlayGame=new InlayGame(craft,work,{mode:work.inlayMode==='fill'?'fill':'wipe',onProgress:value=>{if(!save())return;const bar=document.querySelector('.inlay-progress i'),status=document.querySelector('.inlay-status'),next=document.querySelector('[data-action="inlay-wipe"], [data-action="next-decor"]');if(bar)bar.style.width=`${value.fraction*100}%`;if(status)status.textContent=value.complete?(value.mode==='fill'?'색흙을 다 채웠어요! 닦으러 가요.':'무늬가 또렷하게 드러났어요!'):`${Math.floor(value.fraction*100)}% ${value.mode==='fill'?'채웠어요':'닦았어요'}`;if(next)next.disabled=!value.complete;}});
+  if(screen==='game'&&work.step===1&&['fill','wipe','done'].includes(work.inlayMode))inlayGame=new InlayGame(craft,work,{mode:work.inlayMode==='fill'?'fill':'wipe',onProgress:value=>{if(!save())return;const bar=document.querySelector('.inlay-progress i'),status=document.querySelector('.inlay-status'),next=document.querySelector('[data-action="inlay-wipe"], [data-action="next-decor"]');if(bar)bar.style.width=`${value.fraction*100}%`;if(status)status.textContent=value.complete?(value.mode==='fill'?'색흙을 다 채웠어요! 닦으러 가요.':'무늬가 또렷하게 드러났어요!'):`${Math.floor(value.fraction*100)}% ${value.mode==='fill'?'채웠어요':'닦았어요'}`;if(next)next.disabled=!value.complete;const refill=document.querySelector('[data-action=inlay-refill]');if(refill)refill.disabled=!(value.mode==='fill'&&value.fraction>0);}});
  }else if(craft){craft.dispose();craft=null;}
  if(screen==='clay')clayGame=new ClayKneading(document.querySelector('.knead-pad'),work,value=>{if(!save())return;document.querySelector('#clay-progress i').style.width=`${value.kneads/6*100}%`;document.querySelector('#clay-status').textContent=value.prepared?'공기를 빼고 고르게 반죽했어요.':`꼭꼭 반죽하기 ${value.kneads}/6`;document.querySelector('[data-action=clay-ready]').disabled=!value.prepared;document.querySelectorAll('.knead-counts i').forEach((el,i)=>el.classList.toggle('done',i<value.kneads));});
  readableText(app);
@@ -135,6 +137,8 @@ async function action(id){
  case'station-back':{const target=work.step===2?'decorate':work.step===1?'shape':'clay';restartFrom(work,target);choosingVariant=false;setView(target==='clay'?'clay':'game');break;}
  case'back-inlay-carve':restartFrom(work,'decorate');setView('game');break;
  case'back-inlay-fill':restartInlay(work);beginInlay(work);if(!save())return;render();break;
+ // 색흙 다시 채우기: lift all the slip and start filling again with the colour on the brush.
+ case'inlay-refill':{if(work.inlayMode!=='fill'||!work.inlay)return;const brush=work.inlay.slip==='dark'?'dark':'white';restartInlay(work);work.clay.slip=brush;beginInlay(work);if(!save())return;render();toast('색흙을 모두 걷어 냈어요. 다시 채워 보세요.');break;}
  case'inspection-finish':if(work.inspection.done)setView('counter-delivery');break;
  case'home':clearToast();screen='cover';choosingVariant=false;render();break;
  case'start':closePopup();begin();break;
@@ -155,6 +159,7 @@ async function action(id){
  case'confirm-shape':closePopup();if(screen!=='game'||work.step!==0||(work.knead<3&&!work.sculpt?.complete))return;work.step=1;if(!save())return;render();break;
  case'recheck-shape':closePopup();toast('위의 모양 칸에서 다른 모양을 고를 수 있어요.');break;
  case'stamp':craft?.stamp();break;
+ case'toggle-zoom':if(screen!=='game'||work.step!==1)return;decorZoom=!decorZoom;render();document.querySelector('[data-action=toggle-zoom]')?.focus({preventScroll:true});break;
  case'undo':if(work.tool==='draw'&&(work.strokes||[]).length)work.strokes.pop();else work.placements.pop();work.assessment=null;if(!save())return;render();break;
  case'inlay-fill':if(!work.placements.length&&!work.strokes.length)return;work.inlayMode='fill';work.decorPhase=1;beginInlay(work);if(!save())return;render();break;
  case'inlay-wipe':if(!inlayProgress(work).fillDone)return;work.inlayMode='wipe';if(!save())return;render();break;

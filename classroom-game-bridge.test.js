@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {classroomContext,classroomStorageKey,classroomWorkPayload} from './classroom-game-bridge.js';
-import {rubricAssessment,normalizeAssessment,assessmentFingerprint,assessmentInput} from './assessment-rules.js';
+import {rubricAssessment,normalizeAssessment,assessmentFingerprint,assessmentInput,explanationHints} from './assessment-rules.js';
 import {evaluateWork} from './domain.js';
 import {MAX_WORK_DESIGN_BYTES, WORK_DESIGN_VERSION, sanitizeWorkDesign} from './work-design.js';
 
@@ -116,4 +116,41 @@ test('the complete maximum current drawing fits without truncation while oversiz
   const cells=Array.from({length:145},(_,row)=>Array.from({length:96},(_,angle)=>`${angle}:${row-48}`)).flat();
   assert.equal(sanitizeWorkDesign({...raw,placements:Array.from({length:1200},()=>({...point,pattern:'crane',stampSize:1.75})),
     inlay:{fill:cells,wipe:cells}}),null,'the separate UTF-8 byte budget also bounds otherwise valid legacy geometry');
+});
+
+test('흰 흙과 검은 흙을 섞어 쓴 작품은 칸마다 색을 지키고, 예전 한 가지 색 작품도 그대로 읽는다',async()=>{
+  const {beginInlay,setInlaySlip,slipSummary}=await import('./inlay-game.js');
+  // A fresh work starts with the brush colour and no dark cells; the summary follows what was actually filled.
+  const work={clay:{slip:'white'},placements:[],strokes:[]},state=beginInlay(work);
+  assert.deepEqual(state.dark,[]);assert.equal(state.slip,'white');
+  state.targets=['0:1','1:1','2:1','3:1'].map(key=>({key}));
+  setInlaySlip(work,'dark');assert.equal(work.clay.slip,'dark','before anything is filled the summary is the brush colour');
+  state.fill=['0:1','1:1'];state.dark=['1:1'];assert.equal(slipSummary(work),'mixed');
+  state.dark=[];assert.equal(slipSummary(work),'white');
+  state.fillDone=true;state.dark=['0:1','1:1','2:1','3:1'];assert.equal(slipSummary(work),'dark');
+  setInlaySlip(work,'unknown');assert.equal(state.slip,'dark','only white and dark can go on the brush');
+  // A draft saved before mixing existed: everything it filled was its one colour.
+  const old={clay:{slip:'dark'},inlay:{slip:'dark',fill:['4:2','5:2'],wipe:[],targets:[{key:'4:2'},{key:'5:2'},{key:'6:2'}],fillDone:false,wipeDone:false}};
+  assert.deepEqual(beginInlay(old).dark,['4:2','5:2']);
+  const oldDone={clay:{slip:'dark'},inlay:{slip:'dark',fill:[],wipe:[],targets:[{key:'4:2'},{key:'5:2'}],fillDone:true,wipeDone:true}};
+  assert.deepEqual(beginInlay(oldDone).dark,['4:2','5:2']);
+  assert.deepEqual(beginInlay({clay:{slip:'mixed'}}).slip,'white','a mixed summary never becomes a brush colour');
+
+  // The classroom copy keeps the colour of every cell and the mixed summary; older designs stay valid unchanged.
+  const raw={version:1,shape:'pillow',modelId:'pillow',technique:'inlay',pattern:'crane',clay:{slip:'mixed'},placements:[{uv:[.4,.5],pattern:'crane'}],strokes:[],
+    inlay:{slip:'dark',fill:['0:2','95:-6'],wipe:['0:2'],dark:['95:-6','95:-6'],fillDone:true,wipeDone:true}};
+  const design=sanitizeWorkDesign(raw);
+  assert.equal(design.clay.slip,'mixed');assert.deepEqual(design.inlay.dark,['95:-6']);
+  assert.deepEqual(sanitizeWorkDesign(design),design);
+  assert.equal('dark' in sanitizeWorkDesign({...raw,clay:{slip:'dark'},inlay:{slip:'dark',fill:['0:2'],wipe:[],fillDone:true}}).inlay,false,'a single-colour design is stored as before');
+  for(const invalid of [{...raw,inlay:{...raw.inlay,dark:['96:0']}},{...raw,inlay:{...raw.inlay,dark:'all'}},{...raw,clay:{slip:'rainbow'}}])assert.equal(sanitizeWorkDesign(invalid),null);
+
+  // Sending to the classroom keeps the summary, so the explanation check is made for the same work on both sides.
+  const finished={id:'mixed-1',step:4,orderId:'royal-rest',shape:'pillow',technique:'inlay',pattern:'crane',clay:{slip:'mixed',body:true,prepared:true,kneads:6},
+    placements:[{x:.4,y:.5,pattern:'crane'}],strokes:[],decorDone:true,firing:['dry','biscuit','glaze','fire'],
+    explanationUse:'머리를 받치는 베개예요. 누워서 쉴 때 써요.',explanationBeauty:'학 무늬에 흰 흙과 검은 흙을 함께 채웠어요. 닦아서 또렷하게 했어요.'};
+  assert.equal(classroomWorkPayload(finished).clay.slip,'mixed');
+  assert.equal(assessmentInput(finished).slip,'mixed');
+  assert.notEqual(assessmentFingerprint(finished),assessmentFingerprint({...finished,clay:{...finished.clay,slip:'white'}}));
+  assert.match(explanationHints(finished).beauty,/학 무늬를 파고 흰 흙과 검은 흙을 채운 다음/,'the writing example names both colours');
 });
