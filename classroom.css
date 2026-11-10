@@ -376,7 +376,12 @@ dialog.student-manager::backdrop{background:#1c2b3055}
 /* Teacher passcode on the 새 수업 열기 form (only when the server has one configured). */
 .passcode-field{display:grid;gap:6px;margin:0 0 12px;font-size:15px}
 .passcode-field[hidden]{display:none}
-.passcode-field input{min-height:46px}
+.passcode-row{display:flex;gap:8px;align-items:stretch}
+.passcode-row input{flex:1;min-width:0;min-height:46px}
+.passcode-row input.masked{-webkit-text-security:disc}
+.passcode-row input.masked::placeholder{-webkit-text-security:none}
+.welcome-form .passcode-row .button{flex:none;width:auto;min-width:72px;min-height:46px;margin-top:0}
+.passcode-field small{color:#7b665f;font-size:13px;line-height:1.4}
 /* Live board for projectors and PowerPoint slides: status line + the current board, no header or side panel. */
 body.board-mode{border-top-width:0}
 .board-shell{min-height:100dvh;display:flex;flex-direction:column;gap:10px;padding:10px 14px 12px}

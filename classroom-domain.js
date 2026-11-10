@@ -22,7 +22,11 @@ export const CLASSROOM_JOIN_CODE = '탑텐반';
 // Optional server-only passcode (Vercel env CLASSROOM_TEACHER_PASSCODE). When set, opening a class requires it unless the
 // teacher is replacing their own class from the same browser; with it, a teacher whose browser data was wiped can take
 // 탑텐반 back. Without it, whoever opens a class while 탑텐반 is free gets the code.
-export function configuredTeacherPasscode(value = process.env.CLASSROOM_TEACHER_PASSCODE) { return typeof value === 'string' && value.trim().length >= 4 ? value.trim() : ''; }
+// Both sides are normalised the same way, so a Korean passcode matches however the keyboard or the settings page composed it.
+export function configuredTeacherPasscode(value = process.env.CLASSROOM_TEACHER_PASSCODE) {
+  const passcode = typeof value === 'string' ? value.normalize('NFKC').trim() : '';
+  return passcode.length >= 4 ? passcode : '';
+}
 const joinAliasKey = () => `${classroomPrefix()}/aliases/tapten.json`;
 const ALIAS_IN_USE = '탑텐반 수업이 이미 열려 있어요. 이 수업을 만든 선생님의 브라우저에서 새 수업을 열어 주세요.';
 const emptyAnswer = () => ({runId: '', clientRevision: 0, submitted: false, answers: {}});
