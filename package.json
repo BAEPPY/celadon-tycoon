@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "start": "node server.mjs",
-    "test": "node --test domain.test.js models.test.js arcade.test.js illustration.test.js assessment.test.js inspection.test.js surface-warp.test.js reactions.test.js workflow.test.js classroom.test.js classroom-game-bridge.test.js classroom-access.test.js lesson-cloud.test.js classroom-entry.test.js game-retention.test.js artifact-opening.test.js sculpt-rules.test.js rotation-motion.test.js legacy-board.test.js work-picture.test.js",
+    "test": "node --test domain.test.js models.test.js arcade.test.js illustration.test.js assessment.test.js inspection.test.js surface-warp.test.js reactions.test.js workflow.test.js classroom.test.js classroom-game-bridge.test.js classroom-access.test.js lesson-cloud.test.js classroom-entry.test.js game-retention.test.js artifact-opening.test.js sculpt-rules.test.js rotation-motion.test.js legacy-board.test.js work-picture.test.js present.test.js",
     "build": "node build.mjs",
     "test:browser": "node tests/browser-workshop.cjs",
     "test:entry": "node tests/browser-entry.cjs",
@@ -51,7 +51,8 @@
     "test:teacher-tools": "node tests/browser-teacher-tools.cjs",
     "test:decor-tools": "node tests/browser-decor-tools.cjs",
     "test:teacher-passcode": "node tests/browser-teacher-passcode.cjs",
-    "test:ppt-legacy": "node tests/browser-ppt-legacy.cjs"
+    "test:ppt-legacy": "node tests/browser-ppt-legacy.cjs",
+    "test:present": "node tests/browser-present.cjs"
   },
   "dependencies": {
     "@vercel/blob": "2.8.2",

@@ -20,6 +20,10 @@
       "destination": "/model/index.html"
     },
     {
+      "source": "/present",
+      "destination": "/present/index.html"
+    },
+    {
       "source": "/game",
       "destination": "/game/index.html"
     }

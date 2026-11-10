@@ -330,8 +330,8 @@
   // which always opens the computer's own browser.
   function gamePanel() {
     return '<div class="lg-empty"><b>청자 만들기 게임은 이 PowerPoint 상자 안에서는 열 수 없어요.</b><br>게임은 최신 인터넷 창에서만 돌아가요. 아래 버튼을 누르거나, 슬라이드의 글자·도형에 하이퍼링크(Ctrl+K)로 이 주소를 넣어 여세요.<br>' +
-      '<input type="text" readonly class="lg-address" value="' + esc(origin() + '/game') + '" aria-label="청자 만들기 게임 주소"><br>' +
-      '<a class="lg-open" data-act="open-game" href="/game" target="_blank" rel="noopener">청자 만들기 게임 열기 →</a></div>';
+      '<input type="text" readonly class="lg-address" value="' + esc(origin() + '/present?open=game') + '" aria-label="청자 만들기 게임 발표 창 주소"><br>' +
+      '<a class="lg-open" data-act="open-game" href="/present?open=game" target="_blank" rel="noopener">청자 만들기 게임 열기 →</a></div>';
   }
   function remaining() {
     var state = data && data.state;
@@ -420,7 +420,7 @@
     if (act === 'open-game') {
       // Newer PowerPoint can hand the address to the computer's own browser; otherwise the link opens as usual.
       try {
-        if (office && window.Office.context.ui && window.Office.context.ui.openBrowserWindow) { window.Office.context.ui.openBrowserWindow(origin() + '/game'); if (event.preventDefault) event.preventDefault(); }
+        if (office && window.Office.context.ui && window.Office.context.ui.openBrowserWindow) { window.Office.context.ui.openBrowserWindow(origin() + '/present?open=game'); if (event.preventDefault) event.preventDefault(); }
       } catch (e) {}
       return;
     }

@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>청자 교실 발표 창</title>
+<style>
+/* A window for showing one screen of the site from a slide: the game (or a live board or 3D model) fills the screen
+   under a thin bar with "슬라이드로 돌아가기". Made for PowerPoint versions that cannot show the site inside a slide. */
+*{box-sizing:border-box}html,body{margin:0;height:100%;overflow:hidden;background:#1f2a30;font-family:'Noto Sans KR','Malgun Gothic',Arial,sans-serif}
+#bar{position:fixed;top:0;left:0;right:0;height:34px;display:flex;align-items:center;gap:8px;padding:0 10px;background:#1f2a30;color:#d7e3e6;font-size:14px;z-index:3}
+#bar strong{font-weight:700;margin-right:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#bar button{font:inherit;font-size:13px;font-weight:700;height:26px;padding:0 12px;border-radius:13px;border:1px solid #57707a;background:#2c3b43;color:#e8f2f4;cursor:pointer;white-space:nowrap}
+#bar button:hover,#bar button:focus-visible{background:#3a4e58}
+#bar #back{background:#078e91;border-color:#078e91;color:#fff}
+#bar #back:hover,#bar #back:focus-visible{background:#067477}
+#stage{position:fixed;top:34px;left:0;right:0;bottom:0;width:100%;height:calc(100% - 34px);border:0;background:#f3f5f7}
+#start{position:fixed;inset:34px 0 0 0;z-index:2;display:grid;place-content:center;justify-items:center;gap:12px;margin:0;padding:20px;border:0;background:#1f2a30e6;color:#fff;font:inherit;font-size:26px;font-weight:700;text-align:center;cursor:pointer}
+#start small{font-size:16px;font-weight:400;color:#c4d4d8}
+#start span{display:grid;place-items:center;width:74px;height:74px;border-radius:50%;background:#078e91;font-size:30px}
+#note{position:fixed;left:50%;top:46px;transform:translateX(-50%);z-index:4;max-width:92%;padding:10px 18px;border-radius:10px;background:#fff;color:#25313b;font-size:16px;box-shadow:0 6px 24px #0006;text-align:center}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<header id="bar">
+  <strong id="title">청자 교실 발표 창</strong>
+  <button type="button" id="full">⛶ 화면 가득 채우기</button>
+  <button type="button" id="back">✕ 슬라이드로 돌아가기</button>
+</header>
+<iframe id="stage" title="발표 화면" allow="fullscreen"></iframe>
+<button type="button" id="start" hidden><span aria-hidden="true">▶</span>화면을 한 번 눌러 주세요<small>화면을 가득 채우고 시작해요</small></button>
+<p id="note" role="status" hidden></p>
+<script>
+'use strict';
+// What may be shown is a fixed list: the game, a 3D model, or a live board of a class. Nothing else is ever framed.
+const MODELS = ['beauty', 'comparison-1', 'comparison-2', 'comparison-3', 'observation-1', 'observation-2', 'observation-3', 'observation-4', 'observation-5'];
+const BOARDS = {follow: '지금 활동 따라가기', comparison: '세 나라 비교 결과', beauty: '아름다움 찾기', uses: '이름·쓰임 짐작', works: '완성작 모음'};
+const $ = id => document.getElementById(id);
+const query = new URLSearchParams(location.search), open = query.get('open') || 'game';
+function target() {
+  if (open === 'model') { const id = MODELS.includes(query.get('id')) ? query.get('id') : 'beauty'; return {src: `/model?${new URLSearchParams({id})}`, title: '청자 돌려 보기'}; }
+  if (Object.hasOwn(BOARDS, open)) {
+    const code = (query.get('code') || '탑텐반').normalize('NFKC').trim().toUpperCase(), key = new URLSearchParams(location.hash.slice(1)).get('key') || '';
+    const params = new URLSearchParams({code: /^(?:탑텐반|[A-Z2-9]{6})$/.test(code) ? code : '탑텐반'});
+    if (open === 'follow') params.set('board', '1'); else params.set('show', open);
+    return {src: `/observe?${params}${/^[A-Za-z0-9_-]{30,100}$/.test(key) ? `#${new URLSearchParams({key})}` : ''}`, title: BOARDS[open]};
+  }
+  return {src: '/game', title: '청자 만들기 게임'};
+}
+const shown = target();
+document.title = `${shown.title} · 청자 교실 발표 창`; $('title').textContent = shown.title; $('stage').src = shown.src;
+
+// Full screen needs one click from a person. A window that already fills the screen (opened that way) skips the prompt.
+const filling = () => Boolean(document.fullscreenElement) || matchMedia('(display-mode: fullscreen)').matches || (innerHeight >= screen.height - 2 && innerWidth >= screen.width - 2);
+function sync() { const full = filling(); $('full').hidden = full; if (full) $('start').hidden = true; }
+async function fill() { $('start').hidden = true; try { await document.documentElement.requestFullscreen({navigationUI: 'hide'}); } catch {} sync(); $('stage').focus(); }
+$('start').addEventListener('click', fill); $('full').addEventListener('click', fill);
+document.addEventListener('fullscreenchange', sync); addEventListener('resize', sync);
+$('start').hidden = filling(); sync();
+
+// "슬라이드로 돌아가기" closes this window, which brings the slide show back to the front. A browser only lets a page
+// close a window it may close (one opened for this page alone); otherwise say which key closes it.
+let note = null;
+function say(text, ms = 6000) { $('note').textContent = text; $('note').hidden = false; clearTimeout(note); note = setTimeout(() => { $('note').hidden = true; }, ms); }
+async function back() {
+  try { if (document.fullscreenElement) await document.exitFullscreen(); } catch {}
+  window.close();
+  setTimeout(() => { if (!window.closed) say('이 창을 닫으면 슬라이드로 돌아가요. 키보드에서 Alt+F4(탭이면 Ctrl+W)를 눌러 주세요.', 12000); }, 400);
+}
+$('back').addEventListener('click', back);
+// A presenter remote sends PageDown/PageUp: pressed twice in a row it goes back to the slides (once could be a slip).
+let pressed = 0;
+function remote(event) {
+  if (event.key !== 'PageDown' && event.key !== 'PageUp') return;
+  event.preventDefault();
+  if (Date.now() - pressed < 2000) { back(); return; }
+  pressed = Date.now(); say('한 번 더 누르면 슬라이드로 돌아가요.', 2000);
+}
+addEventListener('keydown', remote);
+$('stage').addEventListener('load', () => { try { $('stage').contentWindow.addEventListener('keydown', remote); } catch {} });
+</script>
+</body>
+</html>

@@ -147,8 +147,8 @@ const officeStub=view=>`window.__settings=window.__settings||{};window.__goto=[]
     assert.equal(await model.getAttribute('data-frame'),stopped);assert.match(await page.locator('[data-act=auto]').innerText(),/천천히 돌리기/);
     // The game cannot run in that engine: the box says so and gives the address for a browser window or a slide hyperlink.
     await page.locator('[data-act=setup]').click();await page.locator('input[name=lg-panel][value=game]').check();await page.locator('.lg-submit').click();
-    await page.locator('.lg-address').waitFor();assert.equal(await page.locator('.lg-address').inputValue(),`${base}/game`);
-    assert.equal(await page.locator('[data-act=open-game]').getAttribute('href'),'/game');assert.equal(await page.locator('[data-act=open-game]').getAttribute('target'),'_blank');
+    await page.locator('.lg-address').waitFor();assert.equal(await page.locator('.lg-address').inputValue(),`${base}/present?open=game`);
+    assert.equal(await page.locator('[data-act=open-game]').getAttribute('href'),'/present?open=game');assert.equal(await page.locator('[data-act=open-game]').getAttribute('target'),'_blank');
     assert.match(await text(),/상자 안에서는 열 수 없어요/);assert.match(await text(),/하이퍼링크\(Ctrl\+K\)/);
     await page.close();
 

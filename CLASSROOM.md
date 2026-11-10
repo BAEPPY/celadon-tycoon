@@ -95,7 +95,10 @@
     - **청자는 옛 엔진에서도 3D로 보여 줍니다.** Internet Explorer 11에도 3D 그리기 기능(WebGL)이 있어서, 그 엔진에서 돌아가던 시절의 three.js(r116, `ppt-addin/vendor/`)로 수업용 청자 9점을 그립니다(`ppt-addin/legacy-3d.js`). 끌어서 돌리고 기울일 수 있고, ↶ ↷ 버튼은 30도씩 부드럽게 돌리며, **＋ －**로 확대·축소, **처음 시점**으로 되돌립니다. 손을 떼면 조금 더 돌다가 멈춥니다. 응답이 새로 들어와 화면이 다시 그려져도 돌려 둔 각도는 그대로입니다. **청자 돌려 보기** 상자는 저절로 천천히 돌다가 끌거나 **멈추기**를 누르면 멈춥니다. 사이트 화면과 달리 바닥 그림자와 뚜껑 열기는 없습니다.
     - **3D가 안 되는 컴퓨터에서는 저절로 사진으로 바꿉니다.** 3D를 처음 그린 뒤 결과를 직접 확인해서, 아무것도 안 나왔거나 무늬 없는 덩어리만 나왔으면 3D를 끄고 **청자를 15도씩 24방향으로 찍은 사진**(`assets/lesson/turntable/*.jpg`, `tools/render-lesson-turntables.cjs`로 생성)을 좌우로 끌거나 ↶ ↷ 버튼으로 돌려 보게 합니다. WebGL이 아예 없거나 모델 하나를 못 받았을 때도 같습니다. 3D가 느리면 설정의 **청자를 3D로 보기**를 꺼서 사진만 쓸 수 있습니다(이 컴퓨터에만 저장).
     - **완성작 그림도 보입니다.** 작품 사진은 WebP로 저장되는데 옛 엔진은 WebP를 그리지 못하므로, 옛 엔진용 화면은 `/api/work-picture`(`api/work-picture.js`, `work-picture.js`)에 같은 그림을 JPEG로 달라고 합니다. 서버가 요청받을 때마다 `sharp`로 바꿔 주며(그림틀 색 `#f5f1e6` 바탕, 저장하지 않음), 볼 수 있는 사람은 수업 API의 작품 사진과 같습니다(그 수업의 선생님, 참관·PPT용 주소, 만든 학생). 변환할 수 없으면 그 작품은 제목·점수·설명만 보입니다. `https://celadon-tycoon.vercel.app/api/work-picture?check=1`이 `{"conversion":true}`이면 서버에서 변환이 됩니다. 수업 API와 따로 둔 함수라 이미지 라이브러리가 수업 진행 요청에는 실리지 않습니다.
-    - 옛 엔진에서 안 되는 것: 청자 만들기 게임(게임 전체가 최신 브라우저 기능으로 만들어져 있어 상자 안에서는 열 수 없고, 인터넷 창으로 여는 링크만 보임). 게임은 인터넷 창이나 슬라이드의 ‘실시간 화면 열기’ 버튼으로 엽니다.
+    - 옛 엔진에서 안 되는 것: 청자 만들기 게임(게임 전체가 최신 브라우저 기능으로 만들어져 있어 상자 안에서는 열 수 없음). Microsoft 공식 문서에 따르면 볼륨 라이선스 Office 2016·2019는 WebView2를 설치해도 항상 이 엔진을 씁니다. 게임은 아래 **게임 발표 창**으로 엽니다.
+    - **게임 발표 창** (`/present`, `present.html`): 슬라이드에서 누르면 게임이 얇은 줄 하나만 있는 창에 화면 가득 열리고, **✕ 슬라이드로 돌아가기**를 누르면 창이 닫혀 슬라이드 쇼로 돌아옵니다. 창이 화면을 가득 채우고 있지 않으면 “화면을 한 번 눌러 주세요”가 나와 한 번 누르면 가득 찹니다. 발표용 리모컨의 PageDown/PageUp을 두 번 연달아 눌러도 돌아갑니다. 보여 줄 수 있는 화면은 정해진 목록뿐입니다(`open=game`, `open=model&id=…`, 실시간 보드 `open=follow|comparison|beauty|uses|works&code=…#key=…`).
+      - **설정 없이 쓰기**: 슬라이드의 글자·도형에 하이퍼링크(Ctrl+K)로 `https://celadon-tycoon.vercel.app/present?open=game`을 넣습니다. 기본 브라우저에서 열리며, 이미 열려 있던 브라우저의 새 탭으로 열린 경우에는 돌아가기를 누른 뒤 Alt+Tab으로 PowerPoint로 돌아옵니다.
+      - **주소창 없는 별도 창으로 쓰기(Windows)**: `ppt-addin/windows/install-game-window.bat`을 한 번 실행하고(관리자 권한 불필요), 하이퍼링크에 `celadon-game://open`을 넣습니다. 이 주소는 Microsoft Edge의 앱 창(`--app`)으로 발표 창을 열도록 그 사용자 계정에만 등록됩니다(`HKCU\Software\Classes\celadon-game`). 실행 명령은 고정이라 하이퍼링크의 내용이 브라우저 명령줄로 전달되지 않습니다. PowerPoint가 이 주소를 열 때 묻는 보안 확인을 줄이려고 Office의 신뢰할 수 있는 프로토콜에도 등록을 시도합니다(안 되면 누를 때 “예”를 한 번 누릅니다). `remove-game-window.bat`이 모두 지웁니다. 이 파일들은 Windows가 없는 환경에서 만들어 실제 PC에서 실행해 보지는 못했습니다.
     - 이 화면은 Internet Explorer가 없는 환경에서 만들었습니다. 코드와 스타일, 함께 싣는 옛 three.js가 그 엔진에 있는 기능만 쓰는지(ES5 문법 등)와 청자 모델이 그 라이브러리가 읽는 범위 안인지는 `legacy-board.test.js`가 검사하고, 동작은 `npm run test:ppt-legacy`가 Chromium에서 같은 코드를 돌려 검사합니다. 실제 PowerPoint 2016·2019에서의 모습은 그 PC에서 확인해야 합니다. 어느 브라우저에서나 `https://celadon-tycoon.vercel.app/ppt-addin/index.html?legacy=1`로 같은 화면을 미리 볼 수 있습니다.
   6. 화면이 멈춘 것 같으면 보드 상태 줄의 **↻**로 그 화면만, **수업 관리 → PPT 화면 새로고침**으로 열려 있는 모든 실시간 화면을 몇 초 안에 새로고침합니다.
   7. 추가 기능 상자를 지우거나 순서를 바꿀 때는 상자 안이 아니라 PowerPoint의 **선택 창(Alt+F10)**에서 상자를 고른 뒤 **Delete** 키나 **정렬 → 맨 앞으로/맨 뒤로 가져오기**를 씁니다. 상자 안을 클릭하면 키 입력이 웹 화면으로 가기 때문입니다.
@@ -164,6 +167,7 @@ npm run test:model-prefetch
 npm run test:teacher-tools
 npm run test:teacher-passcode
 npm run test:ppt-legacy
+npm run test:present
 node tests/browser-classroom-bridge.cjs
 ```
 
