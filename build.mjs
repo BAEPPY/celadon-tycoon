@@ -38,4 +38,7 @@ for(const route of ['lesson','teacher','observe','model']){
   await mkdir(`dist/${route}`,{recursive:true});
   await copyFile('classroom.html',`dist/${route}/index.html`);
 }
+// Presentation window: one screen of the site under a thin bar with "슬라이드로 돌아가기" (for a slide button).
+await mkdir('dist/present',{recursive:true});
+await copyFile('present.html','dist/present/index.html');
 console.log('Built classroom activities + teacher dashboard + tycoon game');
