@@ -8,23 +8,33 @@
 /* A window for showing one screen of the site from a slide: the game (or a live board or 3D model) fills the screen
    under a thin bar with "슬라이드로 돌아가기". Made for PowerPoint versions that cannot show the site inside a slide. */
 *{box-sizing:border-box}html,body{margin:0;height:100%;overflow:hidden;background:#1f2a30;font-family:'Noto Sans KR','Malgun Gothic',Arial,sans-serif}
-#bar{position:fixed;top:0;left:0;right:0;height:34px;display:flex;align-items:center;gap:8px;padding:0 10px;background:#1f2a30;color:#d7e3e6;font-size:14px;z-index:3}
+body{--bar:34px;--key:26px;--text:13px}
+/* On a touch screen (an interactive whiteboard) the bar is taller and sits at the bottom edge, where a hand reaches. */
+body.big{--bar:60px;--key:46px;--text:17px}
+#bar{position:fixed;top:0;left:0;right:0;height:var(--bar);display:flex;align-items:center;gap:8px;padding:0 10px;background:#1f2a30;color:#d7e3e6;font-size:calc(var(--text) + 1px);z-index:3}
+body.big #bar{gap:12px;padding:0 14px}
+body.below #bar{top:auto;bottom:0}
 #bar strong{font-weight:700;margin-right:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#bar button{font:inherit;font-size:13px;font-weight:700;height:26px;padding:0 12px;border-radius:13px;border:1px solid #57707a;background:#2c3b43;color:#e8f2f4;cursor:pointer;white-space:nowrap}
+#bar button{font:inherit;font-size:var(--text);font-weight:700;height:var(--key);padding:0 calc(var(--key) / 2);border-radius:calc(var(--key) / 2);border:1px solid #57707a;background:#2c3b43;color:#e8f2f4;cursor:pointer;white-space:nowrap;touch-action:manipulation}
 #bar button:hover,#bar button:focus-visible{background:#3a4e58}
 #bar #back{background:#078e91;border-color:#078e91;color:#fff}
 #bar #back:hover,#bar #back:focus-visible{background:#067477}
-#stage{position:fixed;top:34px;left:0;right:0;bottom:0;width:100%;height:calc(100% - 34px);border:0;background:#f3f5f7}
-#start{position:fixed;inset:34px 0 0 0;z-index:2;display:grid;place-content:center;justify-items:center;gap:12px;margin:0;padding:20px;border:0;background:#1f2a30e6;color:#fff;font:inherit;font-size:26px;font-weight:700;text-align:center;cursor:pointer}
+#stage{position:fixed;top:var(--bar);left:0;right:0;bottom:0;width:100%;height:calc(100% - var(--bar));border:0;background:#f3f5f7}
+body.below #stage{top:0}
+#start{position:fixed;inset:var(--bar) 0 0 0;z-index:2;display:grid;place-content:center;justify-items:center;gap:12px;margin:0;padding:20px;border:0;background:#1f2a30e6;color:#fff;font:inherit;font-size:26px;font-weight:700;text-align:center;cursor:pointer}
 #start small{font-size:16px;font-weight:400;color:#c4d4d8}
 #start span{display:grid;place-items:center;width:74px;height:74px;border-radius:50%;background:#078e91;font-size:30px}
-#note{position:fixed;left:50%;top:46px;transform:translateX(-50%);z-index:4;max-width:92%;padding:10px 18px;border-radius:10px;background:#fff;color:#25313b;font-size:16px;box-shadow:0 6px 24px #0006;text-align:center}
+body.below #start{inset:0 0 var(--bar) 0}
+#note{position:fixed;left:50%;top:calc(var(--bar) + 12px);transform:translateX(-50%);z-index:4;max-width:92%;padding:10px 18px;border-radius:10px;background:#fff;color:#25313b;font-size:16px;box-shadow:0 6px 24px #0006;text-align:center}
+body.below #note{top:auto;bottom:calc(var(--bar) + 12px)}
+body.big #note{font-size:20px;padding:14px 22px}
 [hidden]{display:none!important}
 </style>
 </head>
 <body>
 <header id="bar">
   <strong id="title">청자 교실 발표 창</strong>
+  <button type="button" id="move" aria-label="이 줄을 위나 아래로 옮기기" title="이 줄을 위나 아래로 옮기기">⇅</button>
   <button type="button" id="full">⛶ 화면 가득 채우기</button>
   <button type="button" id="back">✕ 슬라이드로 돌아가기</button>
 </header>
@@ -51,6 +61,16 @@ function target() {
 const shown = target();
 document.title = `${shown.title} · 청자 교실 발표 창`; $('title').textContent = shown.title; $('stage').src = shown.src;
 
+// Where the bar sits. A touch screen gets large buttons at the bottom; ⇅ moves the bar, and that choice is kept on
+// this computer.
+const BAR_KEY = 'celadon-present-bar';
+const touch = navigator.maxTouchPoints > 0 || matchMedia('(any-pointer: coarse)').matches;
+function place(where) { document.body.classList.toggle('below', where === 'bottom'); }
+let kept = null; try { kept = localStorage.getItem(BAR_KEY); } catch {}
+document.body.classList.toggle('big', touch);
+place(kept === 'top' || kept === 'bottom' ? kept : touch ? 'bottom' : 'top');
+$('move').addEventListener('click', () => { const where = document.body.classList.contains('below') ? 'top' : 'bottom'; place(where); try { localStorage.setItem(BAR_KEY, where); } catch {} });
+
 // Full screen needs one click from a person. A window that already fills the screen (opened that way) skips the prompt.
 const filling = () => Boolean(document.fullscreenElement) || matchMedia('(display-mode: fullscreen)').matches || (innerHeight >= screen.height - 2 && innerWidth >= screen.width - 2);
 function sync() { const full = filling(); $('full').hidden = full; if (full) $('start').hidden = true; }
@@ -66,7 +86,8 @@ function say(text, ms = 6000) { $('note').textContent = text; $('note').hidden =
 async function back() {
   try { if (document.fullscreenElement) await document.exitFullscreen(); } catch {}
   window.close();
-  setTimeout(() => { if (!window.closed) say('이 창을 닫으면 슬라이드로 돌아가요. 키보드에서 Alt+F4(탭이면 Ctrl+W)를 눌러 주세요.', 12000); }, 400);
+  // Full screen is already left, so the window's own ✕ (or the tab's) is within reach of a finger or the mouse.
+  setTimeout(() => { if (!window.closed) say('이 창(또는 탭) 위쪽의 ✕를 눌러 닫으면 슬라이드로 돌아가요. 키보드는 Alt+F4예요.', 15000); }, 400);
 }
 $('back').addEventListener('click', back);
 // A presenter remote sends PageDown/PageUp: pressed twice in a row it goes back to the slides (once could be a slip).

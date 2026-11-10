@@ -24,6 +24,7 @@ const base=process.env.BASE_URL||'http://127.0.0.1:4173';
     const layout=await page.evaluate(()=>{const bar=document.querySelector('#bar').getBoundingClientRect(),stage=document.querySelector('#stage').getBoundingClientRect();
       return {bar:bar.height,top:stage.top,bottom:stage.bottom,width:stage.width,scroll:document.documentElement.scrollHeight<=innerHeight&&document.documentElement.scrollWidth<=innerWidth};});
     assert.deepEqual(layout,{bar:34,top:34,bottom:660,width:1280,scroll:true});
+    assert.equal(await page.evaluate(()=>document.body.className),'','a mouse-and-keyboard screen keeps the thin bar at the top');
     await page.locator('#start').click();
     await page.waitForFunction(()=>Boolean(document.fullscreenElement));
     assert.equal(await page.locator('#start').isVisible(),false);assert.equal(await page.locator('#full').isVisible(),false,'nothing to fill once it fills the screen');
@@ -64,7 +65,27 @@ const base=process.env.BASE_URL||'http://127.0.0.1:4173';
     const filled=await (await browser.newContext({viewport:{width:1280,height:720},screen:{width:1280,height:720}})).newPage();filled.on('pageerror',error=>errors.push(error.message));
     await filled.goto(`${base}/present?open=game`);await filled.frameLocator('#stage').locator('.game-window').waitFor({timeout:30000});
     assert.equal(await filled.locator('#start').isVisible(),false);assert.equal(await filled.locator('#full').isVisible(),false);assert.equal(await filled.locator('#back').isVisible(),true);
+    await filled.context().close();
+
+    // A touch screen (an interactive whiteboard): large buttons at the bottom edge, where a hand reaches; the game
+    // keeps everything above. ⇅ moves the bar, and the choice is kept for the next time.
+    const board=await (await browser.newContext({viewport:{width:1920,height:1000},screen:{width:1920,height:1080},hasTouch:true})).newPage();board.on('pageerror',error=>errors.push(error.message));
+    await board.goto(`${base}/present?open=game`);await board.frameLocator('#stage').locator('.game-window').waitFor({timeout:30000});
+    const places=()=>board.evaluate(()=>{const box=name=>{const r=document.querySelector(name).getBoundingClientRect();return {top:Math.round(r.top),bottom:Math.round(r.bottom),height:Math.round(r.height)};};
+      return {body:document.body.className,bar:box('#bar'),back:box('#back'),move:box('#move'),stage:box('#stage'),start:box('#start')};});
+    let touch=await places();
+    assert.equal(touch.body,'big below');assert.deepEqual(touch.bar,{top:940,bottom:1000,height:60});assert.deepEqual(touch.stage,{top:0,bottom:940,height:940});
+    assert.ok(touch.back.height>=44&&touch.move.height>=44,'buttons are large enough for a finger');assert.equal(touch.start.bottom,940,'the start prompt leaves the bar free');
+    await board.locator('#start').tap();await board.waitForFunction(()=>Boolean(document.fullscreenElement));
+    await board.evaluate(()=>document.exitFullscreen());await board.waitForFunction(()=>!document.fullscreenElement);
+    await board.locator('#move').tap();touch=await places();
+    assert.equal(touch.body,'big');assert.deepEqual([touch.bar.top,touch.stage.top,touch.stage.bottom],[0,60,1000]);
+    await board.reload();await board.locator('#back').waitFor();assert.equal((await places()).body,'big','the bar stays where it was put');
+    await board.locator('#move').tap();assert.equal((await places()).body,'big below');
+    // Without a keyboard the hint names the ✕ of the window.
+    await board.evaluate(()=>{window.close=()=>{};});await board.locator('#back').tap();
+    await board.waitForFunction(()=>/위쪽의 ✕를 눌러/.test(document.querySelector('#note').textContent)&&!document.querySelector('#note').hidden);
     assert.deepEqual(errors,[]);
-    console.log('Presentation window: game under a thin bar, one click to fill the screen, fill button after Esc, remote keys (twice), closing a window opened for it, key hint when it cannot close, fixed list of screens, no prompt when already full screen passed.');
+    console.log('Presentation window: game under a thin bar, one click to fill the screen, fill button after Esc, remote keys (twice), closing a window opened for it, key hint when it cannot close, fixed list of screens, no prompt when already full screen, large bottom bar on a touch screen with a kept position passed.');
   }finally{await browser.close();}
 })().catch(error=>{console.error(error);process.exitCode=1;});

@@ -7,6 +7,12 @@ html,body{margin:0;height:100%}
 #lg-root button{font-family:inherit;font-size:.82rem;font-weight:700;border-radius:.4rem;border:1px solid #c9d8dc;background:#fff;color:#067477;padding:.3rem .65rem;cursor:pointer}
 #lg-root button[disabled]{color:#9aa7ae;background:#eef1f3;cursor:default}
 #lg-root button.lg-on{background:#078e91;border-color:#078e91;color:#fff}
+/* On a touch screen (an interactive whiteboard) the buttons are larger, for a finger. */
+#lg-root.lg-touch button{font-size:.92rem;padding:.5rem .9rem}
+#lg-root.lg-touch .lg-tabs button{min-width:2.7rem}
+#lg-root.lg-touch .lg-turn-keys button{margin:.15rem .2rem}
+#lg-root.lg-touch .lg-bar button{margin-right:.45rem}
+#lg-root.lg-touch a.lg-open{padding:.8rem 1.6rem;font-size:1.05rem}
 #lg-root h2{margin:0;font-size:1.05rem}
 #lg-root p{margin:0}
 #lg-root a{color:#067477;font-weight:700}
