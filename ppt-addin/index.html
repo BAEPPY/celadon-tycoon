@@ -2,6 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>청자 교실 실시간 화면</title>
 <style>
@@ -29,18 +30,19 @@ label.check{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:7
 </head>
 <body>
 <script>
-// PowerPoint 2016/2019 without Microsoft 365 may show add-ins with Internet Explorer 11 or old Edge, which cannot run the
-// live board. Say so instead of leaving a blank box. (Kept in ES5 so those engines can run it.)
+// PowerPoint 2016/2019 without Microsoft 365 shows add-ins with Internet Explorer 11 (or old Edge), which cannot run the
+// site's live board. Those engines get a small board of their own (legacy.js: plain results and pictures that turn in
+// place of the 3D models). This block and legacy.js are kept in ES5 so those engines can run them; "?legacy=1" opens
+// the same board in any browser.
 (function () {
   var modern = true;
   try { new Function('var a = {}; return a?.b ?? (() => 1)();')(); } catch (e) { modern = false; }
+  if (/[?&]legacy=1(&|$)/.test(window.location.search)) modern = false;
   if (modern) return;
   window.__oldEngine = true;
-  document.addEventListener('DOMContentLoaded', function () {
-    document.body.innerHTML = '<div id="old-engine" style="padding:18px;font-family:Malgun Gothic,sans-serif;font-size:15px;line-height:1.7;color:#25313b">' +
-      '<b>이 PowerPoint에서는 실시간 화면을 띄울 수 없어요.</b><br>추가 기능을 오래된 웹 엔진(Internet Explorer 등)으로 여는 버전이에요. ' +
-      'Microsoft 365나 PowerPoint 2021 이상에서 열거나, 슬라이드의 \u2018실시간 화면 열기\u2019 버튼을 써 주세요.</div>';
-  });
+  var head = document.getElementsByTagName('head')[0], style = document.createElement('link'), script = document.createElement('script');
+  style.rel = 'stylesheet'; style.href = '/ppt-addin/legacy.css'; head.appendChild(style);
+  script.charset = 'utf-8'; script.src = '/ppt-addin/legacy.js'; head.appendChild(script);
 })();
 </script>
 <main id="setup" hidden>

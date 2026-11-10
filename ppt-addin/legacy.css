@@ -1,0 +1,82 @@
+/* Live board for PowerPoint versions that show add-ins with Internet Explorer 11 (Office 2016/2019).
+   Only features that engine has: no custom properties, grid, gap, clamp or aspect-ratio. Sizes follow the root font
+   size, which legacy.js sets from the width of the box on the slide. */
+html,body{margin:0;height:100%}
+#lg-root,#lg-root *{box-sizing:border-box}
+#lg-root{position:absolute;top:0;left:0;right:0;bottom:0;overflow:hidden;word-break:keep-all;word-wrap:break-word;background:#f3f5f7;color:#25313b;font-family:'Malgun Gothic','Noto Sans KR',Arial,sans-serif;font-size:1rem;line-height:1.45}
+#lg-root button{font-family:inherit;font-size:.82rem;font-weight:700;border-radius:.4rem;border:1px solid #c9d8dc;background:#fff;color:#067477;padding:.3rem .65rem;cursor:pointer}
+#lg-root button[disabled]{color:#9aa7ae;background:#eef1f3;cursor:default}
+#lg-root button.lg-on{background:#078e91;border-color:#078e91;color:#fff}
+#lg-root h2{margin:0;font-size:1.05rem}
+#lg-root p{margin:0}
+#lg-root a{color:#067477;font-weight:700}
+.lg-head{position:absolute;top:0;left:0;right:0;height:2.7rem;background:#fff;border-bottom:1px solid #d9e3e6;padding:0 .7rem;white-space:nowrap;overflow:hidden}
+.lg-head-cell{display:inline-block;vertical-align:middle;line-height:2.7rem;margin-right:1rem;font-size:.86rem;color:#687783}
+.lg-head-cell b{color:#25313b}
+.lg-title b{font-size:1.02rem;margin-left:.45rem}
+.lg-timer b{font-size:1.05rem;color:#067477}
+.lg-pill{display:inline-block;line-height:1.3;padding:.12rem .55rem;border-radius:1rem;background:#e8f7f5;color:#067477;font-size:.76rem;font-weight:700}
+.lg-pill.lg-bad{background:#fdecea;color:#c35448}
+.lg-head-right{position:absolute;right:.6rem;top:0;line-height:2.7rem;background:#fff;padding-left:.6rem}
+.lg-head-right button{margin-left:.3rem;vertical-align:middle;line-height:1.3}
+.lg-body{position:absolute;top:2.7rem;left:0;right:0;bottom:0;overflow-x:hidden;overflow-y:auto;padding:.6rem}
+.lg-note{margin:0 0 .5rem;padding:.4rem .7rem;border:1px solid #bfe3dc;border-radius:.5rem;background:#eef9f6;font-size:.84rem}
+.lg-bar{margin:0 0 .5rem}
+.lg-bar button{margin-right:.3rem}
+.lg-bar span{font-size:.78rem;color:#687783;margin-left:.3rem}
+/* The wrapper takes back the spacing at both ends (no calc on table widths in that engine). */
+.lg-colwrap{margin:0 -.5rem}
+.lg-cols{display:table;width:100%;table-layout:fixed;border-collapse:separate;border-spacing:.5rem 0}
+.lg-col{display:table-cell;vertical-align:top;background:#fff;border:1px solid #d9e3e6;border-radius:.6rem;padding:.6rem .7rem}
+.lg-col.lg-side{width:36%}
+.lg-col.lg-wide{width:44%}
+.lg-count{float:right;font-size:.8rem;font-weight:400;color:#687783}
+.lg-label{display:block;font-size:.76rem;font-weight:700;color:#078e91;margin-bottom:.15rem}
+.lg-turn-box{margin:.4rem auto;max-width:100%}
+.lg-turn{height:0;padding-top:100%;border-radius:.5rem;background-color:#f5f7f8;background-repeat:no-repeat;background-size:600% 400%;background-position:0 0;cursor:move;touch-action:none;-ms-touch-action:none;-ms-user-select:none;user-select:none}
+.lg-turn-keys{text-align:center;margin-top:.2rem}
+.lg-turn-keys button{margin:0 .15rem}
+.lg-turn-hint{text-align:center;font-size:.72rem;color:#8a97a0}
+.lg-row{margin-top:.45rem}
+.lg-row-text{font-size:.86rem}
+.lg-row-text small{color:#687783;margin-left:.3rem;font-size:.76rem}
+.lg-row-text b{float:right}
+.lg-track{height:.6rem;border-radius:.3rem;background:#e9eef0;overflow:hidden;margin-top:.15rem}
+.lg-fill{height:100%;border-radius:.3rem}
+.lg-fill.lg-yuan{background:#7a8fb8}
+.lg-fill.lg-goryeo{background:#078e91}
+.lg-fill.lg-japan{background:#d98a5f}
+.lg-small{font-size:.76rem;color:#687783;margin-top:.4rem}
+.lg-question{font-size:1.15rem;font-weight:700;margin:.3rem 0 .5rem}
+.lg-cloud{line-height:1.25;text-align:center;padding:.3rem 0}
+.lg-word{display:inline-block;margin:.18rem .3rem;padding:.1rem .5rem;border-radius:.5rem;background:#eef6f5;color:#0b5f61;font-weight:700;word-break:break-all}
+.lg-word small{font-size:.7rem;font-weight:400;color:#5d7b7c;margin-left:.25rem}
+.lg-empty{text-align:center;color:#687783;padding:1.6rem .5rem;font-size:.95rem}
+.lg-tabs{text-align:center;margin:.3rem 0}
+.lg-tabs button{min-width:2rem;margin:0 .12rem}
+.lg-meta span{display:inline-block;margin:0 .3rem .3rem 0;padding:.1rem .55rem;border-radius:1rem;background:#e8f7f5;color:#067477;font-size:.78rem;font-weight:700}
+.lg-exhibit-name{font-size:1.35rem;margin:.2rem 0 .5rem}
+.lg-exhibit-text{font-size:.95rem;margin-bottom:.5rem}
+.lg-exhibit-text b{color:#067477;margin-right:.4rem}
+.lg-works{margin:0 -.3rem}
+.lg-work{display:inline-block;vertical-align:top;width:20%;padding:.3rem}
+.lg-work-inner{background:#fff;border:1px solid #d9e3e6;border-radius:.6rem;padding:.5rem;overflow:hidden}
+.lg-work-picture{position:relative;height:0;padding-top:75%;border-radius:.4rem;background:#f5f1e6;overflow:hidden}
+.lg-work-picture img{position:absolute;top:0;left:0;width:100%;height:100%}
+.lg-work-picture span{position:absolute;left:0;right:0;top:40%;text-align:center;font-size:.72rem;color:#8a7f6c;padding:0 .4rem}
+.lg-score{position:absolute;right:.3rem;top:.3rem;background:#078e91;color:#fff;border-radius:1rem;padding:.05rem .5rem;font-size:.78rem;font-weight:700}
+.lg-work h2{font-size:.92rem;margin-top:.35rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lg-work p{font-size:.76rem;color:#56646e;height:2.2rem;overflow:hidden;margin-top:.15rem}
+.lg-center{text-align:center}
+.lg-model-name{font-size:1.2rem;font-weight:700;margin-top:.2rem}
+.lg-form{max-width:36rem;margin:0 auto;background:#fff;border:1px solid #d9e3e6;border-radius:.7rem;padding:.9rem 1.1rem}
+.lg-form h1{margin:0 0 .5rem;font-size:1.15rem}
+.lg-form label{display:block;font-size:.88rem;margin:.22rem 0}
+.lg-form .lg-choice{display:inline-block;width:49%;vertical-align:top}
+.lg-form input[type=text],.lg-form select{font-family:inherit;font-size:.86rem;width:100%;padding:.4rem .5rem;border:1px solid #c9d8dc;border-radius:.4rem;margin-top:.2rem}
+.lg-form .lg-field{font-weight:700;margin-top:.55rem}
+.lg-form p{font-size:.78rem;color:#687783;margin-top:.45rem}
+.lg-form .lg-error{color:#c35448;min-height:1em}
+#lg-root .lg-submit{background:#078e91;border-color:#078e91;color:#fff;font-size:.95rem;padding:.5rem 1rem;margin-top:.6rem}
+.lg-cover{position:absolute;top:0;left:0;right:0;bottom:0;z-index:5;background:#fff;border:2px dashed #9fc7bd;color:#2f6f5e;text-align:center;cursor:pointer}
+.lg-cover b{position:absolute;left:0;right:0;top:44%;font-size:1.3rem}
