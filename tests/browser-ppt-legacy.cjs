@@ -33,7 +33,7 @@ const officeStub=view=>`window.__settings=window.__settings||{};window.__goto=[]
     const students=[];
     for(const [number,name] of [[4,privateName],[7,'둘째학생'],[9,'셋째학생']])students.push(await api('join',{code:'탑텐반',number,name},{auth:null}));
     const a1=await control('start',{activity:1});
-    const picks=[{1:'japan',2:'yuan',3:'goryeo'},{1:'japan',2:'goryeo',3:'goryeo'}];
+    const picks=[{1:'japan',2:'yuan',3:'goryeo'},{1:'japan',2:'goryeo',3:'yuan'}];
     for(const [index,answers] of picks.entries())await api('answer',{participantId:students[index].participantId,activity:1,runId:a1.state.runId,clientRevision:1,final:true,answers},{auth:students[index].participantToken});
     const {observerToken,observerCode}=await control('observer-link',{role:'presenter'});
     const link=`${base}/observe?code=${encodeURIComponent(observerCode)}#key=${observerToken}`;
@@ -84,7 +84,7 @@ const officeStub=view=>`window.__settings=window.__settings||{};window.__goto=[]
     for(let i=0;i<2;i++)await page.locator('[data-act=turn][data-model="comparison-1"][data-step="-2"]').click();
     assert.equal(await turn.getAttribute('data-frame'),'22','turning wraps around');
     // New answers keep the view the picture was turned to.
-    await api('answer',{participantId:students[2].participantId,activity:1,runId:a1.state.runId,clientRevision:1,final:true,answers:{1:'goryeo',2:'yuan',3:'goryeo'}},{auth:students[2].participantToken});
+    await api('answer',{participantId:students[2].participantId,activity:1,runId:a1.state.runId,clientRevision:1,final:true,answers:{1:'goryeo',2:'yuan',3:'japan'}},{auth:students[2].participantToken});
     await page.waitForFunction(()=>/3명 응답/.test(document.querySelector('[data-comparison="1"]').innerText),{},{timeout:15000});
     assert.equal(await page.locator('.lg-turn[data-model="comparison-1"]').getAttribute('data-frame'),'22');
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth&&document.querySelector('.lg-body').scrollWidth<=document.querySelector('.lg-body').clientWidth+1),true,'nothing spills sideways');
@@ -244,10 +244,14 @@ const officeStub=view=>`window.__settings=window.__settings||{};window.__goto=[]
     await alone.mouse.move(700,280);await alone.mouse.down();await alone.mouse.move(840,280,{steps:5});await alone.waitForTimeout(250);await alone.mouse.up();
     assert.ok((await view()).yaw>0.5,'dragging anywhere in the box turns it');
     assert.equal(await alone.evaluate(()=>{const body=document.querySelector('.lg-body');return body.scrollHeight<=body.clientHeight+1&&body.scrollWidth<=body.clientWidth+1;}),true);
-    // The choice sits under the model list in the form and is kept.
+    // It is one of the choices in the form (with the list of celadons), and the choice is kept.
     await alone.locator('[data-act=setup]').click();
-    assert.equal(await alone.locator('#lg-plain').isChecked(),true);assert.equal(await alone.locator('#lg-plain').isVisible(),true);
-    await alone.locator('input[name=lg-panel][value=follow]').check();assert.equal(await alone.locator('#lg-plain').isVisible(),false,'only offered for the model box');
+    assert.equal(await alone.locator('input[name=lg-panel][value=plain]').isChecked(),true);assert.equal(await alone.locator('#lg-model-field').isVisible(),true);
+    assert.match(await alone.locator('#lg-form').innerText(),/청자만 크게 보기/);
+    await alone.locator('input[name=lg-panel][value=model]').check();await alone.locator('.lg-submit').click();
+    await alone.locator('.lg-model-name').waitFor();assert.equal(await alone.locator('.lg-plain').count(),0,'the usual model box again');
+    await alone.locator('[data-act=setup]').click();await alone.locator('input[name=lg-panel][value=plain]').check();await alone.locator('#lg-model').selectOption('comparison-2');await alone.locator('.lg-submit').click();
+    await alone.locator('.lg-plain .lg-turn[data-model="comparison-2"]').waitFor();
     await alone.context().close();
     // Where 3D does not work the picture itself is enlarged (up to three times) inside its square.
     const flatAlone=await boardPage({label:'plain pictures',panel:'model',model:'beauty',settings:{plain:true,three:false}});

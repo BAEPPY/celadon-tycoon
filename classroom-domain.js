@@ -127,6 +127,8 @@ function normalizeAnswers(activity, raw) {
   if (activity === 1) for (const id of comparisonIds) {
     if (raw[id] === undefined || raw[id] === '') continue;
     if (!countries.includes(raw[id])) fail(400, 'invalid-country', '원·고려·일본 가운데 골라 주세요.');
+    // One ceramic from each country: a country name tag can be on one ceramic only.
+    if (Object.values(answers).includes(raw[id])) fail(400, 'duplicate-country', '나라 이름표는 한 번씩만 붙일 수 있어요. 같은 나라를 두 번 붙였는지 확인해 주세요.');
     answers[id] = raw[id];
   }
   else for (const id of observationIds) {

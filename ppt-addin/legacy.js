@@ -7,7 +7,11 @@
   'use strict';
   var LOCAL_KEY = 'celadon-ppt-addin-v1';
   var PANELS = ['follow', 'comparison', 'beauty', 'uses', 'works', 'game', 'model'];
-  var PANEL_LABELS = {follow: '지금 활동 따라가기', comparison: '세 나라 비교 결과', beauty: '매병·아름다움', uses: '이름·쓰임 짐작', works: '완성작 모음', game: '청자 만들기 게임', model: '청자 돌려 보기'};
+  var PANEL_LABELS = {follow: '지금 활동 따라가기', comparison: '세 나라 비교 결과', beauty: '매병·아름다움', uses: '이름·쓰임 짐작', works: '완성작 모음', game: '청자 만들기 게임', model: '청자 돌려 보기',
+    plain: '청자만 크게 보기'};
+  // What the form offers: every panel, plus "청자만 크게 보기", which is the model panel with only the zoom buttons.
+  var CHOICES = PANELS.concat(['plain']);
+  function choiceOf(value) { return value === 'plain' ? {panel: 'model', plain: true} : {panel: value, plain: false}; }
   var MODELS = ['beauty', 'comparison-1', 'comparison-2', 'comparison-3', 'observation-1', 'observation-2', 'observation-3', 'observation-4', 'observation-5'];
   var MODEL_LABELS = {'beauty': '청자 상감 운학문 매병 (아름다움 찾기)', 'comparison-1': '세 나라 비교 · 청자 1', 'comparison-2': '세 나라 비교 · 청자 2', 'comparison-3': '세 나라 비교 · 청자 3',
     'observation-1': '쓰임 짐작 · 청자 1', 'observation-2': '쓰임 짐작 · 청자 2', 'observation-3': '쓰임 짐작 · 청자 3', 'observation-4': '쓰임 짐작 · 청자 4', 'observation-5': '쓰임 짐작 · 청자 5'};
@@ -365,12 +369,11 @@
       '<span class="lg-head-cell lg-timer" data-timer>' + (time ? '남은 시간 <b>' + time + '</b>' : '') + '</span>' + buttons;
   }
   function setupMarkup(message) {
-    var now = saved(), panel = now.panel || 'follow', choices = '', options = '', i;
-    for (i = 0; i < PANELS.length; i++) choices += '<label class="lg-choice"><input type="radio" name="lg-panel" value="' + PANELS[i] + '"' + (PANELS[i] === panel ? ' checked' : '') + '> ' + PANEL_LABELS[PANELS[i]] + '</label>';
+    var now = saved(), panel = now.panel === 'model' && now.plain ? 'plain' : now.panel || 'follow', choices = '', options = '', i;
+    for (i = 0; i < CHOICES.length; i++) choices += '<label class="lg-choice"><input type="radio" name="lg-panel" value="' + CHOICES[i] + '"' + (CHOICES[i] === panel ? ' checked' : '') + '> ' + PANEL_LABELS[CHOICES[i]] + '</label>';
     for (i = 0; i < MODELS.length; i++) options += '<option value="' + MODELS[i] + '"' + (MODELS[i] === now.model ? ' selected' : '') + '>' + MODEL_LABELS[MODELS[i]] + '</option>';
     return '<form class="lg-form" id="lg-form"><h1>이 자리에 띄울 실시간 화면</h1>' + choices +
-      '<div id="lg-model-field"><label class="lg-field">돌려 볼 청자<select id="lg-model">' + options + '</select></label>' +
-      '<label class="lg-field"><input type="checkbox" id="lg-plain"' + (now.plain ? ' checked' : '') + '> 청자만 크게 보기 (버튼은 확대·축소만)</label></div>' +
+      '<label class="lg-field" id="lg-model-field">돌려 볼 청자<select id="lg-model">' + options + '</select></label>' +
       (office ? '<label class="lg-field"><input type="checkbox" id="lg-cover"' + (now.cover ? ' checked' : '') + '> 슬라이드 쇼에서는 가려 두었다가 클릭하면 나타나기</label>' : '') +
       '<label class="lg-field" id="lg-link-field">PPT용 주소<input type="text" id="lg-link" autocomplete="off" spellcheck="false" value="' + esc(now.link || localRead().link || '') + '" placeholder="선생님 화면 → 수업 관리 → PPT용 주소 복사"></label>' +
       '<label class="lg-field"><input type="checkbox" id="lg-three"' + (localRead().three === false ? '' : ' checked') + '> 청자를 3D로 보기 (안 보이거나 느리면 꺼 주세요)</label>' +
@@ -378,7 +381,7 @@
       '<p class="lg-error" id="lg-error" role="alert">' + esc(message || '') + '</p><button type="submit" class="lg-submit">이 화면 띄우기</button></form>';
   }
   function syncSetupFields() {
-    var chosen = root.querySelector('input[name=lg-panel]:checked'), panel = chosen ? chosen.value : 'follow';
+    var chosen = root.querySelector('input[name=lg-panel]:checked'), panel = choiceOf(chosen ? chosen.value : 'follow').panel;
     var link = document.getElementById('lg-link-field'), model = document.getElementById('lg-model-field');
     if (link) link.style.display = needsLink(panel) ? '' : 'none';
     if (model) model.style.display = panel === 'model' ? '' : 'none';
@@ -472,14 +475,13 @@
   }
   function submit(event) {
     if (event.preventDefault) event.preventDefault(); else event.returnValue = false;
-    var chosen = root.querySelector('input[name=lg-panel]:checked'), panel = chosen ? chosen.value : '', field = document.getElementById('lg-link');
+    var chosen = root.querySelector('input[name=lg-panel]:checked'), choice = choiceOf(chosen ? chosen.value : ''), panel = choice.panel, field = document.getElementById('lg-link');
     var text = field ? field.value.replace(/^\s+|\s+$/g, '') : '', select = document.getElementById('lg-model'), cover = document.getElementById('lg-cover');
     if (!has(PANELS, panel)) return;
     if (needsLink(panel) && !parseLink(text)) { document.getElementById('lg-error').innerHTML = 'PPT용 주소를 확인해 주세요. 선생님 화면 → 수업 관리 → “PPT용 주소 복사”로 복사한 주소를 붙여 넣어 주세요.'; return; }
     var three = document.getElementById('lg-three'), wasThree = localRead().three !== false, wantThree = !three || three.checked;
     localWrite({three: wantThree});
-    var plain = document.getElementById('lg-plain');
-    save(panel, parseLink(text) ? text : saved().link, select && has(MODELS, select.value) ? select.value : 'beauty', !!(cover && cover.checked), !!(plain && plain.checked), function () {
+    save(panel, parseLink(text) ? text : saved().link, select && has(MODELS, select.value) ? select.value : 'beauty', !!(cover && cover.checked), choice.plain, function () {
       // Switching 3D on or off starts the box again so the choice applies cleanly.
       if (wasThree !== wantThree) { window.location.reload(); return; }
       view.setup = false; view.auto = true; lastBody = ''; data = null; waiting = false; problem = ''; connected = false; lastRefresh = null;
