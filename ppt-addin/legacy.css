@@ -10,7 +10,9 @@ html,body{margin:0;height:100%}
 /* On a touch screen (an interactive whiteboard) the buttons are larger, for a finger. */
 #lg-root.lg-touch button{font-size:.92rem;padding:.5rem .9rem}
 #lg-root.lg-touch .lg-tabs button{min-width:2.7rem}
-#lg-root.lg-touch .lg-turn-keys button{margin:.15rem .2rem}
+/* The keys under a model stay on one row (five of them under a 3D model), so the columns do not grow taller. */
+#lg-root.lg-touch .lg-turn-keys button{margin:.15rem .1rem;padding:.5rem .6rem;min-width:2.3rem}
+.lg-turn-keys{white-space:nowrap}
 #lg-root.lg-touch .lg-bar button{margin-right:.45rem}
 #lg-root.lg-touch a.lg-open{padding:.8rem 1.6rem;font-size:1.05rem}
 #lg-root h2{margin:0;font-size:1.05rem}

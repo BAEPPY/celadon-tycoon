@@ -331,6 +331,38 @@ const officeStub=view=>`window.__settings=window.__settings||{};window.__goto=[]
     assert.equal(await finger.locator('.lg-turn[data-model="comparison-1"]').getAttribute('data-frame'),'2','a tap turns the picture');
     await fingerContext.close();
 
+    // The board always fits its box: nothing scrolls, the keys under a 3D model stay on one row, and a reload (↻)
+    // leaves every size as it was. A box that is not 16:9, or one PowerPoint resizes without telling the page, is
+    // followed too (the board looks at its own box every second).
+    const boxContext=await browser.newContext({viewport:{width:1400,height:785},hasTouch:true});await boxContext.route(OFFICE_JS,route=>route.abort());
+    const boxed=await boxContext.newPage();watch(boxed,'fitting board');
+    await boxed.addInitScript(([key,value])=>{if(!localStorage.getItem(key))localStorage.setItem(key,value);},['celadon-ppt-addin-v1',JSON.stringify({panel:'comparison',link,model:'beauty'})]);
+    const boxSizes=()=>boxed.evaluate(()=>{const body=document.querySelector('.lg-body'),keys=[...document.querySelectorAll('.lg-turn-keys')].map(row=>Math.round(row.getBoundingClientRect().height/Math.max(...[...row.querySelectorAll('button')].map(key=>key.getBoundingClientRect().height))));
+      return {font:Math.round(parseFloat(document.documentElement.style.fontSize)*10)/10,fits:body.scrollHeight<=body.clientHeight+1&&body.scrollWidth<=body.clientWidth+1,rows:Math.max(...keys),keys:document.querySelectorAll('.lg-turn-keys button').length};});
+    const fitSettled=async()=>{await boxed.waitForFunction(()=>document.querySelectorAll('.lg-turn[data-3d=ready]').length===3,{},{timeout:60000});await boxed.waitForTimeout(1500);return boxSizes();};
+    await boxed.goto(`${base}/ppt-addin/index.html?legacy=1`);
+    const firstFit=await fitSettled();
+    assert.deepEqual({fits:firstFit.fits,rows:firstFit.rows,keys:firstFit.keys},{fits:true,rows:1,keys:15},JSON.stringify(firstFit));assert.ok(firstFit.font<=1400/64+.05&&firstFit.font>=1400/64*.9,`sized from the box: ${firstFit.font}`);
+    await boxed.locator('[data-act=reload]').tap();await boxed.waitForLoadState('load');
+    assert.deepEqual(await fitSettled(),firstFit,'the same after a reload');
+    await boxed.locator('[data-act=reload]').tap();await boxed.waitForLoadState('load');
+    assert.deepEqual(await fitSettled(),firstFit,'and after another');
+    // If what is shown is taller than the box (here a tall bar stands in for an engine whose text runs larger),
+    // everything is drawn smaller until it fits.
+    await boxed.addStyleTag({content:'.lg-bar{padding-bottom:7rem!important}'});
+    await boxed.setViewportSize({width:1401,height:785});await boxed.waitForTimeout(1500);
+    const tallFit=await boxSizes();assert.equal(tallFit.fits,true,JSON.stringify(tallFit));assert.ok(tallFit.font<firstFit.font*.9&&tallFit.font>=firstFit.font*.6,`drawn smaller: ${tallFit.font} from ${firstFit.font}`);
+    await boxed.addStyleTag({content:'.lg-bar{padding-bottom:0!important}'});
+    // A squat box: sized from its height, and still nothing to scroll.
+    await boxed.setViewportSize({width:1400,height:560});await boxed.waitForTimeout(1500);
+    const squatFit=await boxSizes();assert.equal(squatFit.fits,true);assert.ok(squatFit.font<=560/36+.05,`a squat box is sized from its height: ${squatFit.font}`);
+    // The box changes size without a resize event reaching the page: within a second or two the board follows.
+    await boxed.evaluate(()=>{window.addEventListener('resize',event=>event.stopImmediatePropagation(),true);});
+    await boxed.setViewportSize({width:1000,height:562});
+    await boxed.waitForFunction(()=>Math.abs(parseFloat(document.documentElement.style.fontSize)-1000/64)<1.6,{},{timeout:8000});
+    assert.equal((await boxSizes()).fits,true);
+    await boxContext.close();
+
     // With no class open the board says so and comes back when a class opens.
     const waitingPage=await context.newPage();watch(waitingPage,'waiting board');
     await waitingPage.addInitScript(([key,value])=>localStorage.setItem(key,value),['celadon-ppt-addin-v1',JSON.stringify({panel:'follow',link,model:'beauty'})]);
@@ -367,7 +399,7 @@ const officeStub=view=>`window.__settings=window.__settings||{};window.__goto=[]
     assert.deepEqual(await showPlain.locator('#lg-root button').evaluateAll(nodes=>nodes.filter(node=>node.offsetParent!==null).map(node=>node.textContent)),['＋','－']);
     await showPlain.evaluate(()=>window.__viewHandler({activeView:'edit'}));await showPlain.locator('[data-act=setup]').waitFor();
     assert.deepEqual(errors,[]);
-    console.log('Old-engine add-in board: similar-order comparison (groups, words, 크게 보기), setup, anonymous comparison counts, turning pictures, 청자 설명 보기 from the slide, following 아름다움·쓰임·완성작, real 3D (turn, tilt, zoom, kept across redraws, self-turning), falling back to pictures without WebGL, with a missing model and after an empty drawing, pictures of finished works as JPEG where WebP cannot be drawn, large buttons on a touch screen, plain model view (zoom only, whole box, no self-turning, picture zoom), waiting for a class, slide-show cover and remote keys passed.');
+    console.log('Old-engine add-in board: fitting its box (same after reloads, squat box, unannounced resize), similar-order comparison (groups, words, 크게 보기), setup, anonymous comparison counts, turning pictures, 청자 설명 보기 from the slide, following 아름다움·쓰임·완성작, real 3D (turn, tilt, zoom, kept across redraws, self-turning), falling back to pictures without WebGL, with a missing model and after an empty drawing, pictures of finished works as JPEG where WebP cannot be drawn, large buttons on a touch screen, plain model view (zoom only, whole box, no self-turning, picture zoom), waiting for a class, slide-show cover and remote keys passed.');
   }finally{
     if(room&&teacher)await control('delete').catch(()=>{});
     await browser.close();
