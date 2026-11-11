@@ -152,5 +152,5 @@ test('흰 흙과 검은 흙을 섞어 쓴 작품은 칸마다 색을 지키고, 
   assert.equal(classroomWorkPayload(finished).clay.slip,'mixed');
   assert.equal(assessmentInput(finished).slip,'mixed');
   assert.notEqual(assessmentFingerprint(finished),assessmentFingerprint({...finished,clay:{...finished.clay,slip:'white'}}));
-  assert.match(explanationHints(finished).beauty,/학 무늬를 파고 흰 흙과 검은 흙을 채운 다음/,'the writing example names both colours');
+  assert.match(explanationHints(finished).beauty,/학 무늬를 파고 흰 흙과 붉은 흙을 채운 다음/,'the writing example names both colours');
 });

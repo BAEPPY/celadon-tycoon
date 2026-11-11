@@ -30,7 +30,8 @@ const base=process.env.BASE_URL||'http://127.0.0.1:4173';
     assert.equal(await page.locator('#start').isVisible(),false);assert.equal(await page.locator('#full').isVisible(),false,'nothing to fill once it fills the screen');
     // Leaving full screen (Esc) brings the fill button back, not the big prompt.
     await page.evaluate(()=>document.exitFullscreen());await page.waitForFunction(()=>!document.fullscreenElement);
-    assert.equal(await page.locator('#full').isVisible(),true);assert.equal(await page.locator('#start').isVisible(),false);
+    await page.locator('#full').waitFor({state:'visible',timeout:5000});   // the page hears of it a moment after the browser does
+    assert.equal(await page.locator('#start').isVisible(),false);
     // A presenter remote: one PageDown only warns, a second within two seconds goes back. The key also works after the game was clicked.
     await page.evaluate(()=>{window.__closed=0;window.close=()=>{window.__closed++;};});
     await page.keyboard.press('PageDown');
@@ -49,7 +50,7 @@ const base=process.env.BASE_URL||'http://127.0.0.1:4173';
     const opener=await context.newPage();await opener.goto(`${base}/present?open=model&id=observation-5`);
     const [popup]=await Promise.all([context.waitForEvent('page'),opener.evaluate(base=>{window.open(`${base}/present?open=game`,'_blank');},base)]);
     popup.on('pageerror',error=>errors.push(error.message));await popup.locator('#back').waitFor();
-    await Promise.all([popup.waitForEvent('close'),popup.locator('#back').click()]);
+    await Promise.all([popup.waitForEvent('close'),popup.locator('#back').click({noWaitAfter:true}).catch(()=>{})]);
     // Only the fixed list can be shown: a 3D model by its blind name, a live board of a class with its key, else the game.
     assert.equal(await opener.locator('#stage').getAttribute('src'),'/model?id=observation-5');assert.equal(await opener.locator('#title').innerText(),'청자 돌려 보기');
     const shown=async address=>{await opener.goto(`${base}/present${address}`);return {src:await opener.locator('#stage').getAttribute('src'),title:await opener.locator('#title').innerText()};};
@@ -57,6 +58,8 @@ const base=process.env.BASE_URL||'http://127.0.0.1:4173';
     const key='k'.repeat(43);
     assert.deepEqual(await shown(`?open=works&code=${encodeURIComponent('탑텐반')}#key=${key}`),{src:`/observe?code=${encodeURIComponent('탑텐반')}&show=works#key=${key}`,title:'완성작 모음'});
     assert.deepEqual(await shown(`?open=compare&code=${encodeURIComponent('탑텐반')}#key=${key}`),{src:`/observe?code=${encodeURIComponent('탑텐반')}&show=compare#key=${key}`,title:'비슷한 주문끼리 비교'});
+    assert.deepEqual(await shown(`?open=cloud&cloud=use-3&code=${encodeURIComponent('탑텐반')}#key=${key}`),{src:`/observe?code=${encodeURIComponent('탑텐반')}&show=cloud&cloud=use-3#key=${key}`,title:'워드 클라우드'});
+    assert.deepEqual(await shown(`?open=cloud&cloud=../x&code=${encodeURIComponent('탑텐반')}#key=${key}`),{src:`/observe?code=${encodeURIComponent('탑텐반')}&show=cloud&cloud=beauty#key=${key}`,title:'워드 클라우드'});
     assert.deepEqual(await shown(`?open=follow&code=abc234#key=${key}`),{src:`/observe?code=ABC234&board=1#key=${key}`,title:'지금 활동 따라가기'});
     assert.deepEqual(await shown('?open=comparison&code=%3Cscript%3E#key=short'),{src:`/observe?code=${encodeURIComponent('탑텐반')}&show=comparison`,title:'세 나라 비교 결과'});
     for(const address of ['','?open=https://example.com','?open=//example.com/x','?open=teacher','?open=javascript:alert(1)'])assert.deepEqual(await shown(address),{src:'/game',title:'청자 만들기 게임'},address);

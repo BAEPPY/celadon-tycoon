@@ -248,5 +248,5 @@ test('OpenAI 인증·잔액·응답 오류는 추가 유료 호출 없이 안전
 import {explanationHints as currentHints} from './assessment-rules.js';
 test('설명 예시는 실제 문양과 색흙을 따르며 향로의 없는 구멍을 단정하지 않는다',()=>{
  const hints=currentHints({shape:'incense',technique:'inlay',placements:[{pattern:'lotus'}],clay:{slip:'dark'}});
- assert.match(hints.beauty,/연꽃 무늬.*검은 흙/);assert.doesNotMatch(hints.beauty,/흰 흙/);assert.doesNotMatch(hints.use,/구멍/);
+ assert.match(hints.beauty,/연꽃 무늬.*붉은 흙/);assert.doesNotMatch(hints.beauty,/흰 흙/);assert.doesNotMatch(hints.use,/구멍/);
 });

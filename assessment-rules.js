@@ -62,7 +62,7 @@ function meaningful(text) { return text.length >= 5 && (text.match(/[가-힣]/g)
 function response(score, feedback) { return {score, feedback}; }
 export function explanationHints(work = {}) {
   const input=assessmentInput(work),names={cloud:'구름',crane:'학',lotus:'연꽃',peony:'모란',chrysanthemum:'국화',plum:'매화',bamboo:'대나무',willow:'버드나무',grape:'포도',wildflower:'풀꽃',text:'글자'};
-  const motif=names[input.patterns[0]||input.drawingLabel]||'무늬',slip=input.slip==='dark'?'검은 흙':input.slip==='mixed'?'흰 흙과 검은 흙':'흰 흙';
+  const motif=names[input.patterns[0]||input.drawingLabel]||'무늬',slip=input.slip==='dark'?'붉은 흙':input.slip==='mixed'?'흰 흙과 붉은 흙':'흰 흙';
   const examples = {
     pillow: '예: 머리를 놓는 곳을 오목하게 빚은 베개예요. 누웠을 때 머리를 안정적으로 받쳐 주기 때문에 쉴 때 쓰면 좋아요.',
     stool: '예: 윗면이 평평하고 몸통이 튼튼한 의자예요. 사람의 몸을 단단히 받쳐 주기 때문에 앉아서 쉬기 좋아요.',
@@ -94,7 +94,7 @@ export function rubricAssessment(work = {}, notice = '기본 기준으로 설명
   }
   let beauty = response(0, '공들인 부분이나 사용한 기법을 짧게 적어 주세요.');
   if (meaningful(beautyText)) {
-    const inlay = /상감|색흙|다른\s*색.*흙|흰\s*(?:흙|색)|검은\s*(?:흙|색)|백토|자토|채우|채워|파인/,
+    const inlay = /상감|색흙|다른\s*색.*흙|흰\s*(?:흙|색)|검은\s*(?:흙|색|무늬)|붉은\s*(?:흙|색)|백토|자토|채우|채워|파인/,
       openwork = /투각|구멍|뚫|빛|그림자|통하|연기/,
       plain = /무늬\s*없|무문|곡선|빛깔|색|표면|부드러|매끈|푸른|맑/;
     const actual = input.technique === 'inlay' ? inlay : input.technique === 'openwork' ? openwork : plain;

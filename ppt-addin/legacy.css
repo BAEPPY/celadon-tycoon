@@ -57,8 +57,8 @@ html,body{margin:0;height:100%}
 .lg-fill.lg-japan{background:#d98a5f}
 .lg-small{font-size:.76rem;color:#687783;margin-top:.4rem}
 .lg-question{font-size:1.15rem;font-weight:700;margin:.3rem 0 .5rem}
-.lg-cloud{line-height:1.25;text-align:center;padding:.3rem 0}
-.lg-word{display:inline-block;margin:.18rem .3rem;padding:.1rem .5rem;border-radius:.5rem;background:#eef6f5;color:#0b5f61;font-weight:700;word-break:break-all}
+.lg-cloud{line-height:1.1;text-align:center;padding:.3rem 0}
+.lg-word{display:inline-block;margin:.07rem .1rem;padding:.05rem .4rem;border-radius:.5rem;background:#eef6f5;color:#0b5f61;font-weight:700;word-break:break-all}
 .lg-word small{font-size:.7rem;font-weight:400;color:#5d7b7c;margin-left:.25rem}
 .lg-empty{text-align:center;color:#687783;padding:1.6rem .5rem;font-size:.95rem}
 .lg-address{font-family:inherit;font-size:.86rem;width:24rem;max-width:90%;margin:.7rem 0;padding:.4rem .5rem;border:1px solid #c9d8dc;border-radius:.4rem;text-align:center;color:#25313b;background:#fff}
@@ -128,6 +128,12 @@ html,body{margin:0;height:100%}
 .lg-plain-keys{position:absolute;right:.8rem;bottom:.8rem;z-index:2}
 #lg-root .lg-plain-keys button{display:block;width:3.2rem;height:3.2rem;margin-top:.5rem;padding:0;font-size:1.6rem;line-height:1;border-radius:1.6rem;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.18)}
 #lg-root .lg-plain-setup{position:absolute;right:.8rem;top:.8rem;z-index:2;opacity:.9}
+/* 워드 클라우드만 크게 보기: the cloud is the whole box. Each word is placed by legacy.js (close together, tight boxes). */
+.lg-cloud-only{position:absolute;top:0;left:0;right:0;bottom:0;overflow:hidden;background:#fff;background:radial-gradient(ellipse at 50% 50%,#f4fcfb 0%,#ffffff 72%)}
+.lg-cw{position:absolute;left:0;top:0;visibility:hidden;white-space:nowrap;padding:0 2px;line-height:1.04;font-weight:700;letter-spacing:-.04em}
+.lg-cloud-flow{overflow-y:auto;text-align:center;padding:.4rem}
+.lg-cloud-flow .lg-cw{position:static;display:inline-block;margin:0 .15rem}
+.lg-cloud-empty{position:absolute;left:0;right:0;top:38%;text-align:center;font-size:1.5rem;line-height:1.7;color:#94a4ac}
 .lg-model-name{font-size:1.2rem;font-weight:700;margin-top:.2rem}
 .lg-form{max-width:36rem;margin:0 auto;background:#fff;border:1px solid #d9e3e6;border-radius:.7rem;padding:.9rem 1.1rem}
 .lg-form h1{margin:0 0 .5rem;font-size:1.15rem}

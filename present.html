@@ -45,7 +45,7 @@ body.big #note{font-size:20px;padding:14px 22px}
 'use strict';
 // What may be shown is a fixed list: the game, a 3D model, or a live board of a class. Nothing else is ever framed.
 const MODELS = ['beauty', 'comparison-1', 'comparison-2', 'comparison-3', 'observation-1', 'observation-2', 'observation-3', 'observation-4', 'observation-5'];
-const BOARDS = {follow: '지금 활동 따라가기', comparison: '세 나라 비교 결과', beauty: '아름다움 찾기', uses: '이름·쓰임 짐작', works: '완성작 모음', compare: '비슷한 주문끼리 비교'};
+const BOARDS = {follow: '지금 활동 따라가기', comparison: '세 나라 비교 결과', beauty: '아름다움 찾기', uses: '이름·쓰임 짐작', works: '완성작 모음', compare: '비슷한 주문끼리 비교', cloud: '워드 클라우드'};
 const $ = id => document.getElementById(id);
 const query = new URLSearchParams(location.search), open = query.get('open') || 'game';
 function target() {
@@ -54,6 +54,8 @@ function target() {
     const code = (query.get('code') || '탑텐반').normalize('NFKC').trim().toUpperCase(), key = new URLSearchParams(location.hash.slice(1)).get('key') || '';
     const params = new URLSearchParams({code: /^(?:탑텐반|[A-Z2-9]{6})$/.test(code) ? code : '탑텐반'});
     if (open === 'follow') params.set('board', '1'); else params.set('show', open);
+    // One word cloud alone: 우리가 찾은 아름다움, or the names or uses guessed for 청자 1–5.
+    if (open === 'cloud') params.set('cloud', /^(?:name|use)-[1-5]$/.test(query.get('cloud') || '') ? query.get('cloud') : 'beauty');
     return {src: `/observe?${params}${/^[A-Za-z0-9_-]{30,100}$/.test(key) ? `#${new URLSearchParams({key})}` : ''}`, title: BOARDS[open]};
   }
   return {src: '/game', title: '청자 만들기 게임'};

@@ -88,7 +88,7 @@ export class InlayGame {
     const c=this.ctx;if(!c)return;const d=devicePixelRatio;c.clearRect(0,0,this.canvas.width,this.canvas.height);c.save();c.scale(d,d);
     // Keep the ornament clean: the brush and progress meter guide the activity.
     // Target markers looked like dark punctures in the white inlay.
-    if(this.cursor&&!this.locked){const [x,y]=this.cursor;c.save();c.translate(x,y);c.rotate(-.3);c.fillStyle=this.mode==='wipe'?'#efd18e':this.state.slip==='dark'?'#4d4144':'#fff1d3';c.strokeStyle='#936c50';c.lineWidth=2;c.beginPath();c.roundRect(-20,-11,40,23,7);c.fill();c.stroke();if(this.mode==='wipe'){c.fillStyle='#fff8e6bb';for(const [a,b] of [[-9,-2],[3,4],[12,-4]]){c.beginPath();c.arc(a,b,3,0,Math.PI*2);c.fill();}}else{c.fillStyle='#ab8662';c.fillRect(12,-3,25,7);}c.restore();}
+    if(this.cursor&&!this.locked){const [x,y]=this.cursor;c.save();c.translate(x,y);c.rotate(-.3);c.fillStyle=this.mode==='wipe'?'#efd18e':this.state.slip==='dark'?'#b0452f':'#fff1d3';c.strokeStyle='#936c50';c.lineWidth=2;c.beginPath();c.roundRect(-20,-11,40,23,7);c.fill();c.stroke();if(this.mode==='wipe'){c.fillStyle='#fff8e6bb';for(const [a,b] of [[-9,-2],[3,4],[12,-4]]){c.beginPath();c.arc(a,b,3,0,Math.PI*2);c.fill();}}else{c.fillStyle='#ab8662';c.fillRect(12,-3,25,7);}c.restore();}
     c.restore();
   }
   release(){const id=this.pointer?.id;this.pointer=null;if(id!==undefined&&this.canvas.hasPointerCapture(id))this.canvas.releasePointerCapture(id);this.draw();}

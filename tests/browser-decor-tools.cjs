@@ -23,12 +23,13 @@ async function brush(page,u0,u1){
   }
   await page.waitForTimeout(150);
 }
-// Slip colours on the vessel: cream for white slip, near black for dark slip (the clay itself is brown).
+// Slip colours on the vessel: cream for white slip (백토); 자토 is red while the vessel is worked and near black once
+// it is glazed and fired (the clay itself is brown).
 const slipPixels=page=>page.locator('.illustration-viewport>canvas').first().evaluate(canvas=>{
   const box=JSON.parse(canvas.parentElement.dataset.objectBox),x=Math.floor(box[0]*canvas.width),y=Math.floor(box[1]*canvas.height);
-  const data=canvas.getContext('2d').getImageData(x,y,Math.floor(box[2]*canvas.width),Math.floor(box[3]*canvas.height)).data;let light=0,dark=0;
-  for(let i=0;i<data.length;i+=4){if(data[i+3]<200)continue;const [r,g,b]=[data[i],data[i+1],data[i+2]];if(r>235&&g>220&&b>185)light++;else if(r<75&&g<70&&b<75)dark++;}
-  return {light,dark};
+  const data=canvas.getContext('2d').getImageData(x,y,Math.floor(box[2]*canvas.width),Math.floor(box[3]*canvas.height)).data;let light=0,dark=0,black=0;
+  for(let i=0;i<data.length;i+=4){if(data[i+3]<200)continue;const [r,g,b]=[data[i],data[i+1],data[i+2]];if(r>235&&g>220&&b>185)light++;else if(r>150&&g<100&&b<80)dark++;else if(r<75&&g<70&&b<75)black++;}
+  return {light,dark,black};
 });
 const reachable=(page,selector)=>page.locator(selector).evaluate(el=>{const r=el.getBoundingClientRect(),hit=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);
   return r.width>0&&r.left>=0&&r.top>=0&&r.right<=innerWidth&&r.bottom<=innerHeight&&(hit===el||el.contains(hit));});
@@ -88,6 +89,7 @@ const reachable=(page,selector)=>page.locator(selector).evaluate(el=>{const r=el
     assert.equal(await page.locator('[data-action=inlay-refill]').isDisabled(),true,'nothing to redo yet');
     const bare=await slipPixels(page);
     assert.equal(await page.locator('[data-slip=white]').getAttribute('aria-pressed'),'true');
+    assert.deepEqual((await page.locator('.inlay-choice').allInnerTexts()).map(text=>text.replace(/\s+/g,' ').trim()),['흰 흙 백토','붉은 흙 자토 · 구우면 검은색']);
     await brush(page,.12,.46);
     await page.click('[data-slip=dark]');await page.waitForSelector('.inlay-canvas[data-mode=fill]');
     assert.equal(await page.locator('[data-slip=dark]').getAttribute('aria-pressed'),'true');
@@ -147,7 +149,13 @@ const reachable=(page,selector)=>page.locator(selector).evaluate(el=>{const r=el
     assert.ok(design,'the mixed design is accepted for the classroom');assert.equal(design.clay.slip,'mixed');assert.deepEqual([...design.inlay.dark].sort(),[...new Set(work.inlay.dark)].sort());
     await page.click('[data-action=next-decor]');await page.waitForSelector('.kiln-scene');
     assert.equal(await page.locator('.illustration-viewport').getAttribute('data-zoom'),'1','the kiln shows the vessel at its usual size');
+    // 자토 is called 붉은 흙 and is red on the brush and on the vessel; once the vessel is glazed and fired the same
+    // places are black, and the white ones stay white.
+    const unfired=await slipPixels(page);assert.ok(unfired.dark>40,`red before firing: ${JSON.stringify(unfired)}`);
+    await seed({...(await saved(page)),step:2,firing:['dry','biscuit','glaze','fire']});await page.waitForTimeout(300);
+    const fired=await slipPixels(page);   // the vessel's own outline is dark too, so the black is compared with before
+    assert.ok(fired.black>unfired.black+unfired.dark/4&&fired.dark<unfired.dark/5&&fired.light>40,`black after firing, white still white: ${JSON.stringify({unfired,fired})}`);
     assert.deepEqual(errors,[]);
-    console.log('Decoration tools: 크게 보기 at two Chromebook sizes with stamping, two slips together, repainting, 색흙 다시 채우기, completion and wiping with both colours passed.');
+    console.log('Decoration tools: 크게 보기 at two Chromebook sizes with stamping, 흰 흙 and 붉은 흙 together (red until fired, then black), repainting, 색흙 다시 채우기, completion and wiping with both colours passed.');
   }finally{await browser.close();}
 })().catch(error=>{console.error(error);process.exitCode=1;});

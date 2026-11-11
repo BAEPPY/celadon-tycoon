@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {placeCloudWords} from './lesson-cloud.js';
+import {placeCloudWords, CLOUD_GAP} from './lesson-cloud.js';
 
 test('common words are central and every placed word stays readable, separate, and inside the board', () => {
   const words = Array.from({length: 45}, (_, index) => ({index, size: index ? 14 : 48,
@@ -13,9 +13,13 @@ test('common words are central and every placed word stays readable, separate, a
   assert.ok(Math.abs(common.y + common.height / 2 - 240) <= 1);
   for (const [index, a] of positions.entries()) {
     assert.ok(a.x >= 0 && a.y >= 0 && a.x + a.width <= 640 && a.y + a.height <= 480);
-    for (const b of positions.slice(index + 1)) assert.ok(a.x + a.width + 6 <= b.x || b.x + b.width + 6 <= a.x || a.y + a.height + 6 <= b.y || b.y + b.height + 6 <= a.y);
+    for (const b of positions.slice(index + 1)) assert.ok(a.x + a.width + CLOUD_GAP <= b.x || b.x + b.width + CLOUD_GAP <= a.x || a.y + a.height + CLOUD_GAP <= b.y || b.y + b.height + CLOUD_GAP <= a.y);
   }
   assert.deepEqual(placeCloudWords(words, 640, 480), positions);
+  // The words sit close together: two pixels between boxes, and the nearest neighbour of the central word touches that gap.
+  assert.equal(CLOUD_GAP, 2);
+  const distance = other => Math.max(0, Math.max(other.x - (common.x + common.width), common.x - (other.x + other.width)), Math.max(other.y - (common.y + common.height), common.y - (other.y + other.height)));
+  assert.ok(Math.min(...positions.filter(item => item !== common).map(distance)) <= 4);
 });
 
 test('a crowded board requests more room rather than silently dropping a word', () => {

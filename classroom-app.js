@@ -48,8 +48,13 @@ async function observerFromTeacher(){
 // A slide-sized live board for projectors and PowerPoint (Web Viewer): pages shown inside another page, ?board=1 or
 // ?show=… use it. ?show= pins one board; otherwise the board follows the activity the teacher is running.
 function framedPage(){try{return window.self!==window.top;}catch{return true;}}
-const BOARD_PANELS={comparison:{activity:1,view:'comparison'},beauty:{activity:1,view:'beauty'},uses:{activity:2},works:{activity:3},compare:{activity:3,works:'compare'}};
-const boardQuery=new URLSearchParams(location.search),boardPin=observerMode?BOARD_PANELS[boardQuery.get('show')]||null:null;
+const boardQuery=new URLSearchParams(location.search);
+// 워드 클라우드만 크게 보기 (?show=cloud&cloud=beauty|name-1…5|use-1…5): one word cloud fills the box, nothing else.
+const cloudPin=(()=>{const match=/^(name|use)-([1-5])$/.exec(boardQuery.get('cloud')||'');return match?{kind:match[1],object:match[2]}:{kind:'beauty'};})();
+const BOARD_PANELS={comparison:{activity:1,view:'comparison'},beauty:{activity:1,view:'beauty'},uses:{activity:2},works:{activity:3},compare:{activity:3,works:'compare'},
+  cloud:{activity:cloudPin.kind==='beauty'?1:2,...(cloudPin.kind==='beauty'?{view:'beauty'}:{}),cloud:cloudPin}};
+const boardPin=observerMode?BOARD_PANELS[boardQuery.get('show')]||null:null;
+if(boardPin?.cloud)document.body.classList.add('cloud-plain');
 const boardMode=observerMode&&(Boolean(boardPin)||boardQuery.get('board')==='1'||framedPage());
 let session=observerMode?observerSession():teacherMode?stored(SESSION_KEY):loadStudentEntryState(),room=null,teacherData=null,student=null,answers={},offset=0,offsetSamples=[];
 let currentObject='1',teacherActivity=1,teacherObject='1',teacherA1View='comparison',selectedCountry=null,cloudKind='name';
@@ -704,6 +709,13 @@ function renderTeacher(){
   teacherSignature=dataSignature;viewKey='teacher';disposeViewers();cloudView?.dispose();cloudView=null;
   const live=teacherViewActive()&&status==='active',participantCount=observerMode?Number(teacherData?.participantCount)||0:teacherData?.participants?.length||0;
   const completed=teacherBeautyView()?Number(teacherData?.beauty?.respondents)||0:teacherActivity===3?(teacherData?.works||[]).length:observerMode?Number(teacherData?.completionCounts?.[teacherActivity])||0:(teacherData?.participants||[]).filter(p=>p[`activity${teacherActivity}Complete`]).length;
+  if(boardPin?.cloud){
+    // Only the cloud, as large as the box: no bar, no model, no buttons.
+    const {kind,object}=boardPin.cloud,words=kind==='beauty'?teacherData?.beauty?.words:(teacherData?.observations||[]).find(item=>String(item.id)===object)?.[kind==='name'?'nameWords':'useWords'];
+    app.innerHTML=`<div class="board-shell cloud-only" data-testid="live-board" data-cloud="${kind==='beauty'?'beauty':`${kind}-${object}`}">${cloudMarkup(words,kind)}</div>`;
+    const cloud=app.querySelector('.word-cloud');if(cloud)cloudView=mountWordCloud(cloud,{fill:true});
+    return;
+  }
   if(boardMode){
     const name=teacherBeautyView()?BEAUTY_NAME:ACTIVITY_NAMES[teacherActivity],state=room.preview?'수업 전':live?'진행 중':status==='ended'?'수업 끝':room.activity===teacherActivity&&status==='paused'?'활동을 마쳤어요':'준비 중';
     app.innerHTML=`<div class="board-shell${teacherActivity===3&&worksView==='compare'&&(teacherData?.works||[]).length?' board-fit':''}" data-testid="live-board"><header class="board-status"><div class="board-title"><span>활동 ${teacherActivity} · ${state}</span><strong>${esc(name)}</strong></div><div class="board-metrics"><span>참여 <strong>${participantCount}</strong>명</span><span>${teacherActivity===3?'완성작':'모두 작성'} <strong>${completed}</strong>${teacherActivity===3?'점':'명'}</span></div>${timerMarkup()}<span class="pill" data-connection>연결됨</span><button class="board-refresh" type="button" data-action="board-reload" aria-label="이 화면 새로고침" title="이 화면 새로고침">↻</button></header>${observerPreviewNote()}<div class="teacher-content">${teacherContent()}</div></div>`;
