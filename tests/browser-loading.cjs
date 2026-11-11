@@ -6,7 +6,7 @@ const {chromium}=require('playwright');
 const base=process.env.BASE_URL||'http://127.0.0.1:4173';
 const root=path.join(__dirname,'..');
 const trackedAssets=[
- '/assets/loading/girl-run-24.webp','/assets/loading/boy-run-24.webp','/assets/loading/dust.webp',
+ '/assets/loading/girl-run-24-v2.webp','/assets/loading/boy-run-24-v2.webp','/assets/loading/dust.webp',
  '/assets/scenes/counter.webp','/assets/scenes/workbench.webp',
  '/assets/fonts/Hakgyoansim-BoardmarkerR.woff2'
 ];
@@ -125,7 +125,7 @@ const deferred=()=>{let resolve;const promise=new Promise(done=>resolve=done);re
   await restored.page.locator('#game-loading').waitFor({state:'detached',timeout:10000});
   assert.equal(await restored.page.locator('#app').evaluate(el=>el.inert),false,'restoring an unfinished startup does not leave a permanent loader');await restored.page.close();
 
-  const broken=await controlled({failAsset:'/assets/loading/girl-run-24.webp'});broken.releaseAssets();broken.releaseApp();
+  const broken=await controlled({failAsset:'/assets/loading/girl-run-24-v2.webp'});broken.releaseAssets();broken.releaseApp();
   await broken.page.locator('#game-loading').waitFor({state:'detached',timeout:10000});await broken.page.locator('.shop-cover').waitFor();assert.deepEqual(broken.errors,[]);await broken.page.close();
   const failed=await controlled({failApp:true});failed.releaseAssets();failed.releaseApp();
   await failed.page.waitForFunction(()=>document.querySelector('#game-loading')?.dataset.phase==='error');
