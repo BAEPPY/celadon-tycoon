@@ -147,7 +147,8 @@
  .explanation-popup .name-workshop{padding:12px}.explanation-popup #work-title{min-height:48px;font-size:17px!important}
  .explanation-popup textarea{height:140px;min-height:120px;resize:vertical;font-size:17px!important;line-height:1.5}
  .explanation-popup .field-label{font-size:17px;line-height:1.5}.explanation-popup .explanation-feedback{font-size:16px;min-height:0;line-height:1.5}
- .explanation-popup .naming-tip,.explanation-popup .assessment-notice{font-size:16px;line-height:1.5}.explanation-popup>.primary{font-size:18px;min-height:50px!important;margin-top:12px}
+ .explanation-popup .naming-tip,.explanation-popup .assessment-notice{font-size:16px;line-height:1.5}.explanation-writing>.primary{font-size:18px;min-height:50px!important;margin-top:12px}
+ .explanation-layout{grid-template-columns:1fr}.explanation-popup .naming-help{font-size:16px}.explanation-popup .naming-help summary{min-height:44px;padding:10px 2px}
  .popup .gallery-grid{grid-template-columns:1fr;gap:16px}.popup .gallery-grid article{display:grid;gap:10px;padding:14px}.popup .gallery-grid img{height:230px}.popup .gallery-grid button{font-size:17px}
  .popup .finished-preview{height:360px;min-height:300px;width:100%}.popup .guide-cards{grid-template-columns:1fr}.popup .order-reference{max-width:100%}
  .museum-popup #model-tabs label{flex-direction:column;align-items:stretch;font-size:16px;gap:7px}.museum-popup select{min-height:48px;font-size:16px!important;width:100%}

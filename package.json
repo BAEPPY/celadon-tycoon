@@ -11,6 +11,8 @@
     "test:entry": "node tests/browser-entry.cjs",
     "test:shaping": "node tests/browser-shaping.cjs",
     "test:kiln": "node tests/browser-kiln.cjs",
+    "test:firing-regressions": "node tests/browser-firing-regressions.cjs",
+    "test:naming-reference": "node tests/browser-naming-reference.cjs",
     "test:kiln-workpiece": "node tests/browser-kiln-workpiece.cjs",
     "test:inplace-kiln": "node tests/browser-inplace-kiln.cjs",
     "test:inspection": "node tests/browser-inspection.cjs",

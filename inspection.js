@@ -49,6 +49,87 @@ async function inspectionSource(work,signal){
  if(signal.aborted)throw new DOMException('Inspection closed','AbortError');
  const img=new Image();img.src=work.preview||`./assets/vessels/${/^[a-zA-Z]+$/.test(work.modelId||'')?work.modelId:'stool'}.webp`;await img.decode();return img;
 }
+// A fracture removes glaze and exposes uneven ceramic edges. Keep the effect
+// clipped to the rendered pot so decoration, holes and its silhouette still read.
+function fractureRibbon(points,widths,offset=0){
+ const sides=[[],[]];
+ for(let i=0;i<points.length;i++){
+  const before=points[Math.max(0,i-1)],after=points[Math.min(points.length-1,i+1)];
+  const length=Math.hypot(after[0]-before[0],after[1]-before[1])||1;
+  const nx=-(after[1]-before[1])/length,ny=(after[0]-before[0])/length;
+  for(let side=0;side<2;side++){
+   const distance=offset+(side===0?1:-1)*widths[i]/2;
+   sides[side].push([points[i][0]+nx*distance,points[i][1]+ny*distance]);
+  }
+ }
+ const path=new Path2D(),outline=[...sides[0],...sides[1].reverse()];
+ outline.forEach(([x,y],i)=>i?path.lineTo(x,y):path.moveTo(x,y));path.closePath();return path;
+}
+function drawCeramicFracture(c,{dx,dy,dw,dh}){
+ const wide=dw>dh*1.45,size=Math.min(dw,dh),scale=Math.max(.8,Math.min(1.25,size/190));
+ const project=points=>points.map(([u,v])=>[dx+dw*u,dy+dh*v]);
+ const main=project(wide?[[.27,-.03],[.29,.18],[.39,.27],[.405,.40],[.49,.46],[.55,.61],[.64,.56],[.72,.69],[.87,.73],[1.02,.86]]:[[.48,-.03],[.46,.12],[.55,.24],[.51,.30],[.57,.40],[.48,.49],[.51,.57],[.46,.67],[.51,.78],[.44,.94]]);
+ const branches=wide?[
+  [[.49,.46],[.45,.60],[.49,.73],[.46,.91]],
+  [[.64,.56],[.67,.37],[.74,.30]],
+  [[.39,.27],[.30,.36],[.21,.32]]
+ ]:[
+  [[.48,.49],[.33,.52],[.29,.64],[.16,.69]],
+  [[.55,.24],[.67,.29],[.73,.38]],
+  [[.46,.67],[.57,.70],[.65,.79]]
+ ];
+ c.save();c.lineJoin='miter';
+ // Remove a small piece of the rim where the fracture begins. Locate the real
+ // silhouette first: a pillow's curved top is not its bounding-box edge.
+ const rimX=dx+dw*(wide?.27:.48),density=c.canvas.width/400;
+ const pixels=c.getImageData(Math.floor(rimX*density),0,1,c.canvas.height).data;
+ let rimY=-1;
+ for(let y=Math.max(0,Math.floor(dy*density));y<c.canvas.height;y++)if(pixels[y*4+3]>180){rimY=y/density;break;}
+ if(rimY>=0){
+  const rx=7.5*scale,depth=9*scale;
+  const notch=extra=>{const path=new Path2D();path.moveTo(rimX-rx-extra,rimY-8);path.lineTo(rimX+rx+extra,rimY-8);path.lineTo(rimX+rx*.72+extra,rimY+depth*.52);path.lineTo(rimX+rx*.12,rimY+depth+extra);path.lineTo(rimX-rx*.56-extra,rimY+depth*.66);path.closePath();return path;};
+  c.fillStyle='#8f785f';c.fill(notch(3*scale));c.strokeStyle='#d0c4a1';c.lineWidth=1.3*scale;c.stroke(notch(3*scale));
+  c.globalCompositeOperation='destination-out';c.fill(notch(0));c.globalCompositeOperation='source-atop';
+ }
+ const fissure=(points,widths)=>{
+  // Fine irregularities make the fracture read as a torn ceramic edge, not
+  // a smooth decorative line. The endpoints stay aligned with each branch.
+  const rough=[],width=[];
+  for(let i=0;i<points.length-1;i++){
+   const a=points[i],b=points[i+1],length=Math.hypot(b[0]-a[0],b[1]-a[1])||1,steps=Math.ceil(length/5);
+   for(let j=0;j<steps;j++){
+    const t=j/steps,jag=j?Math.sin(j*2.31+i*1.73)*.85*scale:0;
+    rough.push([a[0]+(b[0]-a[0])*t-(b[1]-a[1])/length*jag,a[1]+(b[1]-a[1])*t+(b[0]-a[0])/length*jag]);
+    width.push((widths[i]+(widths[i+1]-widths[i])*t)*(.91+.14*Math.sin(j*1.7+i))*scale);
+   }
+  }
+  rough.push(points.at(-1));width.push(widths.at(-1)*scale);
+  // Chipped glaze lip, a shaded ceramic wall, then the open dark fissure.
+  c.fillStyle='#c0b69a';c.fill(fractureRibbon(rough,width.map(w=>w+1.8*scale),.6*scale));
+  c.fillStyle='#88745e';c.fill(fractureRibbon(rough,width.map(w=>w+1.2*scale),-.5*scale));
+  c.fillStyle='#423e35';c.fill(fractureRibbon(rough,width));
+ };
+ fissure(main,[1.6,3.2,1.2,3.7,2.3,4.2,1.8,3.1,1.4,.2]);
+ for(const points of branches)fissure(project(points),points.map((_,i)=>Math.max(.15,1.8-i*.55)));
+ const chip=(u,v,rx,ry,turn)=>{
+  c.save();c.translate(dx+dw*u,dy+dh*v);c.rotate(turn);
+  const outline=new Path2D();
+  [[-.92,-.28],[-.5,-.80],[-.12,-.62],[.22,-1],[.55,-.45],[1,-.12],[.64,.24],[.7,.65],[.13,1],[-.25,.67],[-.75,.72],[-.64,.15]].forEach(([x,y],i)=>i?outline.lineTo(x*rx,y*ry):outline.moveTo(x*rx,y*ry));outline.closePath();
+  c.fillStyle='#d1ccb0';c.strokeStyle='#8a8c72';c.lineWidth=1.7*scale;c.fill(outline);c.stroke(outline);
+  c.save();c.clip(outline);
+  const body=c.createLinearGradient(0,-ry,0,ry);body.addColorStop(0,'#655644');body.addColorStop(.34,'#a18a6c');body.addColorStop(1,'#b9a487');c.fillStyle=body;c.fillRect(-rx,-ry,rx*2,ry*2);
+  // Lower exposed wall catches light; the upper ledge casts a recessed shadow.
+  c.strokeStyle='#d5c4a1';c.lineWidth=3*scale;c.translate(0,-1.3*scale);c.stroke(outline);c.translate(0,1.3*scale);
+  c.fillStyle='#625441';const recess=new Path2D();recess.moveTo(-rx*.64,-ry*.25);recess.lineTo(-rx*.15,-ry*.42);recess.lineTo(rx*.45,-ry*.55);recess.lineTo(rx*.76,-ry*.04);recess.lineTo(rx*.24,ry*.12);recess.lineTo(-rx*.25,-ry*.03);recess.closePath();c.fill(recess);
+  c.strokeStyle='#8b775e';c.lineWidth=.8*scale;c.beginPath();c.moveTo(-rx*.27,ry*.23);c.lineTo(rx*.2,ry*.47);c.moveTo(rx*.4,ry*.18);c.lineTo(rx*.55,ry*.38);c.stroke();
+  c.restore();c.restore();
+ };
+ // A substantial spall interrupts the line: visibly missing glaze and clay,
+ // rather than a second decorative pattern drawn onto an otherwise sound pot.
+ if(wide){chip(.405,.40,19*scale,12*scale,-.2);chip(.72,.69,5*scale,4*scale,.2);}
+ else{chip(.48,.49,14*scale,20*scale,-.3);chip(.55,.24,4.5*scale,6*scale,.2);}
+ c.restore();
+}
 async function copies(work,signal){
  const img=await inspectionSource(work,signal);
  if(signal.aborted)throw new DOMException('Inspection closed','AbortError');
@@ -59,7 +140,7 @@ async function copies(work,signal){
   if(kind==='warped'){const slices=Math.ceil(dh*density);for(let i=0;i<slices;i++){const t=i/slices,sh=bounds.height/slices,lean=(1-t)*(1-t)*dw*.18,squash=.82+.18*t,sw=dw*squash;c.drawImage(img,bounds.x,bounds.y+i*sh,bounds.width,sh,dx+(dw-sw)/2+lean,dy+t*dh,sw,dh/slices+.5/density);}}
   else c.drawImage(img,bounds.x,bounds.y,bounds.width,bounds.height,dx,dy,dw,dh);
   c.globalCompositeOperation='source-atop';
-  if(kind==='crack'){c.lineCap='round';c.lineJoin='round';c.strokeStyle='#e4d5ab';c.lineWidth=6.5;const path=new Path2D();if(dw>dh*1.45){path.moveTo(dx+dw*.15,dy+dh*.42);path.lineTo(dx+dw*.31,dy+dh*.56);path.lineTo(dx+dw*.46,dy+dh*.38);path.lineTo(dx+dw*.62,dy+dh*.58);path.lineTo(dx+dw*.86,dy+dh*.45);path.moveTo(dx+dw*.46,dy+dh*.38);path.lineTo(dx+dw*.5,dy+dh*.77);}else{path.moveTo(dx+dw*.48,dy+dh*.15);path.lineTo(dx+dw*.39,dy+dh*.34);path.lineTo(dx+dw*.53,dy+dh*.47);path.lineTo(dx+dw*.41,dy+dh*.61);path.lineTo(dx+dw*.54,dy+dh*.76);path.lineTo(dx+dw*.46,dy+dh*.92);path.moveTo(dx+dw*.41,dy+dh*.61);path.lineTo(dx+dw*.25,dy+dh*.67);path.lineTo(dx+dw*.21,dy+dh*.8);}c.stroke(path);c.strokeStyle='#654e43';c.lineWidth=3.8;c.stroke(path);}
+  if(kind==='crack')drawCeramicFracture(c,{dx,dy,dw,dh});
   if(kind==='glaze'){c.fillStyle='#c69d79';c.strokeStyle='#aa7b61';c.lineWidth=2;for(const [u,v,rr]of[[.37,.58,.2],[.65,.8,.13]]){const x=dx+dw*u,y=dy+dh*v,rx=dw*rr,ry=dh*rr;c.beginPath();c.moveTo(x-rx,y);c.bezierCurveTo(x-rx*.9,y-ry*1.2,x-rx*.2,y-ry*1.25,x+rx*.4,y-ry*.8);c.bezierCurveTo(x+rx*1.25,y-ry*.5,x+rx*1.2,y+ry*.6,x+rx*.3,y+ry);c.bezierCurveTo(x-rx*.3,y+ry*1.2,x-rx*1.2,y+ry*.7,x-rx,y);c.fill();c.stroke();c.fillStyle='#e0bb94';for(let j=0;j<8;j++){c.beginPath();c.arc(x+Math.sin(j*2.3)*rx*.7,y+Math.cos(j*3.8)*ry*.7,2,0,Math.PI*2);c.fill();}c.fillStyle='#c69d79';}}
   c.globalCompositeOperation='destination-over';c.fillStyle='#70534038';c.beginPath();c.ellipse(200,395,Math.min(147,dw*.43),4,0,0,Math.PI*2);c.fill();result[kind]=canvas.toDataURL('image/png');
  }

@@ -10,7 +10,45 @@ test('흙 깎기는 목표 윤곽을 따라야 진행되고 바깥 드래그는 
 test('건조는 초록 구간의 정확한 타이밍만 성공한다',()=>{assert.equal(timingHit(.65),true);assert.equal(timingHit(.3),false);for(let t=0;t<10;t+=.01)assert.ok(timingPosition(t)>=0&&timingPosition(t)<=1);});
 test('초벌과 재벌은 약 초당 두 번의 부채질로 좁은 적정 온도를 유지할 수 있다',()=>{for(const kind of ['biscuit','fire']){let state=newKiln(kind);for(let i=0;i<1000&&!state.complete&&!state.failed;i++){if(i%20===0)state=fanKiln(state);state=stepKiln(state,.025);}assert.equal(state.complete,true);assert.ok(state.steady>=KILN_HEAT_RULES.steadySeconds);assert.ok(state.elapsed<7);}});
 test('한 번 누르고 계속 유지하거나 손을 놓으면 자동 완료되지 않는다',()=>{for(const tap of [true,false]){let state=newKiln('fire');if(tap)state=fanKiln(state);for(let i=0;i<500;i++)state=stepKiln(state,.025,true);assert.equal(state.failed,true);assert.equal(state.complete,false);assert.equal(newKiln('fire').failed,false);}});
-test('적정 온도는 46%에서 64%이며 한 번의 부채질은 정확히 한 번만 온도를 높인다',()=>{assert.equal(KILN_HEAT_RULES.safeMin,.46);assert.equal(KILN_HEAT_RULES.safeMax,.64);const initial=newKiln('fire'),tapped=fanKiln(initial);assert.equal(initial.heat,.5);assert.equal(tapped.heat,.6);for(const heat of [.44,.66])assert.equal(stepKiln({...initial,heat},.01).steady,0);assert.ok(stepKiln({...initial,heat:.55},.01).steady>0);});
+test('적정 온도는 46%에서 64%이며 한 번의 부채질은 정확히 한 번만 온도를 높인다',()=>{assert.equal(KILN_HEAT_RULES.safeMin,.46);assert.equal(KILN_HEAT_RULES.safeMax,.64);const initial=newKiln('fire'),tapped=fanKiln(initial);assert.equal(initial.heat,.5);assert.equal(tapped.heat,.6);for(const heat of [.44,.66])assert.equal(stepKiln({...tapped,heat},.01).steady,0);assert.ok(stepKiln({...tapped,heat:.55},.01).steady>0);});
+test('부채질 전에는 진행되지 않고 멈추면 초벌과 재벌 진행 막대가 0으로 돌아간다',()=>{
+ for(const kind of ['biscuit','fire']){
+  let state=newKiln(kind);
+  for(let i=0;i<4;i++){state=stepKiln(state,.025);assert.equal(state.steady,0);}
+  state=newKiln(kind);
+  for(let i=0;i<120;i++){if(i%20===0)state=fanKiln(state);state=stepKiln(state,.025);}
+  assert.ok(state.steady>2.9&&state.steady<3.1);
+  const earned=state.steady;
+  for(let i=0;i<32;i++)state=stepKiln(state,.025);
+  assert.ok(state.steady<earned&&state.steady>0,'cooling visibly drains progress instead of instantly resetting');
+  for(let i=0;i<80;i++)state=stepKiln(state,.025);
+  assert.equal(state.steady,0);assert.equal(state.complete,false);
+  for(let i=0;i<100;i++)state=stepKiln(state,.025);
+  assert.equal(state.failed,true);assert.equal(state.steady,0);
+ }
+});
+test('짧은 부채질 간격은 진행을 지키며 식었다가 다시 부채질해도 완료할 수 있다',()=>{
+ for(const kind of ['biscuit','fire']){
+  let state=fanKiln(newKiln(kind));
+  for(let i=0;i<20;i++)state=stepKiln(state,.025);
+  assert.ok(state.steady>.49,'a normal half-second tap interval remains in the good range');
+  for(let i=0;i<32;i++)state=stepKiln(state,.025);
+  assert.equal(state.steady,0);assert.equal(state.failed,false);
+  for(let i=0;i<400&&!state.complete&&!state.failed;i++){
+   if(state.heat<.52)state=fanKiln(state);
+   state=stepKiln(state,.025);
+  }
+  assert.equal(state.complete,true);assert.equal(state.failed,false);
+ }
+});
+test('과열 실패는 남은 진행을 지우고 완료된 가마의 점수는 유지한다',()=>{
+ for(const kind of ['biscuit','fire']){
+  const active={...fanKiln(newKiln(kind)),steady:4,heat:1,elapsed:3,overheat:.84};
+  const failed=stepKiln(active,.025);assert.equal(failed.failed,true);assert.equal(failed.steady,0);
+  const complete={...active,complete:true,steady:KILN_HEAT_RULES.steadySeconds};
+  assert.deepEqual(stepKiln(complete,.1),complete);assert.deepEqual(fanKiln(complete),complete);
+ }
+});
 test('지나치게 자주 부채질하면 과열되어 다시 도전해야 한다',()=>{let state=newKiln('fire');for(let i=0;i<200;i++){state=fanKiln(state);state=stepKiln(state,.025);}assert.equal(state.failed,true);assert.equal(state.complete,false);});
 test('새로 고침이나 긴 프레임으로 가마가 순간 완료되지 않는다',()=>{const state=stepKiln(newKiln('fire'),60);assert.ok(state.elapsed<=.1);assert.equal(state.complete,false);});
 test('투각은 실제 삼각형을 제거하여 앞뒤가 관통하고, undo용 원본은 보존한다',()=>{const original=new T.BoxGeometry(2,2,2);const originalCount=original.attributes.position.count,punch=makePunch({pattern:'lotus',point:[0,0,1],normal:[0,0,1]},new T.Vector3());const ray=new T.Raycaster(new T.Vector3(0,0,3),new T.Vector3(0,0,-1));const material=new T.MeshBasicMaterial({side:T.DoubleSide}),solid=new T.Mesh(original,material);solid.updateMatrixWorld(true);assert.ok(ray.intersectObject(solid).length>0);const cut=subtractPunch(original,punch),perforated=new T.Mesh(cut,material);perforated.updateMatrixWorld(true);assert.equal(ray.intersectObject(perforated).length,0);ray.ray.origin.x=.9;assert.ok(ray.intersectObject(perforated).length>0);assert.equal(original.attributes.position.count,originalCount);original.dispose();cut.dispose();punch.geometry.dispose();material.dispose();});

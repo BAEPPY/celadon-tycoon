@@ -3,10 +3,19 @@ export function distanceToSegment(p,a,b){const dx=b[0]-a[0],dy=b[1]-a[1],t=clamp
 export function carveAlong(guide,visited,from,to,radius=.045){const next=[...visited];guide.forEach((p,i)=>{if(distanceToSegment(p,from,to)<=radius)next[i]=true;});const fraction=next.filter(Boolean).length/Math.max(1,guide.length);return {visited:next,fraction,complete:fraction>=.88};}
 export function timingPosition(seconds){return .5+.46*Math.sin(seconds*2.1-Math.PI/2);}
 export function timingHit(position){return position>=.57&&position<=.79;}
-export function newKiln(kind){return {kind,heat:.5,steady:0,elapsed:0,overheat:0,complete:false,failed:false};}
-export const KILN_HEAT_RULES=Object.freeze({safeMin:.46,safeMax:.64,tapImpulse:.10,cooling:.20,steadySeconds:5.5});
-export function fanKiln(state){return state.complete||state.failed?{...state}:{...state,heat:clamp(state.heat+KILN_HEAT_RULES.tapImpulse)};}
-export function stepKiln(state,dt){if(state.complete||state.failed)return {...state};dt=clamp(dt,0,.1);const heat=clamp(state.heat-KILN_HEAT_RULES.cooling*dt),inZone=heat>=KILN_HEAT_RULES.safeMin&&heat<=KILN_HEAT_RULES.safeMax;const elapsed=state.elapsed+dt,steady=state.steady+(inZone?dt:0),overheat=(heat>.95||heat<.04)&&elapsed>1.4?state.overheat+dt:0;return {...state,heat,elapsed,steady,overheat,complete:steady>=KILN_HEAT_RULES.steadySeconds,failed:overheat>.85};}
+export function newKiln(kind){return {kind,heat:.5,steady:0,elapsed:0,overheat:0,started:false,complete:false,failed:false};}
+export const KILN_HEAT_RULES=Object.freeze({safeMin:.46,safeMax:.64,tapImpulse:.10,cooling:.20,steadySeconds:5.5,progressLoss:2.5});
+export function fanKiln(state){return state.complete||state.failed?{...state}:{...state,started:true,heat:clamp(state.heat+KILN_HEAT_RULES.tapImpulse)};}
+export function stepKiln(state,dt){
+ if(state.complete||state.failed)return {...state};
+ dt=clamp(dt,0,.1);
+ const heat=clamp(state.heat-KILN_HEAT_RULES.cooling*dt),inZone=heat>=KILN_HEAT_RULES.safeMin&&heat<=KILN_HEAT_RULES.safeMax;
+ const elapsed=state.elapsed+dt,overheat=(heat>.95||heat<.04)&&elapsed>1.4?state.overheat+dt:0,failed=overheat>.85;
+ // Heat takes a moment to cool between taps. Once it leaves the good range,
+ // the progress bar drains instead of retaining every earlier successful tap.
+ const steady=failed||!state.started?0:Math.max(0,state.steady+(inZone?dt:-dt*KILN_HEAT_RULES.progressLoss));
+ return {...state,heat,elapsed,steady,overheat,complete:steady>=KILN_HEAT_RULES.steadySeconds,failed};
+}
 
 // The pointer holds the handle. Both drawing and drying use this same clamped
 // fan, whose blade is above that handle (including at workbench edges).
