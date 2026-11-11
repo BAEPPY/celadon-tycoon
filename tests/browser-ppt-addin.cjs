@@ -39,9 +39,13 @@ const officeStub=view=>`window.__settings=window.__settings||{};window.__saved=0
     const plain=await plainContext.newPage();watch(plain,'plain add-in');
     await plain.goto(`${base}/ppt-addin/index.html`);
     await plain.locator('#setup').waitFor({timeout:15000});
+    // No address, then a wrong one: each is answered in a red box, with the field marked.
+    await plain.locator('#link').fill('');await plain.locator('#form button[type=submit]').click();
+    assert.match(await plain.locator('#error').innerText(),/PPT용 주소 칸이 비어 있어요/);
+    assert.equal(await plain.locator('#link').evaluate(field=>field.classList.contains('bad')&&document.activeElement===field),true);
     await plain.locator('#link').fill('https://example.com/observe?code=ABCDEF#key=xyz');
     await plain.locator('#form button[type=submit]').click();
-    assert.match(await plain.locator('#error').innerText(),/PPT용 주소를 확인해 주세요/);
+    assert.match(await plain.locator('#error').innerText(),/이 주소는 PPT용 주소가 아니에요/);
     await plain.locator('input[name=panel][value=comparison]').check();
     await plain.locator('#link').fill(link);
     await plain.locator('#form button[type=submit]').click();
