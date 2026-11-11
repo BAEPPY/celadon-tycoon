@@ -1,4 +1,4 @@
-/* Authored bowl/tall-vase inspection at Chromebook and desktop sizes, including HiDPI. */
+/* Authored pillow/bowl/tall-vase inspection at Chromebook and desktop sizes, including HiDPI. */
 const assert=require('node:assert/strict');
 const path=require('node:path');
 const {build}=require('esbuild');
@@ -11,7 +11,7 @@ const base=process.env.BASE_URL||'http://127.0.0.1:4173',KEY='celadon-tycoon-v2'
  const module=await build({stdin:{contents:"export {Craft2D} from './craft-2d.js';",resolveDir:path.join(__dirname,'..')},bundle:true,format:'esm',target:'es2022',write:false});
  const browser=await chromium.launch({headless:true,...(process.env.CHROMIUM_PATH?{executablePath:process.env.CHROMIUM_PATH}:{}),args:['--no-sandbox']});
  try{
-  for(const [width,height] of [[1024,600],[1366,768]])for(const [kind,shape,modelId] of [['cup','chrysanthemumCup','chrysanthemumCup'],['bowl','cupStand','cupStand'],['vase','maebyeong','cloudCraneMaebyeong']]){
+  for(const [width,height] of [[1024,600],[1366,768]])for(const [kind,shape,modelId] of [['pillow','pillow','pillow'],['cup','chrysanthemumCup','chrysanthemumCup'],['bowl','cupStand','cupStand'],['vase','maebyeong','cloudCraneMaebyeong']]){
    const page=await browser.newPage({viewport:{width,height},deviceScaleFactor:2,reducedMotion:'reduce'}),errors=[];
    page.on('pageerror',error=>errors.push(error.message));
    await page.route('**/__inspection-craft-fixture.js',route=>route.fulfill({contentType:'text/javascript',body:module.outputFiles[0].text}));

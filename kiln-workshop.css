@@ -38,9 +38,13 @@
 /* Firing: keep the apprentice scene beside the controls, including on a 600px Chromebook. */
 .kiln-minigame:not(.gesture-game) .minigame-card{width:min(780px,100%)}
 .kiln-firing-work{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);align-items:center;gap:24px}
-.kiln-fanning-scene{position:relative;width:100%;aspect-ratio:4/3;max-height:270px;overflow:hidden}
-.kiln-static-scene,.kiln-fanning-frame{position:absolute;inset:0;display:block;width:100%;height:100%;object-fit:contain}
-.kiln-fanning-frame[hidden]{display:none}
+.kiln-fanning-scene{position:relative;width:100%;max-width:360px;aspect-ratio:4/3;justify-self:center;overflow:hidden}
+.kiln-static-scene,.kiln-fanning-body,.kiln-fanning-hand{position:absolute;inset:0;display:block;width:100%;height:100%;object-fit:contain}
+/* Split the same source pose at the wrist: the kiln, body and stool stay fixed.
+   The fan blade and handle rotate together as a rigid piece, never bending. */
+.kiln-fanning-body{clip-path:polygon(63.5% 0,100% 0,100% 100%,0 100%,0 48.4%,60.7% 48.4%,60.7% 40.8%,63.5% 37.5%)}
+.kiln-fanning-hand{clip-path:polygon(0 0,63.5% 0,63.5% 37.5%,60.7% 40.8%,60.7% 49.2%,0 49.2%);transform-origin:60.35% 47.9%;will-change:transform}
+.kiln-minigame .bellows-button.held{transform:none}
 .kiln-heat-controls{min-width:0;display:flex;flex-direction:column;gap:14px;justify-content:center}
 .kiln-heat-controls .heat-meter{height:35px;margin:0}
 .kiln-heat-controls .mini-status{margin:0;min-height:54px;font-size:18px}
@@ -62,7 +66,7 @@
 @media(max-height:650px){
  .kiln-minigame:not(.gesture-game) .minigame-card{width:min(740px,100%)}
  .kiln-firing-work{gap:20px}
- .kiln-fanning-scene{max-height:210px}
+ .kiln-fanning-scene{max-width:280px}
  .kiln-heat-controls{gap:11px}
  .kiln-heat-controls .heat-meter{height:30px;margin:0}
  .kiln-heat-controls .mini-status{font-size:17px;min-height:48px;margin:0}

@@ -4,12 +4,10 @@ Twenty original image-generated child poses form one downward fan stroke and one
 
 ## Runtime contract
 
-- Draw `kiln-static.webp` once, then draw `fanning-01.webp` through `fanning-20.webp` over it in numeric order.
-- Every layer uses the same 512 × 384 canvas and the same `object-fit: contain` box. No per-frame offsets are needed.
-- The kiln remains pixel-identical throughout the animation because it is a separate static layer.
-- Each whole child/stool/fan pose is uniformly scaled and translated to the same topknot anchor near `(410,16)` and feet/stool baseline near `y=367`. Every pose retains a transparent outer margin.
-- Frames 1–11 move the fan down toward the firebox; frames 12–20 bring it back up. Frame 20 returns near frame 1 for a loop or repeated taps.
-- Matching PNGs preserve the exported full-resolution layers. WebPs use quality 94 encoding with alpha at identical dimensions.
+- Draw `kiln-static.webp` once, then reuse `fanning-01.webp` for two complementary CSS-clipped layers: fixed child/body/stool and moving hand/fan.
+- The source images remain unchanged. The wrist is the pivot; blade and handle rotate as one rigid piece. The scene preserves the source 4:3 aspect ratio so both masks stay aligned on smaller screens.
+- `kiln-game.js` interpolates twenty angular poses across a 0.56-second stroke. A tap during a stroke queues one more stroke instead of snapping back to the first pose. Pausing freezes the pose; resuming continues it.
+- This replaces swapping the original twenty whole-child frames, which moved the supposedly stationary body/stool between frames. Those generated frames and their provenance remain here as source artwork.
 
 ## Generated source and processing
 

@@ -93,7 +93,13 @@ popup.addEventListener('cancel',()=>{pendingEntry=null;tutorialSession=null;});
 popup.addEventListener('keydown',event=>{if(!popup.classList.contains('tutorial-popup')||!['ArrowLeft','ArrowRight'].includes(event.key)||(classroomBridge&&!classroomBridge.active))return;event.preventDefault();moveTutorial(event.key==='ArrowLeft'?-1:1);});
 popup.addEventListener('close',()=>{assessmentRequest?.abort();assessmentRequest=null;galleryCraft?.dispose();galleryCraft=null;galleryOriginal=null;});
 function closePopup(){galleryCraft?.dispose();galleryCraft=null;galleryOriginal=null;popup.close();popup.replaceChildren();popup.removeAttribute('aria-labelledby');}
-function explain(){if(!save())return;showPopup(explainMarkup(work),'explanation-popup');}
+function showExplanation(extra=''){
+ showPopup(explainMarkup(work),'explanation-popup'+extra);
+ const preview=popup.querySelector('#explanation-preview'),copy=structuredClone(work);copy.step=4;
+ galleryCraft=new Craft2D(()=>{},()=>{},()=>{preview.textContent='작품을 불러오지 못했어요. 창을 닫고 다시 열어 주세요.';},()=>{},{readOnly:true});
+ galleryCraft.mount(preview,copy,'finished');
+}
+function explain(){if(!save())return;showExplanation();}
 
 function result(){closePopup();setView('reaction');}
 
@@ -118,7 +124,7 @@ async function submitWork(){
   const assessment=await requestAssessment(work,{signal:controller.signal});
   if(expireGameData()||controller.signal.aborted||work?.id!==id||!popup.open||(classroomBridge&&!classroomBridge.active))return;
   work.assessment=assessment;if(!save())return;
-  if(!assessment.accepted){showPopup(explainMarkup(work),'explanation-popup needs-revision');popup.querySelector(assessment.use.score<5?'#explain-use':'#explain-beauty')?.focus();return;}
+  if(!assessment.accepted){showExplanation(' needs-revision');popup.querySelector(assessment.use.score<5?'#explain-use':'#explain-beauty')?.focus();return;}
   work.step=4;work.preview=craft?.snapshot()||work.preview;const at=state.gallery.findIndex(w=>w.id===work.id);if(at>=0)state.gallery[at]=structuredClone(work);else state.gallery.unshift(structuredClone(work));state.gallery=state.gallery.slice(0,60);if(!save())return;result();void classroomBridge?.completed(work);
  }catch(error){if(error.name!=='AbortError')toast('설명을 확인하지 못했어요. 다시 눌러 주세요.');}
  finally{if(assessmentRequest===controller)assessmentRequest=null;popup.querySelectorAll('textarea,input,select,[data-action=submit]').forEach(el=>el.disabled=false);}

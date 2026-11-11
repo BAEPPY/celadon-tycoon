@@ -49,10 +49,10 @@ const draft=firing=>({id:'inplace-kiln-test',orderId:'royal-rest',customerId:'ki
    assert.deepEqual(work.placements,draft([]).placements);assert.equal(work.width,1.1);
   }
   await page.setViewportSize({width:1024,height:600});await page.click('[data-fire=fire]');
-  await page.waitForFunction(()=>{const images=[...document.querySelectorAll('.kiln-fanning-scene img')];return images.length===21&&images.every(image=>image.complete&&image.naturalWidth>0);});
+  await page.waitForFunction(()=>{const images=[...document.querySelectorAll('.kiln-fanning-scene img')];return images.length===3&&images.every(image=>image.complete&&image.naturalWidth>0);});
   const fits=await page.locator('.kiln-minigame .minigame-card').evaluate(el=>{const r=el.getBoundingClientRect();return r.top>=0&&r.left>=0&&r.bottom<=innerHeight&&r.right<=innerWidth&&el.scrollHeight<=el.clientHeight+1;});
   assert.equal(fits,true,'20-frame kiln and heat controls fit the real game fonts on a Chromebook');
   await page.keyboard.press('Space');await page.screenshot({path:'/tmp/kiln-real-firing-1024.png'});await page.click('[data-mini=cancel]');
-  assert.deepEqual(errors,[]);console.log('Actual workbench: in-place drying/glazing, exact artwork and placement, partial coverage, keyboard pause, live resize, completion and 20-frame firing layout passed.');
+  assert.deepEqual(errors,[]);console.log('Actual workbench: in-place drying/glazing, exact artwork and placement, partial coverage, keyboard pause, live resize, completion and stable layered firing layout passed.');
  }finally{await browser.close();}
 })().catch(error=>{console.error(error);process.exitCode=1;});

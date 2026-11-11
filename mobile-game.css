@@ -93,8 +93,8 @@
  .kiln-minigame:not(.kiln-gesture-dock) .minigame-card{width:100%;max-height:none;padding:14px;border-radius:18px}
  .kiln-minigame h2{font-size:23px;line-height:1.3;margin:0 0 8px}
  .kiln-minigame .mini-instruction{font-size:17px;line-height:1.4;margin-bottom:10px}
- .kiln-firing-work{grid-template-columns:1fr;gap:12px}.kiln-fanning-scene{height:190px;max-height:190px;aspect-ratio:auto}
- .kiln-heat-controls{gap:10px}.kiln-heat-controls .heat-meter{height:30px}.kiln-heat-controls .mini-status{font-size:17px;line-height:1.4;min-height:24px}
+ .kiln-firing-work{grid-template-columns:1fr;gap:12px}.kiln-fanning-scene{height:auto;max-height:none;max-width:253px;aspect-ratio:4/3}
+ .kiln-heat-controls{gap:10px}.kiln-heat-controls .heat-meter{height:30px}.kiln-heat-controls .mini-status{font-size:17px;line-height:1.4;min-height:48px}
  .kiln-minigame .bellows-button{font-size:18px;min-height:48px!important}.kiln-minigame .mini-controls{gap:10px;margin-top:12px}.kiln-minigame .mini-controls button{font-size:16px;flex:1;padding:8px}
  .shop-game .kiln-gesture-dock{position:static;inset:auto;overflow:visible;padding:0}
  .shop-game .kiln-scene .station-info .kiln-gesture-dock .minigame-card{padding:0!important;width:100%}
@@ -147,7 +147,8 @@
  .explanation-popup .name-workshop{padding:12px}.explanation-popup #work-title{min-height:48px;font-size:17px!important}
  .explanation-popup textarea{height:140px;min-height:120px;resize:vertical;font-size:17px!important;line-height:1.5}
  .explanation-popup .field-label{font-size:17px;line-height:1.5}.explanation-popup .explanation-feedback{font-size:16px;min-height:0;line-height:1.5}
- .explanation-popup .naming-tip,.explanation-popup .assessment-notice{font-size:16px;line-height:1.5}.explanation-popup>.primary{font-size:18px;min-height:50px!important;margin-top:12px}
+ .explanation-popup .naming-tip,.explanation-popup .assessment-notice{font-size:16px;line-height:1.5}.explanation-writing>.primary{font-size:18px;min-height:50px!important;margin-top:12px}
+ .explanation-layout{grid-template-columns:1fr}.explanation-popup .naming-help{font-size:16px}.explanation-popup .naming-help summary{min-height:44px;padding:10px 2px}
  .popup .gallery-grid{grid-template-columns:1fr;gap:16px}.popup .gallery-grid article{display:grid;gap:10px;padding:14px}.popup .gallery-grid img{height:230px}.popup .gallery-grid button{font-size:17px}
  .popup .finished-preview{height:360px;min-height:300px;width:100%}.popup .guide-cards{grid-template-columns:1fr}.popup .order-reference{max-width:100%}
  .museum-popup #model-tabs label{flex-direction:column;align-items:stretch;font-size:16px;gap:7px}.museum-popup select{min-height:48px;font-size:16px!important;width:100%}
@@ -172,6 +173,6 @@
  .shop-game .counter-front .desk-ink{width:24%}.shop-game .counter-front .counter-order.reference-book{width:30%}
  .shop-game .inspection-lineup{max-width:600px;align-self:center;gap:44px 30px}.shop-game .inspection-pot{width:180px}
  .kiln-minigame:not(.kiln-gesture-dock){align-items:flex-start;padding:8px}.kiln-minigame:not(.kiln-gesture-dock) .minigame-card{max-width:760px;padding:12px}
- .kiln-firing-work{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px}.kiln-fanning-scene{height:160px;max-height:160px}.kiln-minigame h2{font-size:22px;margin:0 0 6px}.kiln-minigame .mini-instruction{font-size:16px;margin-bottom:8px}.kiln-minigame .mini-controls{margin-top:8px}
+ .kiln-firing-work{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px}.kiln-fanning-scene{height:auto;max-height:none;max-width:213px;aspect-ratio:4/3}.kiln-minigame h2{font-size:22px;margin:0 0 6px}.kiln-minigame .mini-instruction{font-size:16px;margin-bottom:8px}.kiln-minigame .mini-controls{margin-top:8px}
  .popup .gallery-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.tutorial-content{min-height:100px;flex-basis:100px}.tutorial-footer{flex-wrap:nowrap}.tutorial-completion{width:auto;margin-left:auto}.tutorial-download{flex-basis:auto}
 }
