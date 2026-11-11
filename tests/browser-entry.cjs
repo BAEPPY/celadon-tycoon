@@ -30,6 +30,10 @@ async function seed(page, value) {
   }, { key: KEY, value });
   await page.reload();
   await page.waitForSelector('.shop-cover');
+  // The cover can render behind the real asset loader; assert the interactive
+  // entry only after startup has made it available to the learner.
+  await page.locator('#game-loading').waitFor({state:'detached'});
+  await page.waitForFunction(() => !document.querySelector('#app').inert);
   await page.evaluate(() => document.fonts.ready);
 }
 async function saved(page) {
