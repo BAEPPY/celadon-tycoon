@@ -5,7 +5,7 @@ const { chromium } = require('playwright');
 const KEY = 'celadon-tycoon-v2';
 const base = process.env.BASE_URL || 'http://127.0.0.1:4173';
 const draft = (modelId, shape) => ({
-  id: 'shaping-check', orderId: 'royal-rest', shape, modelId,
+  id: 'shaping-check', orderId: 'royal-rest', customerId:'king', shape, modelId,
   step: 0, knead: 0, width: 1, technique: 'inlay', pattern: 'cloud',
   placements: [], strokes: [], decorPhase: 0, decorDone: false, firing: [],
   accepted: true, clay: { body: true, slip: 'white', kneads: 6, prepared: true },
@@ -68,28 +68,31 @@ async function pull(page, canvas, index) {
         if (model === 'pomegranatePitcher') await page.screenshot({path:`/tmp/free-shape-final-${viewport.width}.png`});
         assert.ok(partial.sculpt.fraction > 0 && partial.sculpt.fraction < .9);
         assert.ok((await points(canvas, 'matches'))[top] >= .99, 'the upper outline can be matched');
-        // A matched grip can still move sideways or back down: no target-direction rail.
-        const matched = (await points(canvas, 'current'))[top];
+        // Matched green grips are fixed, even if grabbed directly.
+        const matched = (await points(canvas, 'current'))[top], lockedBefore = await points(canvas,'locked'), fixedBefore=await points(canvas,'current');
+        assert.equal(lockedBefore[top],true,'the grip locks when it reaches its target');
         await page.mouse.move(box.x + matched[0] * box.width, box.y + matched[1] * box.height);
         await page.mouse.down();
         await page.mouse.move(box.x + matched[0] * box.width + 46, box.y + matched[1] * box.height + 32, {steps: 5});
         await page.mouse.up();
-        const moved = (await points(canvas, 'current'))[top];
-        assert.ok(Math.abs((moved[0] - matched[0]) * box.width - 46) < 2, 'grip follows horizontal mouse movement');
-        assert.ok(Math.abs((moved[1] - matched[1]) * box.height - 32) < 2, 'grip follows downward mouse movement');
-        assert.ok(Math.hypot(moved[0]-guide[top][0],moved[1]-guide[top][1]) > Math.hypot(matched[0]-guide[top][0],matched[1]-guide[top][1]), 'the grip can move away from its goal');
-        await page.mouse.move(box.x + moved[0] * box.width, box.y + moved[1] * box.height);
-        await page.mouse.down();
-        await page.mouse.move(box.x + box.width * .025, box.y + box.height * .04, {steps: 6});
-        await page.mouse.up();
-        assert.ok((await saved(page)).sculpt.fraction < .9, 'one large outward pull cannot complete the partly shaped clay');
-        await pull(page, canvas, top);
+        assert.deepEqual(await points(canvas,'current'),fixedBefore,'pulling a green grip cannot move its clay or neighbours');
+        // Unmatched clay remains freely draggable; a wide pull cannot undo green parts.
+        const free=lockedBefore.findIndex((value,i)=>!value&&Math.hypot((fixedBefore[i][0]-guide[i][0])*box.width,(fixedBefore[i][1]-guide[i][1])*box.height)>35);
+        assert.ok(free>=0,'the partially shaped body still has movable clay');
+        const from=fixedBefore[free],dx=(from[0]>=guide[free][0]?1:-1)*26,dy=(from[1]>=guide[free][1]?1:-1)*18;
+        await page.mouse.move(box.x+from[0]*box.width,box.y+from[1]*box.height);await page.mouse.down();
+        await page.mouse.move(box.x+from[0]*box.width+dx,box.y+from[1]*box.height+dy,{steps:5});await page.mouse.up();
+        const freeMoved=await points(canvas,'current');
+        assert.ok(Math.hypot((freeMoved[free][0]-from[0])*box.width,(freeMoved[free][1]-from[1])*box.height)>12,'unmatched clay can still move away from the guide');
+        lockedBefore.forEach((locked,i)=>{if(locked)assert.deepEqual(freeMoved[i],fixedBefore[i],'a neighbouring pull keeps green clay fixed');});
+        assert.ok((await saved(page)).sculpt.fraction<.9,'pulling one unfinished region cannot pass the partly shaped clay');
         const afterFreeDrag = await saved(page);
         assert.equal(await page.locator('[data-action=next-shape]').isDisabled(), true);
         await page.reload();
         await enterGame(page,'start');
         await page.waitForFunction(() => Boolean(document.querySelector('.sculpt-canvas')?.dataset.current));
         assert.ok((await saved(page)).sculpt.points.every((p,i) => p.every((v,j) => Math.abs(v-afterFreeDrag.sculpt.points[i][j]) < 1e-10)), 'reload preserves local deformations');
+        assert.deepEqual((await saved(page)).sculpt.locked,afterFreeDrag.sculpt.locked,'reload preserves fixed green grips');
         // Test rescaling on a contour inside the workspace; a deliberately far-out grip is safely clamped at a smaller boundary.
         await enter(page, partial);
         const beforeResize = (await saved(page)).sculpt, localBeforeResize = beforeResize.points;
@@ -141,7 +144,7 @@ async function pull(page, canvas, index) {
       const keyboardPoint = (await points(keyboardCanvas, 'current'))[0];
       assert.ok(keyboardPoint[0] > oldPoint[0], 'arrow key moves clay freely');
       await page.keyboard.press('KeyE');
-      assert.equal(await keyboardCanvas.getAttribute('data-selected'), '1', 'E selects the next grip');
+      assert.equal(Number(await keyboardCanvas.getAttribute('data-selected')), (await points(keyboardCanvas,'locked')).findIndex((locked,i)=>i>0&&!locked), 'E selects the next unfinished grip');
       for (let pass = 0; pass < 4; pass++) {
         for (let i = 0; i < 40; i++) {
           if (await page.locator('.sculpt-success').count()) break;
@@ -171,7 +174,8 @@ async function pull(page, canvas, index) {
       assert.equal(restarted.sculpt.complete, false);
       assert.equal(await page.locator('[data-action=next-shape]').isDisabled(), true);
       const restartedPoints=await points(restartedCanvas,'current'), starts=await points(restartedCanvas,'starts');
-      assert.ok(restartedPoints.every((p,i)=>p.every((v,j)=>Math.abs(v-starts[i][j])<1e-10)), 'back to shape restores the untouched clay mound');
+      const restartedLocked=await points(restartedCanvas,'locked'),restartedGuide=await points(restartedCanvas,'guide');
+      assert.ok(restartedPoints.every((p,i)=>p.every((v,j)=>Math.abs(v-(restartedLocked[i]?restartedGuide[i][j]:starts[i][j]))<1e-10)), 'back to shape restores the untouched mound, with already aligned starting grips fixed');
       assert.deepEqual(errors, []);
       console.log(`Shaping ${viewport.width}×${viewport.height}: undersize/local-mismatch rejection, stable score, drag, reload, 90%, keyboard passed`);
       await page.close();

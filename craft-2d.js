@@ -710,16 +710,17 @@ export class Craft2D {
       p = clamp(this.progress),
       anchor = [w / 2, h * 0.86],
       squash = this.motion ? 0 : this.pulse * 0.025;
+    if (this.sculptMesh && this.work.step === 0 && !this.work.sculpt?.complete) {
+      // The sculpt canvas uses these same coordinates for its grips. A whole-pot
+      // squash would visibly displace pinned edges even when their data is fixed.
+      this.drawStretchClay(c, w, h);
+      return;
+    }
     c.save();
     c.translate(...anchor);
     c.rotate(this.tilt + (this.motion ? 0 : this.sway));
     c.scale(1 + squash, 1 - squash);
     c.translate(-anchor[0], -anchor[1]);
-    if (this.sculptMesh && this.work.step === 0 && !this.work.sculpt?.complete) {
-      this.drawStretchClay(c, w, h);
-      c.restore();
-      return;
-    }
     if (p >= 0.995) {
       const transition=showPreview?this.rotationTransition:null;
       if(transition){
@@ -803,12 +804,12 @@ export class Craft2D {
     c.restore();
   }
 
-  setSculptMesh(points, guide, fraction) {
-    this.sculptMesh = { points, guide, fraction };
+  setSculptMesh(points, guide, fraction, locked = []) {
+    this.sculptMesh = { points, guide, fraction, locked };
     this.dirty = true;
   }
   drawStretchClay(c, w, h) {
-    const { points, fraction } = this.sculptMesh;
+    const { points, fraction, locked = [] } = this.sculptMesh;
     if (!points.length) return;
     const px = points.map(p => [p[0] * w, p[1] * h]);
     const xs = px.map(p => p[0]), ys = px.map(p => p[1]);
@@ -817,9 +818,25 @@ export class Craft2D {
     c.fillStyle = '#846a5040';
     c.beginPath();c.ellipse((left + right) / 2, bottom, (right - left) * .43, Math.max(5, h * .018), 0, 0, Math.PI * 2);c.fill();
     c.beginPath();
-    const last = px[px.length - 1], first = px[0];
-    c.moveTo((last[0] + first[0]) / 2, (last[1] + first[1]) / 2);
-    px.forEach((p, i) => {const next = px[(i + 1) % px.length];c.quadraticCurveTo(p[0], p[1], (p[0] + next[0]) / 2, (p[1] + next[1]) / 2);});
+    const anchor = px.findIndex((_, i) => locked[i]);
+    if (anchor < 0) {
+      const last = px[px.length - 1], first = px[0];
+      c.moveTo((last[0] + first[0]) / 2, (last[1] + first[1]) / 2);
+      px.forEach((p, i) => {const next = px[(i + 1) % px.length];c.quadraticCurveTo(p[0], p[1], (p[0] + next[0]) / 2, (p[1] + next[1]) / 2);});
+    } else {
+      // Pinned green grips are exact curve endpoints, not movable spline controls.
+      // Smooth each unfinished run between them; adjacent pins retain their edge.
+      c.moveTo(px[anchor][0], px[anchor][1]);
+      for (let step = 1; step <= px.length; step++) {
+        const i = (anchor + step) % px.length, nextIndex = (i + 1) % px.length;
+        const p = px[i], next = px[nextIndex];
+        if (locked[i]) c.lineTo(p[0], p[1]);
+        else if (locked[nextIndex]) {
+          c.quadraticCurveTo(p[0], p[1], next[0], next[1]);
+          step++; // The pinned endpoint has already been visited.
+        } else c.quadraticCurveTo(p[0], p[1], (p[0] + next[0]) / 2, (p[1] + next[1]) / 2);
+      }
+    }
     c.closePath();c.fillStyle = '#c7a587';c.strokeStyle = '#8c6b54';c.lineWidth = Math.max(2, w / 270);c.fill();c.stroke();c.clip();
     // Small clay flecks and soft folds follow the deforming silhouette.
     c.fillStyle = '#e5c9a250';
@@ -853,7 +870,7 @@ export class Craft2D {
   setSculptProgress(fraction) {
     if (fraction >= 1) this.turns.hidden = !this.interactive || !this.rotating;
     this.target = fraction;
-    this.pulse = 1;
+    this.pulse = 0;
     this.dirty = true;
   }
   previewGlaze(fraction) {
