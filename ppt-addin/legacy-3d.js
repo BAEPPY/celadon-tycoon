@@ -6,7 +6,7 @@
 (function () {
   'use strict';
   var THREE = window.THREE;
-  var FOV = 30, START_PITCH = 0.14, TURN_MS = 320, AUTO_TURN_MS = 16000;
+  var FOV = 30, START_PITCH = 0.14, TURN_MS = 320, AUTO_TURN_MS = 16000, ZOOM_MS = 260, ZOOM_LEAST = 0.6, ZOOM_MOST = 4;
   var renderer = null, broken = false, records = {}, views = [], frame = null, autoId = null, lastTime = 0;
   var api = {onChange: null, onHold: null, reason: ''};
 
@@ -162,6 +162,12 @@
       if (!Object.prototype.hasOwnProperty.call(records, id)) continue;
       item = records[id];
       if (item.state !== 'ready') continue;
+      if (item.glide) {
+        // Coming closer or going back after a double tap.
+        var gone = clamp((time - item.glide.start) / ZOOM_MS, 0, 1);
+        item.zoom = item.glide.from + (item.glide.to - item.glide.from) * gone * gone * (3 - 2 * gone); item.dirty = true;
+        if (gone >= 1) item.glide = null; else busy = true;
+      }
       if (item.turn) {
         var part = clamp((time - item.turn.start) / TURN_MS, 0, 1), eased = part * part * (3 - 2 * part);
         item.yaw = item.turn.from + (item.turn.to - item.turn.from) * eased; item.dirty = true;
@@ -192,31 +198,62 @@
     item.held = false; if (now() - grip.time > 120) item.velocity = 0;
     schedule();
   }
-  // One finger or mouse at a time; the page-wide listeners are added once, however often boxes are redrawn.
-  var grip = null, watching = false;
-  function up() { if (grip) { letGo(grip); grip = null; } }
+  // Fingers on a model (the tracker of legacy.js): one turns and tilts it, two spread apart bring it closer, a double
+  // tap brings it twice as close (or back). Each model has its own tracker, kept while the board redraws its boxes, so
+  // several children can each handle a model. The page-wide listeners are added once.
+  function fingersOf(item) {
+    if (item.fingers) return item.fingers;
+    var grip = null, base = 1;
+    item.fingers = window.__legacyFingers({
+      start: function (x, y, view) { grip = hold(view, x, y); return !!grip; },
+      drag: function (x, y) { if (grip) move(grip, x, y); },
+      end: function () { if (grip) { letGo(grip); grip = null; } },
+      pinchStart: function () { base = item.zoom; item.held = true; item.velocity = 0; item.turn = null; item.glide = null; if (api.onHold) api.onHold(item.id); },
+      pinch: function (scale) { item.zoom = clamp(base * scale, ZOOM_LEAST, ZOOM_MOST); item.dirty = true; schedule(); },
+      pinchEnd: function () { item.held = false; schedule(); },
+      doubleTap: function () { api.zoomTo(item.id, item.zoom > 1.4 ? 1 : 2); }
+    });
+    return item.fingers;
+  }
+  function everyModel(act) { for (var id in records) if (Object.prototype.hasOwnProperty.call(records, id) && records[id].fingers) act(records[id].fingers); }
+  var watching = false;
   function watchPage() {
     if (watching) return;
     watching = true;
+    var i;
     if (window.PointerEvent) {
-      document.addEventListener('pointermove', function (event) { if (grip) move(grip, event.clientX, event.clientY); });
-      document.addEventListener('pointerup', up); document.addEventListener('pointercancel', up);
-    } else {
-      document.addEventListener('mousemove', function (event) { if (grip) move(grip, event.clientX, event.clientY); });
-      document.addEventListener('mouseup', up);
-    }
-  }
-  function listen(view) {
-    var canvas = view.canvas;
-    watchPage();
-    if (window.PointerEvent) {
-      canvas.addEventListener('pointerdown', function (event) { grip = hold(view, event.clientX, event.clientY); if (grip && event.preventDefault) event.preventDefault(); });
+      var lifted = function (event) { everyModel(function (fingers) { fingers.up('p' + event.pointerId); }); };
+      document.addEventListener('pointermove', function (event) {
+        // A mouse button let go outside the box: the drag ends as soon as the mouse is back.
+        if (event.pointerType === 'mouse' && event.buttons === 0) lifted(event);
+        else everyModel(function (fingers) { fingers.move('p' + event.pointerId, event.clientX, event.clientY); });
+      });
+      document.addEventListener('pointerup', lifted); document.addEventListener('pointercancel', lifted);
       return;
     }
-    canvas.addEventListener('mousedown', function (event) { grip = hold(view, event.clientX, event.clientY); if (grip && event.preventDefault) event.preventDefault(); });
-    canvas.addEventListener('touchstart', function (event) { if (event.touches.length === 1) grip = hold(view, event.touches[0].clientX, event.touches[0].clientY); });
-    canvas.addEventListener('touchmove', function (event) { if (grip && event.touches.length === 1) { move(grip, event.touches[0].clientX, event.touches[0].clientY); event.preventDefault(); } });
-    canvas.addEventListener('touchend', up);
+    document.addEventListener('mousemove', function (event) { everyModel(function (fingers) { fingers.move('mouse', event.clientX, event.clientY); }); });
+    document.addEventListener('mouseup', function () { everyModel(function (fingers) { fingers.up('mouse'); }); });
+    document.addEventListener('touchmove', function (event) {
+      for (i = 0; i < event.changedTouches.length; i++) (function (touch) { everyModel(function (fingers) { fingers.move('t' + touch.identifier, touch.clientX, touch.clientY); }); })(event.changedTouches[i]);
+    });
+    var touchEnd = function (event) { for (i = 0; i < event.changedTouches.length; i++) (function (touch) { everyModel(function (fingers) { fingers.up('t' + touch.identifier); }); })(event.changedTouches[i]); };
+    document.addEventListener('touchend', touchEnd); document.addEventListener('touchcancel', touchEnd);
+  }
+  function listen(view) {
+    var canvas = view.canvas, i;
+    function down(key, x, y) { var item = records[view.id]; return !!item && item.state === 'ready' && fingersOf(item).down(key, x, y, view); }
+    watchPage();
+    if (window.PointerEvent) {
+      canvas.addEventListener('pointerdown', function (event) { if (down('p' + event.pointerId, event.clientX, event.clientY) && event.preventDefault) event.preventDefault(); });
+      return;
+    }
+    canvas.addEventListener('mousedown', function (event) { if (down('mouse', event.clientX, event.clientY) && event.preventDefault) event.preventDefault(); });
+    canvas.addEventListener('touchstart', function (event) {
+      var taken = false;
+      for (i = 0; i < event.changedTouches.length; i++) taken = down('t' + event.changedTouches[i].identifier, event.changedTouches[i].clientX, event.changedTouches[i].clientY) || taken;
+      if (taken) event.preventDefault();
+    });
+    canvas.addEventListener('touchmove', function (event) { if (records[view.id] && records[view.id].fingers && records[view.id].fingers.count()) event.preventDefault(); });
   }
 
   api.usable = function () { return !broken && !!THREE && !!THREE.GLTFLoader; };
@@ -229,7 +266,7 @@
     var canvas = document.createElement('canvas'), context = null;
     try { context = canvas.getContext('2d'); } catch (e) { context = null; }
     if (!context) return false;
-    canvas.className = 'lg-3d'; canvas.setAttribute('aria-hidden', 'true'); canvas.style.display = 'none';
+    canvas.className = 'lg-3d'; canvas.setAttribute('aria-hidden', 'true'); canvas.setAttribute('data-model', id); canvas.style.display = 'none';
     var box = frame || node;
     box.appendChild(canvas);
     var view = {node: node, box: box, id: id, canvas: canvas, context: context, shown: false};
@@ -248,8 +285,10 @@
     var item = records[id]; if (!item || item.state !== 'ready') return;
     item.velocity = 0; item.turn = {from: item.yaw, to: (item.turn ? item.turn.to : item.yaw) + radians, start: now()}; schedule();
   };
-  api.zoom = function (id, factor) { var item = records[id]; if (!item || item.state !== 'ready') return; item.zoom = clamp(item.zoom * factor, 0.6, 4); item.dirty = true; schedule(); };
-  api.reset = function (id) { var item = records[id]; if (!item || item.state !== 'ready') return; item.yaw = 0; item.pitch = START_PITCH; item.zoom = 1; item.velocity = 0; item.turn = null; item.dirty = true; schedule(); };
+  api.zoom = function (id, factor) { var item = records[id]; if (!item || item.state !== 'ready') return; item.glide = null; item.zoom = clamp(item.zoom * factor, ZOOM_LEAST, ZOOM_MOST); item.dirty = true; schedule(); };
+  // Glides to a zoom (the double tap).
+  api.zoomTo = function (id, zoom) { var item = records[id]; if (!item || item.state !== 'ready') return; item.glide = {from: item.zoom, to: clamp(zoom, ZOOM_LEAST, ZOOM_MOST), start: now()}; schedule(); };
+  api.reset = function (id) { var item = records[id]; if (!item || item.state !== 'ready') return; item.yaw = 0; item.pitch = START_PITCH; item.zoom = 1; item.velocity = 0; item.turn = null; item.glide = null; item.dirty = true; schedule(); };
   api.auto = function (id) { autoId = id || null; lastTime = 0; if (autoId) schedule(); };
   api.autoId = function () { return autoId; };
   api.redraw = function () { for (var id in records) if (Object.prototype.hasOwnProperty.call(records, id)) records[id].dirty = true; schedule(); };

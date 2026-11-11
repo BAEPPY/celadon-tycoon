@@ -171,7 +171,7 @@ const officeStub=view=>`window.__settings=window.__settings||{};window.__goto=[]
 
     // Real 3D where the engine's WebGL works: the old three.js draws the models, which turn, tilt and zoom.
     const boardPage=async(options={})=>{
-      const boardContext=await browser.newContext({viewport:{width:1000,height:562}});await boardContext.route(OFFICE_JS,route=>route.abort());
+      const boardContext=await browser.newContext({viewport:{width:1000,height:562},...(options.touch?{hasTouch:true}:{})});await boardContext.route(OFFICE_JS,route=>route.abort());
       if(options.block)await boardContext.route(options.block,route=>route.abort());
       const board=await boardContext.newPage();watch(board,options.label||'3D board');board.fetched=[];board.on('request',request=>board.fetched.push(request.url()));
       if(options.before)await board.addInitScript(options.before);
@@ -207,11 +207,24 @@ const officeStub=view=>`window.__settings=window.__settings||{};window.__goto=[]
     assert.deepEqual(await angle(),turned);assert.ok((await look()).solidPixels>200);
     await solid.locator('[data-act=reset-view][data-model="comparison-1"]').click();
     state=await angle();assert.equal(state.yaw,0);assert.equal(state.zoom,1);
+    // The wheel over a model: on a board with several things a plain wheel is for scrolling and leaves the model alone;
+    // Ctrl + wheel (how some touch screens report a pinch) enlarges the model and never the whole page.
+    await solid.mouse.move(area.x+area.width/2,area.y+area.height/2);await solid.mouse.wheel(0,-120);await solid.waitForTimeout(150);
+    assert.equal((await angle()).zoom,1,'a plain wheel does not enlarge here');
+    const pageScale=()=>solid.evaluate(()=>[window.devicePixelRatio,window.visualViewport?window.visualViewport.scale:1,window.innerWidth]);
+    const scaleBefore=await pageScale();
+    await solid.keyboard.down('Control');await solid.mouse.wheel(0,-120);await solid.mouse.wheel(0,-120);await solid.keyboard.up('Control');
+    await solid.waitForFunction(()=>window.__legacy3d.state('comparison-1').zoom>1.4,{},{timeout:5000});
+    assert.ok((await angle()).zoom<=1.5626,'each step of the wheel enlarges by a quarter at most');
+    await solid.mouse.move(40,300);await solid.keyboard.down('Control');await solid.mouse.wheel(0,-120);await solid.keyboard.up('Control');await solid.waitForTimeout(200);
+    assert.deepEqual(await pageScale(),scaleBefore,'the page itself is never enlarged');
+    assert.equal(await solid.evaluate(()=>getComputedStyle(document.documentElement).touchAction),'pan-x pan-y','two fingers do not enlarge the whole page');
+    await solid.locator('[data-act=reset-view][data-model="comparison-1"]').click();
     // 청자 돌려 보기 turns by itself in 3D until it is stopped; switching 3D off in the form brings the pictures back.
     await solid.locator('[data-act=setup]').click();await solid.locator('input[name=lg-panel][value=model]').check();await solid.locator('#lg-model').selectOption('observation-5');
     assert.equal(await solid.locator('#lg-three').isChecked(),true);await solid.locator('.lg-submit').click();
     await solid.locator('.lg-turn[data-model="observation-5"][data-3d=ready]').waitFor({timeout:60000});
-    assert.match(await solid.locator('.lg-turn-hint').innerText(),/끌어서 돌리고 기울여/);
+    assert.match(await solid.locator('.lg-turn-hint').innerText(),/끌어서 돌리고 기울여[\s\S]*두 손가락을 벌리면 커져요/);
     const yawNow=()=>solid.evaluate(()=>window.__legacy3d.state('observation-5').yaw);
     const yaw1=await yawNow();await solid.waitForTimeout(600);const yaw2=await yawNow();assert.ok(yaw2>yaw1,'it turns by itself');
     await solid.locator('[data-act=auto]').click();const yaw3=await yawNow();await solid.waitForTimeout(500);assert.equal(await yawNow(),yaw3);
@@ -279,6 +292,51 @@ const officeStub=view=>`window.__settings=window.__settings||{};window.__goto=[]
     for(let i=0;i<9;i++)await flatAlone.locator('[data-act=zoom][data-factor="0.8"]').click();assert.equal(await picture.evaluate(node=>node.style.transform),'scale(1)');
     const square=await picture.boundingBox();assert.ok(Math.abs(square.width-562)<2&&Math.abs(square.height-562)<2,'the pictures keep their square, as tall as the box');
     await flatAlone.context().close();
+    // Fingers on the celadon (an interactive whiteboard), with no button pressed: two fingers spread apart bring it closer
+    // and pinched together send it back, one finger still turns it, and a double tap brings it twice as close and back.
+    const fingersOn=async page=>{const session=await page.context().newCDPSession(page);
+      return (type,points)=>session.send('Input.dispatchTouchEvent',{type,touchPoints:points.map(([x,y,id])=>({x,y,id}))});};
+    const doubleTap=async(touch,page,x,y)=>{await touch('touchStart',[[x,y,0]]);await touch('touchEnd',[]);await page.waitForTimeout(90);await touch('touchStart',[[x,y,0]]);await touch('touchEnd',[]);};
+    const touchAlone=await boardPage({label:'plain model, fingers',panel:'model',model:'beauty',settings:{plain:true},touch:true});
+    await touchAlone.locator('.lg-turn[data-model=beauty][data-3d=ready]').waitFor({timeout:60000});
+    const touch=await fingersOn(touchAlone),held=()=>touchAlone.evaluate(()=>window.__legacy3d.state('beauty'));
+    await touch('touchStart',[[450,280,0]]);await touch('touchStart',[[450,280,0],[550,280,1]]);
+    for(const gap of [60,80,100])await touch('touchMove',[[500-gap,280,0],[500+gap,280,1]]);
+    const settled=page=>page.waitForTimeout(200);   // finger moves reach the page with the next frame
+    await settled(touchAlone);
+    let grasp=await held();assert.ok(Math.abs(grasp.zoom-2)<0.03,`fingers twice as far apart bring it twice as close (${grasp.zoom})`);
+    await touch('touchEnd',[]);await settled(touchAlone);
+    grasp=await held();assert.ok(Math.abs(grasp.zoom-2)<0.03,'it stays there when the fingers lift');assert.ok(Math.abs(grasp.yaw)<0.02,'pinching does not turn it');
+    await touch('touchStart',[[400,280,0]]);await touch('touchStart',[[400,280,0],[600,280,1]]);await touch('touchMove',[[450,280,0],[550,280,1]]);await settled(touchAlone);await touch('touchEnd',[]);await settled(touchAlone);
+    assert.ok(Math.abs((await held()).zoom-1)<0.03,'pinching together sends it back');
+    await touch('touchStart',[[400,280,0]]);await touch('touchStart',[[400,280,0],[600,280,1]]);await touch('touchMove',[[300,280,0],[700,280,1]]);await touch('touchMove',[[20,280,0],[980,280,1]]);await settled(touchAlone);await touch('touchEnd',[]);await settled(touchAlone);
+    assert.equal((await held()).zoom,4,'four times closer at most, as with the button');
+    await touchAlone.evaluate(()=>window.__legacy3d.reset('beauty'));
+    await touch('touchStart',[[500,280,0]]);for(const x of [540,580,620,660]){await touch('touchMove',[[x,280,0]]);await touchAlone.waitForTimeout(40);}await touchAlone.waitForTimeout(250);await touch('touchEnd',[]);await settled(touchAlone);
+    grasp=await held();assert.ok(grasp.yaw>0.5,`one finger still turns it (${grasp.yaw})`);assert.equal(grasp.zoom,1);
+    await doubleTap(touch,touchAlone,500,280);
+    await touchAlone.waitForFunction(()=>window.__legacy3d.state('beauty').zoom===2,{},{timeout:5000});
+    await touchAlone.waitForTimeout(500);await doubleTap(touch,touchAlone,500,280);
+    await touchAlone.waitForFunction(()=>window.__legacy3d.state('beauty').zoom===1,{},{timeout:5000});
+    // A single tap, or two taps far apart in time, change nothing.
+    await touchAlone.waitForTimeout(500);await touch('touchStart',[[500,280,0]]);await touch('touchEnd',[]);await touchAlone.waitForTimeout(700);await touch('touchStart',[[500,280,0]]);await touch('touchEnd',[]);
+    await touchAlone.waitForTimeout(400);assert.equal((await held()).zoom,1);
+    // Where the model has the box to itself the plain wheel enlarges it too.
+    await touchAlone.mouse.move(500,280);await touchAlone.mouse.wheel(0,-120);await touchAlone.waitForFunction(()=>window.__legacy3d.state('beauty').zoom>1.1,{},{timeout:5000});
+    await touchAlone.context().close();
+    // The same fingers on the pictures, where 3D does not work: the picture itself grows (up to three times).
+    const touchFlat=await boardPage({label:'plain pictures, fingers',panel:'model',model:'beauty',settings:{plain:true,three:false},touch:true});
+    const flatPicture=touchFlat.locator('.lg-plain .lg-turn[data-model=beauty]');await flatPicture.waitFor();
+    const flatTouch=await fingersOn(touchFlat),scaleOf=()=>flatPicture.evaluate(node=>Number((/scale\(([\d.]+)\)/.exec(node.style.transform)||[0,1])[1]));
+    await flatTouch('touchStart',[[450,280,0]]);await flatTouch('touchStart',[[450,280,0],[550,280,1]]);await flatTouch('touchMove',[[400,280,0],[600,280,1]]);await settled(touchFlat);
+    assert.ok(Math.abs(await scaleOf()-2)<0.03,`the picture is twice as large (${await scaleOf()})`);
+    await flatTouch('touchMove',[[100,280,0],[900,280,1]]);await settled(touchFlat);assert.equal(await scaleOf(),3);await flatTouch('touchEnd',[]);
+    await touchFlat.waitForTimeout(500);await doubleTap(flatTouch,touchFlat,500,280);await settled(touchFlat);assert.equal(await scaleOf(),1,'a double tap sends an enlarged picture back');
+    await touchFlat.waitForTimeout(500);await doubleTap(flatTouch,touchFlat,500,280);await settled(touchFlat);assert.equal(await scaleOf(),2,'and brings it twice as close');
+    const frameBefore=await flatPicture.getAttribute('data-frame');
+    await flatTouch('touchStart',[[500,280,0]]);for(const x of [450,400,350]){await flatTouch('touchMove',[[x,280,0]]);await touchFlat.waitForTimeout(40);}await settled(touchFlat);await flatTouch('touchEnd',[]);
+    assert.notEqual(await flatPicture.getAttribute('data-frame'),frameBefore,'one finger still turns the pictures');
+    await touchFlat.context().close();
 
     // Finished works' pictures where WebP cannot be drawn ("nowebp=1" stands in for that engine): the server
     // hands each one over as JPEG, whatever format it was stored in.
@@ -472,7 +530,7 @@ const officeStub=view=>`window.__settings=window.__settings||{};window.__goto=[]
     assert.deepEqual(await showPlain.locator('#lg-root button').evaluateAll(nodes=>nodes.filter(node=>node.offsetParent!==null).map(node=>node.textContent)),['＋','－']);
     await showPlain.evaluate(()=>window.__viewHandler({activeView:'edit'}));await showPlain.locator('[data-act=setup]').waitFor();
     assert.deepEqual(errors,[]);
-    console.log('Old-engine add-in board: word cloud alone (old engine and site board), similar answers as one word with a tap showing what was written, fitting its box (same after reloads, squat box, unannounced resize), similar-order comparison (groups, words, 크게 보기), setup, anonymous comparison counts, turning pictures, 청자 설명 보기 from the slide, following 아름다움·쓰임·완성작, real 3D (turn, tilt, zoom, kept across redraws, self-turning), falling back to pictures without WebGL, with a missing model and after an empty drawing, pictures of finished works as JPEG where WebP cannot be drawn, large buttons on a touch screen, plain model view (zoom only, whole box, no self-turning, picture zoom), waiting for a class, slide-show cover and remote keys passed.');
+    console.log('Old-engine add-in board: word cloud alone (old engine and site board), similar answers as one word with a tap showing what was written, fitting its box (same after reloads, squat box, unannounced resize), similar-order comparison (groups, words, 크게 보기), setup, anonymous comparison counts, turning pictures, 청자 설명 보기 from the slide, following 아름다움·쓰임·완성작, real 3D (turn, tilt, zoom, kept across redraws, self-turning), two-finger pinch, double tap and wheel zoom on the model and on its pictures, falling back to pictures without WebGL, with a missing model and after an empty drawing, pictures of finished works as JPEG where WebP cannot be drawn, large buttons on a touch screen, plain model view (zoom only, whole box, no self-turning, picture zoom), waiting for a class, slide-show cover and remote keys passed.');
   }finally{
     if(room&&teacher)await control('delete').catch(()=>{});
     await browser.close();
