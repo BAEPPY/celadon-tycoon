@@ -2,6 +2,7 @@
 // never the country, object name, date, use, or the teacher's answer key.
 import {createArtifactOpening} from './artifact-opening.js';
 import {applyArtifactTextureQuality, resizeArtifactRenderer, createArtifactShadow} from './artifact-render-quality.js';
+import {applyCeladonFinish} from './celadon-finish.js';
 const mounted = new WeakMap();
 let libraries;
 let viewerNumber = 0;
@@ -388,8 +389,8 @@ export function mountLessonViewer(container, artifact, {expand = true, getExpand
       THREE = three;
       renderer = new THREE.WebGLRenderer({antialias: true, alpha: true, powerPreference: 'low-power'});
       renderer.outputColorSpace = THREE.SRGBColorSpace;
-      renderer.toneMapping = artifact.preservePhotoColors ? THREE.NoToneMapping : THREE.ACESFilmicToneMapping;
-      renderer.toneMappingExposure = 1;
+      renderer.toneMapping = artifact.ceramicFinish ? THREE.ACESFilmicToneMapping : artifact.preservePhotoColors ? THREE.NoToneMapping : THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = artifact.ceramicFinish ? .88 : 1;
       renderer.setClearColor(0xffffff, 0);
       const canvas = renderer.domElement;
       canvas.className = 'lesson-viewer__canvas'; canvas.tabIndex = 0;
@@ -408,10 +409,10 @@ export function mountLessonViewer(container, artifact, {expand = true, getExpand
       controls.addEventListener('change', invalidate);
       const generator = new THREE.PMREMGenerator(renderer), room = new RoomEnvironment();
       try {environment = generator.fromScene(room, 0.04);} finally {room.dispose(); generator.dispose();}
-      scene.environment = environment.texture; scene.environmentIntensity = 0.65;
-      scene.add(new THREE.HemisphereLight(0xf8fff6, 0xa49b88, 1));
-      const key = new THREE.DirectionalLight(0xfffbef, 2.1); key.position.set(4, 6, 5); scene.add(key);
-      const fill = new THREE.DirectionalLight(0xdceee8, 0.6); fill.position.set(-4, 2, -1); scene.add(fill);
+      scene.environment = environment.texture; scene.environmentIntensity = artifact.ceramicFinish ? .55 : .65;
+      scene.add(new THREE.HemisphereLight(0xf8fff6, 0xa49b88, artifact.ceramicFinish ? .55 : 1));
+      const key = new THREE.DirectionalLight(0xfffbef, artifact.ceramicFinish ? 1.8 : 2.1); key.position.set(4, 6, 5); scene.add(key);
+      const fill = new THREE.DirectionalLight(0xdceee8, artifact.ceramicFinish ? .4 : .6); fill.position.set(-4, 2, -1); scene.add(fill);
       floor = createArtifactShadow(THREE); scene.add(floor);
       controller.resize();
 
@@ -434,6 +435,7 @@ export function mountLessonViewer(container, artifact, {expand = true, getExpand
       }
       if (disposed || thisAttempt !== attempt) {releaseObject(gltf.scene); return controller;}
       object = gltf.scene;
+      applyCeladonFinish(object, THREE, artifact.ceramicFinish);
       applyArtifactTextureQuality(object, renderer);
       container.dataset.modelQuality = loadedSource === artifact.detailedSrc ? 'detail' : 'standard';
       let count = 0;
@@ -442,7 +444,7 @@ export function mountLessonViewer(container, artifact, {expand = true, getExpand
         count++;
         for (const material of [].concat(node.material || [])) {
           if (artifact.referenceTint && material.color) material.color.set(0x79a78e);
-          if (artifact.preservePhotoColors || (material.isMeshBasicMaterial && material.map)) material.toneMapped = false;
+          if (!artifact.ceramicFinish && (artifact.preservePhotoColors || (material.isMeshBasicMaterial && material.map))) material.toneMapped = false;
         }
       });
       const box = new THREE.Box3().setFromObject(object), size = box.getSize(new THREE.Vector3());

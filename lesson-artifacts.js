@@ -22,11 +22,11 @@ export const COMPARISON_ARTIFACTS = Object.freeze([
 ]);
 
 export const OBSERVATION_ARTIFACTS = Object.freeze([
-  artifact('observation', 1, {detailedSrc: '/assets/lesson/detail/observation-1.glb', note: '사진을 참고한 3D 재현입니다. 형상의 일부는 추정했습니다.'}),
-  artifact('observation', 2),
-  artifact('observation', 3, {note: '스캔 형상과 사진 질감을 사용한 경량 3D 자료입니다.'}),
-  artifact('observation', 4, {detailedSrc: '/assets/lesson/detail/observation-4.glb', note: '스캔 형상과 사진 질감을 사용한 경량 3D 자료입니다.'}),
-  artifact('observation', 5, {detailedSrc: '/assets/lesson/detail/observation-5.glb', referenceTint: false, preservePhotoColors: true, opening: {lidMesh: 1}, note: '제공된 3D 형상과 원본 사진 질감으로 투각과 표면을 관찰하는 자료입니다.'}),
+  artifact('observation', 1, {detailedSrc: '/assets/lesson/detail/observation-1.glb', ceramicFinish: {roughness: .36, clearcoat: .38, coatRoughness: .22, matteMaterials: [1]}, note: '사진을 참고한 3D 재현입니다. 형상의 일부는 추정했습니다.'}),
+  artifact('observation', 2, {detailedSrc: '/assets/lesson/detail/observation-2.glb', ceramicFinish: {roughness: .38, clearcoat: .28, coatRoughness: .28, specularIntensity: .55}}),
+  artifact('observation', 3, {ceramicFinish: {roughness: .46, clearcoat: .2, coatRoughness: .34, specularIntensity: .4}, note: '스캔 형상과 사진 질감을 사용한 경량 3D 자료입니다.'}),
+  artifact('observation', 4, {detailedSrc: '/assets/lesson/detail/observation-4.glb', ceramicFinish: {roughness: .35, clearcoat: .4, coatRoughness: .22}, note: '스캔 형상과 사진 질감을 사용한 경량 3D 자료입니다.'}),
+  artifact('observation', 5, {detailedSrc: '/assets/lesson/detail/observation-5.glb', ceramicFinish: {roughness: .38, clearcoat: .34, coatRoughness: .24}, referenceTint: false, preservePhotoColors: true, opening: {lidMesh: 1}, note: '제공된 3D 형상과 원본 사진 질감으로 투각과 표면을 관찰하는 자료입니다.'}),
 ]);
 
 // Named appreciation follows the blinded comparison; it does not supply an answer to the reflection.
