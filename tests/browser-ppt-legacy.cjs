@@ -410,6 +410,7 @@ const officeStub=view=>`window.__settings=window.__settings||{};window.__goto=[]
       {texts:['비색이 맑아요','학 무늬가 날아요'],largest:'비색이 맑아요',centred:true,inside:true,apart:true,other:0},JSON.stringify(beautyCloud));
     assert.ok(beautyCloud.near<=6,`the words sit close together: ${beautyCloud.near}px`);assert.ok(beautyCloud.share>=.2,`the cloud fills the box: ${beautyCloud.share}`);
     assert.equal(await cloudBox.locator('#lg-root button:visible').count(),1,'only 화면 바꾸기, and only while editing');
+    assert.equal(await cloudBox.locator('.lg-cloud-kinds').count(),0,'the beauty cloud has no other question to switch to');
     assert.ok(!(await cloudBox.locator('#lg-root').innerText()).includes(privateName));
     // Another cloud is chosen in the form: the names guessed for 청자 1.
     await cloudBox.locator('[data-act=setup]').click();
@@ -422,6 +423,23 @@ const officeStub=view=>`window.__settings=window.__settings||{};window.__goto=[]
     await cloudBox.locator('.lg-cw').click();
     assert.match((await cloudBox.locator('.lg-detail-box').innerText()).replace(/\s+/g,' '),/^베개3명 비슷한 뜻이라 한 낱말로 모았어요\. 친구들은 이렇게 썼어요\. 베개 2명 베게 1명/);
     await cloudBox.locator('.lg-detail').click({position:{x:8,y:8}});assert.equal(await cloudBox.locator('.lg-detail').count(),0);
+    // A celadon's cloud has a small switch, 예상한 이름 | 예상한 쓰임, so the other question shows without changing the box.
+    // The words are laid out under it and never behind it.
+    const kindsOf=page=>page.evaluate(()=>{const switcher=document.querySelector('.lg-cloud-kinds,.cloud-only-switch').getBoundingClientRect();
+      return{labels:[...document.querySelectorAll('.lg-cloud-kinds button,.cloud-only-switch button')].map(node=>node.textContent+(/lg-on|active/.test(node.className)?' ✓':'')),
+        clear:[...document.querySelectorAll('.lg-cw,.cloud-word')].every(node=>{const r=node.getBoundingClientRect();return r.top>=switcher.bottom-1||r.left>=switcher.right-1;}),inCorner:switcher.left<40&&switcher.top<40};});
+    assert.deepEqual(await kindsOf(cloudBox),{labels:['예상한 이름 ✓','예상한 쓰임'],clear:true,inCorner:true});
+    await cloudBox.locator('.lg-cloud-kinds [data-kind=use]').click();
+    await cloudBox.locator('.lg-cloud-only[data-cloud="use-1"][data-layout=ready]').waitFor({timeout:20000});
+    assert.deepEqual((await cloudShape(cloudBox)).texts,['낮잠 잘 때 써요','머리 받쳐요']);assert.deepEqual(await kindsOf(cloudBox),{labels:['예상한 이름','예상한 쓰임 ✓'],clear:true,inCorner:true});
+    await cloudBox.locator('.lg-cw').first().click();await cloudBox.locator('.lg-detail-box').waitFor();assert.match(await cloudBox.locator('.lg-detail-box').innerText(),/낮잠 잘 때 써요|머리/);
+    await cloudBox.locator('.lg-detail').click({position:{x:8,y:8}});
+    await cloudBox.locator('.lg-cloud-kinds [data-kind=name]').click();
+    await cloudBox.locator('.lg-cloud-only[data-cloud="name-1"][data-layout=ready]').waitFor({timeout:20000});assert.deepEqual((await cloudShape(cloudBox)).texts,['베개']);
+    // What was switched on the board does not change the box: the form still says 예상한 이름, and a new choice starts from the form.
+    await cloudBox.locator('.lg-cloud-kinds [data-kind=use]').click();await cloudBox.locator('.lg-cloud-only[data-cloud="use-1"]').waitFor();
+    await cloudBox.locator('[data-act=setup]').click();assert.equal(await cloudBox.locator('#lg-cloud').inputValue(),'name-1');
+    await cloudBox.locator('.lg-submit').click();await cloudBox.locator('.lg-cloud-only[data-cloud="name-1"][data-layout=ready]').waitFor({timeout:20000});
     // The uses: the two ways of writing 머리를 받쳐요 are one word; 낮잠 잘 때 써요 is another until a helper says otherwise.
     await cloudBox.locator('[data-act=setup]').click();await cloudBox.locator('#lg-cloud').selectOption('use-1');await cloudBox.locator('.lg-submit').click();
     await cloudBox.locator('.lg-cloud-only[data-cloud="use-1"][data-layout=ready]').waitFor({timeout:20000});
@@ -448,6 +466,15 @@ const officeStub=view=>`window.__settings=window.__settings||{};window.__goto=[]
     await siteCloud.locator('[data-close-cloud-word]').click();assert.equal(await siteCloud.locator('.cloud-word-dialog').count(),0);
     await siteCloud.locator('.cloud-word').focus();await siteCloud.keyboard.press('Enter');await siteCloud.locator('.cloud-word-dialog[open]').waitFor();await siteCloud.keyboard.press('Escape');
     await siteCloud.waitForFunction(()=>!document.querySelector('.cloud-word-dialog'));
+    // The site's board has the same switch above the cloud.
+    assert.deepEqual(await kindsOf(siteCloud),{labels:['예상한 이름 ✓','예상한 쓰임'],clear:true,inCorner:true});
+    await siteCloud.locator('.cloud-only-switch [data-kind=use]').click();
+    await siteCloud.waitForFunction(()=>document.querySelector('.cloud-only[data-cloud="use-1"] .word-cloud')?.dataset.cloudLayout==='ready',{},{timeout:30000});
+    const siteUses=await cloudShape(siteCloud);assert.deepEqual([...siteUses.texts].sort(),['낮잠 잘 때 써요','머리 받쳐요']);assert.equal(siteUses.inside,true);
+    assert.deepEqual(await kindsOf(siteCloud),{labels:['예상한 이름','예상한 쓰임 ✓'],clear:true,inCorner:true});
+    assert.equal(await siteCloud.evaluate(()=>document.documentElement.scrollHeight<=innerHeight),true,'the cloud and its switch fit the box');
+    await siteCloud.locator('.cloud-only-switch [data-kind=name]').click();
+    await siteCloud.waitForFunction(()=>document.querySelector('.cloud-only[data-cloud="name-1"] .word-cloud')?.dataset.cloudLayout==='ready',{},{timeout:30000});
     await cloudBox.context().close();
 
     // On a touch screen (an interactive whiteboard) the board's buttons are large enough for a finger and still fit.
@@ -563,7 +590,7 @@ const officeStub=view=>`window.__settings=window.__settings||{};window.__goto=[]
     await popTouch.locator('#lg-close').tap();assert.equal(await popTouch.locator('#lg-cover-screen').isVisible(),true,'a tap on ✕ closes it');
     await popTouchContext.close();
     assert.deepEqual(errors,[]);
-    console.log('Old-engine add-in board: word cloud alone (old engine and site board), similar answers as one word with a tap showing what was written, fitting its box (same after reloads, squat box, unannounced resize), similar-order comparison (groups, words, 크게 보기), setup, anonymous comparison counts, turning pictures, 청자 설명 보기 from the slide, following 아름다움·쓰임·완성작, a ✕ that closes an opened box in a slide show, real 3D (turn, tilt, zoom, kept across redraws, self-turning), two-finger pinch, double tap and wheel zoom on the model and on its pictures, falling back to pictures without WebGL, with a missing model and after an empty drawing, pictures of finished works as JPEG where WebP cannot be drawn, large buttons on a touch screen, plain model view (zoom only, whole box, no self-turning, picture zoom), waiting for a class, slide-show cover and remote keys passed.');
+    console.log('Old-engine add-in board: word cloud alone (old engine and site board) with its 이름/쓰임 switch, similar answers as one word with a tap showing what was written, fitting its box (same after reloads, squat box, unannounced resize), similar-order comparison (groups, words, 크게 보기), setup, anonymous comparison counts, turning pictures, 청자 설명 보기 from the slide, following 아름다움·쓰임·완성작, a ✕ that closes an opened box in a slide show, real 3D (turn, tilt, zoom, kept across redraws, self-turning), two-finger pinch, double tap and wheel zoom on the model and on its pictures, falling back to pictures without WebGL, with a missing model and after an empty drawing, pictures of finished works as JPEG where WebP cannot be drawn, large buttons on a touch screen, plain model view (zoom only, whole box, no self-turning, picture zoom), waiting for a class, slide-show cover and remote keys passed.');
   }finally{
     if(room&&teacher)await control('delete').catch(()=>{});
     await browser.close();

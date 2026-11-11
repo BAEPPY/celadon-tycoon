@@ -32,7 +32,7 @@
 
   var office = false, editing = true, coverLifted = false, root = null, head = null, body = null, rootClass = '';
   var data = null, receivedAt = 0, waiting = false, problem = '', connected = false, pollTimer = null, polling = false, lastRefresh = null, lastCode = '';
-  var view = {object: '1', kind: 'name', exhibit: {1: false, 2: false}, exhibitObject: {1: '1', 2: '1'}, auto: true, setup: false, worksView: 'all', compareGroup: '', comparePage: 0, compareOpen: ''};
+  var view = {object: '1', kind: 'name', exhibit: {1: false, 2: false}, exhibitObject: {1: '1', 2: '1'}, auto: true, setup: false, worksView: 'all', compareGroup: '', comparePage: 0, compareOpen: '', cloudKind: ''};
   var turnFrames = {}, turnTimer = null, autoModel = 'beauty', lastBody = '', revealBusy = false;
   // "청자만 크게 보기": only the model and two zoom buttons. Where 3D does not work the pictures are enlarged instead.
   var pictureZoom = {};
@@ -143,10 +143,16 @@
   }
 
   // ---------- answers of similar meaning ----------
+  // The cloud of a "워드 클라우드만 크게 보기" box: the one chosen in the form, or, for a celadon's cloud, the other of its
+  // pair (예상한 이름 / 예상한 쓰임) once that was pressed on the board. The box itself keeps what the form chose.
+  function cloudNow() {
+    var chosen = saved().cloud, match = /^(name|use)-([1-5])$/.exec(chosen);
+    return match && (view.cloudKind === 'name' || view.cloudKind === 'use') ? view.cloudKind + '-' + match[2] : chosen;
+  }
   // The cloud this box shows, by its name for the helper (beauty, name-1…5, use-1…5), if it shows one.
   function shownCloud() {
     var panel = panelNow();
-    if (panel === 'cloud') return saved().cloud;
+    if (panel === 'cloud') return cloudNow();
     if (panel === 'beauty') return 'beauty';
     if (panel === 'uses' && !(view.exhibit[2] && data && data.state && data.state.revealed && data.state.revealed[2])) return view.kind + '-' + (has(OBSERVATION_IDS, view.object) ? view.object : '1');
     return '';
@@ -577,7 +583,7 @@
   // middle, the others around it along a spiral, close together and never turned on their side.
   var CLOUD_COLORS = ['#e87854', '#21948f', '#507fa6', '#9c73ad', '#759651', '#c09a45'], CLOUD_GAP = 2;
   function cloudWords() {
-    var which = saved().cloud, match = /^(name|use)-([1-5])$/.exec(which), words;
+    var which = cloudNow(), match = /^(name|use)-([1-5])$/.exec(which), words;
     if (!match) words = data && data.beauty && data.beauty.words;
     else { var item = find(data && data.observations, function (entry) { return String(entry.id) === match[2]; }); words = item && (match[1] === 'name' ? item.nameWords : item.useWords); }
     var kept = [];
@@ -593,7 +599,11 @@
       var weight = most === least ? 0 : Math.pow((count - least) / (most - least), 1.4);
       html += '<span class="lg-cw" data-act="word" data-word="' + esc(answersOf(words[i])) + '" data-weight="' + weight.toFixed(3) + '" style="color:' + CLOUD_COLORS[i % CLOUD_COLORS.length] + '" title="' + count + '명이 쓴 말">' + esc(words[i].text) + '</span>';
     }
-    return '<div class="lg-cloud-only" data-cloud="' + esc(saved().cloud) + '">' +
+    // A celadon's cloud can be switched between its two questions right on the board.
+    var which = cloudNow(), pair = /^(name|use)-[1-5]$/.exec(which), kinds = '';
+    if (pair) kinds = '<div class="lg-cloud-kinds" role="group" aria-label="모아 볼 답변"><button type="button" data-act="cloud-kind" data-kind="name"' + (pair[1] === 'name' ? ' class="lg-on"' : '') + '>예상한 이름</button>' +
+      '<button type="button" data-act="cloud-kind" data-kind="use"' + (pair[1] === 'use' ? ' class="lg-on"' : '') + '>예상한 쓰임</button></div>';
+    return '<div class="lg-cloud-only" data-cloud="' + esc(which) + '">' + kinds +
       (words.length ? html : '<p class="lg-cloud-empty">' + (waiting ? '지금은 열린 수업이 없어요.<br>수업이 열리면 생각이 이곳에 모여요.' : '아직 도착한 생각이 없어요.<br>학생들의 답변이 여기에 모입니다.') + '</p>') +
       (editing ? '<button type="button" class="lg-plain-setup" data-act="setup">화면 바꾸기</button>' : '') + '</div>';
   }
@@ -636,7 +646,8 @@
     if (!box) return;
     var words = box.querySelectorAll('.lg-cw'), i;
     // A little room is left at the edges of the box.
-    var left = Math.round(box.clientWidth * .025), top = Math.round(box.clientHeight * .025), width = box.clientWidth - left * 2, height = box.clientHeight - top * 2;
+    var kinds = box.querySelector('.lg-cloud-kinds'), above = kinds ? kinds.offsetTop + kinds.offsetHeight : 0;
+    var left = Math.round(box.clientWidth * .025), top = above + Math.round(box.clientHeight * .025), width = box.clientWidth - left * 2, height = box.clientHeight - top - Math.round(box.clientHeight * .025);
     if (!words.length || width <= 0 || height <= 0) return;
     // The largest sizes that fit: from words half the box tall down to small ones. When one long word has to shrink
     // to fit the width, the least common words keep a readable size (a fifteenth of the box) as long as that fits;
@@ -655,11 +666,11 @@
     }
     if (!positions) {
       // Too many words even at the smallest size: they flow from the top instead of being left out.
-      box.className = 'lg-cloud-only lg-cloud-flow';
+      box.className = 'lg-cloud-only lg-cloud-flow'; box.style.paddingTop = above ? above + 'px' : '';
       for (i = 0; i < words.length; i++) { words[i].style.left = ''; words[i].style.top = ''; words[i].style.visibility = 'visible'; }
       return;
     }
-    box.className = 'lg-cloud-only';
+    box.className = 'lg-cloud-only'; box.style.paddingTop = '';
     cloudMeasure = cloudWidths(words);
     for (i = 0; i < positions.length; i++) { var word = words[positions[i].index]; word.style.left = left + positions[i].x + 'px'; word.style.top = top + positions[i].y + 'px'; word.style.visibility = 'visible'; }
     box.setAttribute('data-layout', 'ready');
@@ -831,6 +842,7 @@
     else if (act === 'compare-page') view.comparePage = Math.max(0, view.comparePage + Number(node.getAttribute('data-step')));
     else if (act === 'compare-open') view.compareOpen = node.getAttribute('data-id') || '';
     else if (act === 'compare-close') view.compareOpen = '';
+    else if (act === 'cloud-kind') { view.cloudKind = node.getAttribute('data-kind') === 'use' ? 'use' : 'name'; hideWord(); }
     else if (act === 'cover') { coverLifted = true; syncCover(); return; }
     else if (act === 'uncover') { coverLifted = false; hideWord(); syncCover(); return; }
     else return;
@@ -866,7 +878,7 @@
     save(panel, parseLink(text) ? text : saved().link, select && has(MODELS, select.value) ? select.value : 'beauty', !!(cover && cover.checked), choice.plain, cloudSelect && has(CLOUDS, cloudSelect.value) ? cloudSelect.value : 'beauty', function () {
       // Switching 3D on or off starts the box again so the choice applies cleanly.
       if (wasThree !== wantThree) { window.location.reload(); return; }
-      view.setup = false; view.auto = true; lastBody = ''; data = null; waiting = false; problem = ''; connected = false; lastRefresh = null;
+      view.setup = false; view.auto = true; view.cloudKind = ''; lastBody = ''; data = null; waiting = false; problem = ''; connected = false; lastRefresh = null;
       // If this engine cannot draw the chosen screen, the form comes back and says so instead of looking untouched.
       try { render(); } catch (e) {
         view.setup = true; lastBody = ''; render();
