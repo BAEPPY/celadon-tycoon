@@ -481,10 +481,10 @@ export class Craft2D {
   section() {
     return this.rotating ? sectionFor(this.work.modelId || this.work.shape) : null;
   }
-  // The outline a point is placed across. A round vessel uses the row at the point's own height. A box seen from
-  // above shows slanted faces, which a single row cuts short, so it uses the picture's widest extent at every height.
+  // The outline a point is placed across: the row at the point's own height, or for a box (whose slanted faces a single
+  // row cuts short) the picture's widest extent at every height.
   surfaceRow(v) {
-    if (!this.section()) return this.rowAt(v);
+    if (!this.section()?.wholeOutline) return this.rowAt(v);
     const source = this.source;
     if (!source?.rows) return [.22, .78];
     if (!source.outline) {
