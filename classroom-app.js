@@ -459,6 +459,21 @@ async function requestCloudGrouping(){
   }catch{cloudAsk.at[key]=now()+30000;}
   finally{cloudAsk.busy=false;}
 }
+function revealedAnswer(activity,id){return teacherData?.reveal?.[activity===1?'comparison':'observations']?.[id];}
+function teacherViewerOptions(activity,id){return {getExpandedInfo:()=>room.revealed?.[activity]?revealedAnswer(activity,id):null};}
+function teacherResultTabs(){
+  if(![1,2].includes(teacherActivity))return '';
+  const revealed=Boolean(room.revealed?.[teacherActivity]),exhibit=teacherResultViews[teacherActivity]==='exhibit'&&revealed;
+  const running=room.activity===teacherActivity&&effectiveStatus()==='active',canReveal=observerMode&&boardPresenter&&!revealed&&Boolean(room.runs?.[teacherActivity])&&!running;
+  const closedNote=revealed||canReveal?'':observerMode&&boardPresenter?(running?'활동을 마치면 열 수 있어요':'활동을 진행한 뒤 열 수 있어요'):observerMode?'선생님이 정답을 공개하면 열려요':'';
+  return `<nav class="teacher-result-tabs" aria-label="활동 결과 보기"><button data-action="teacher-result-view" data-view="responses" class="${exhibit?'':'active'}" aria-pressed="${!exhibit}">학생 응답 보기</button><button data-action="teacher-result-view" data-view="exhibit" class="${exhibit?'active':''}" aria-pressed="${Boolean(exhibit)}" ${revealed||canReveal?'':'disabled'} ${closedNote?`title="${closedNote}"`:''}>청자 설명 보기</button>${closedNote?`<span class="result-tab-note">${closedNote}</span>`:''}</nav>`;
+}
+function exhibitMarkup(){
+  const artifacts=teacherActivity===1?COMPARISON_ARTIFACTS:OBSERVATION_ARTIFACTS;
+  const artifact=artifacts.find(a=>a.id===exhibitObjects[teacherActivity])||artifacts[0],index=artifacts.indexOf(artifact),answer=revealedAnswer(teacherActivity,artifact.id);
+  if(!answer)return '<section class="panel teacher-empty"><p>청자 설명을 불러오고 있어요.</p></section>';
+  return `<section class="exhibit-page panel" data-testid="exhibit-page" data-exhibit-activity="${teacherActivity}" data-exhibit-id="${esc(artifact.id)}"><div class="exhibit-layout"><div class="exhibit-model"><span class="activity-label">${esc(artifact.label)} · 함께 살펴보기</span><div class="viewer-host" data-exhibit-viewer="${esc(artifact.id)}"></div></div><article class="exhibit-description" aria-live="polite"><div class="exhibit-meta">${answer.countryLabel?`<span>${esc(answer.countryLabel)}</span>`:''}${answer.date&&answer.date!==answer.countryLabel?`<span>${esc(answer.date)}</span>`:''}</div><h2>${esc(answer.name)}</h2>${answer.use?`<p class="exhibit-use"><strong>쓰임</strong>${esc(answer.use)}</p>`:''}<p class="exhibit-note">${esc(answer.note||'')}</p>${answer.sourceUrl?`<a class="exhibit-source" href="${esc(answer.sourceUrl)}" target="_blank" rel="noopener noreferrer">자료 출처 보기 ↗</a>`:''}${answer.licenseUrl?`<a class="exhibit-source" href="${esc(answer.licenseUrl)}" target="_blank" rel="noopener noreferrer">${esc(answer.license)}</a>`:''}</article></div><div class="exhibit-navigation"><button class="button secondary" data-action="exhibit-previous" ${index===0?'disabled':''} aria-label="이전 청자 설명">← 이전</button><nav class="exhibit-number-pages" aria-label="청자별 설명 페이지">${artifacts.map(a=>`<button data-action="exhibit-object" data-id="${a.id}" class="${a.id===artifact.id?'active':''}" aria-label="청자 ${a.id} 설명 보기" ${a.id===artifact.id?'aria-current="page"':''}>${a.id}</button>`).join('')}</nav><button class="button secondary" data-action="exhibit-next" ${index===artifacts.length-1?'disabled':''} aria-label="다음 청자 설명">다음 →</button></div><p class="exhibit-page-count">청자 ${index+1} / ${artifacts.length}</p></section>`;
+}
 function teacherContent(){
   if(teacherActivity===3)return teacherWorks();
   const stages=teacherActivity===1?`<nav class="beauty-stage-tabs" aria-label="활동 1 살펴볼 내용"><button type="button" data-action="teacher-a1-view" data-view="comparison" aria-pressed="${teacherA1View==='comparison'}">세 나라 도자기 비교</button><button type="button" data-action="teacher-a1-view" data-view="beauty" aria-pressed="${teacherA1View==='beauty'}">${BEAUTY_NAME}</button></nav>`:'';
