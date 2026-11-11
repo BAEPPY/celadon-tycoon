@@ -5,7 +5,6 @@ import {
   ROTATION_IDS,
   FRAME_COUNT,
   wrapFrame,
-  surfaceAngle,
 } from "./rotation-rules.js";
 import ROTATION_LAYOUTS from "./assets/vessels/rotations/layouts.json" with { type: "json" };
 import {
@@ -14,7 +13,9 @@ import {
   silhouetteRows,
   clamp,
 } from "./illustration-rules.js";
-import { surfaceAnchor, projectCurvedSurface, inlayCell } from './surface-warp.js';
+import { surfaceAnchor, projectCurvedSurface, inlayCell, sectionFor, sectionScale } from './surface-warp.js';
+// Raw glaze is an ochre coat (it turns celadon only in the second firing). The decoration under it shows faintly.
+export const RAW_GLAZE = Object.freeze([194, 152, 92]), GLAZE_SHOW_THROUGH = .3;
 const motifSamples = new Map();
 function sampledPaths(data) {
   if (!motifSamples.has(data)) {
@@ -85,7 +86,9 @@ async function loadIllustration(id, frame = null, {prefetch = false} = {}) {
             versions = { finished: base };
           // Neighbour preloads decode only the original. Derive the current
           // clay/biscuit appearance on demand, not two full pixel loops per fetch.
-          for (const [name, color] of [["clay", [190, 145, 113]], ["biscuit", [224, 196, 159]]]) {
+          // "glazed" is the vessel under raw glaze: an ochre coat. The celadon colour ("finished") comes out only
+          // in the second firing.
+          for (const [name, color] of [["clay", [190, 145, 113]], ["biscuit", [224, 196, 159]], ["glazed", RAW_GLAZE]]) {
             Object.defineProperty(versions,name,{configurable:true,get(){
               const next=new ImageData(new Uint8ClampedArray(pixels.data),pixels.width,pixels.height);
               for(let i=0;i<next.data.length;i+=4){
@@ -369,10 +372,14 @@ export class Craft2D {
     this.fitCamera();
     this.paint();
   }
+  // Under raw glaze: while it is being brushed on, and until the second firing.
+  coated() {
+    return this.glaze > 0 || this.stage === "glazed";
+  }
   base() {
-    if (this.glaze > 0) return this.source.versions.finished;
+    if (this.coated()) return this.source.versions.glazed;
     return this.source.versions[
-      ["finished", "glazed"].includes(this.stage)
+      this.stage === "finished"
         ? "finished"
         : this.stage === "biscuit"
           ? "biscuit"
@@ -404,8 +411,19 @@ export class Craft2D {
     this.layer = "front";
     c.save();
     c.globalCompositeOperation = "source-atop";
-    for (const p of this.work.placements || []) this.mark(c, p, open);
-    for (const s of strokes) this.drawStroke(c, s, open);
+    if (this.coated()) {
+      // Raw glaze covers the decoration: it is drawn apart and laid on thinly, thinner the more glaze is on.
+      const veil = this.veil ||= makeCanvas(w, h), layer = veil.getContext("2d");
+      if (veil.width !== w || veil.height !== h) { veil.width = w; veil.height = h; }
+      layer.clearRect(0, 0, w, h);
+      for (const p of this.work.placements || []) this.mark(layer, p, open);
+      for (const s of strokes) this.drawStroke(layer, s, open);
+      c.globalAlpha = 1 - (1 - GLAZE_SHOW_THROUGH) * (this.glaze > 0 ? this.glaze : 1);
+      c.drawImage(veil, 0, 0);
+    } else {
+      for (const p of this.work.placements || []) this.mark(c, p, open);
+      for (const s of strokes) this.drawStroke(c, s, open);
+    }
     c.restore();
     if (open) {
       c.save();
@@ -418,9 +436,11 @@ export class Craft2D {
       back.drawImage(this.base(), 0, 0);
       back.globalCompositeOperation = "source-atop";
       back.fillStyle =
-        this.stage === "finished" || this.stage === "glazed"
+        this.stage === "finished"
           ? "#3d5148"
-          : "#6e4d3e";
+          : this.coated()
+            ? "#6b5330"
+            : "#6e4d3e";
       back.globalAlpha = 0.72;
       back.fillRect(0, 0, w, h);
       back.globalAlpha = 1;
@@ -456,8 +476,17 @@ export class Craft2D {
     const a=nearest(low), b=nearest(high), t=at-low;
     return [a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t];
   }
+  // The shape seen from above: round for most vessels, a box for the pillow (surface-warp.js). Only a vessel that
+  // turns needs it.
+  section() {
+    return this.rotating ? sectionFor(this.work.modelId || this.work.shape) : null;
+  }
+  // The place on the vessel under a point of the picture, as the angle kept with a mark.
+  pressedAngle(uv) {
+    return surfaceAnchor(uv, undefined, this.rowAt(uv[1]), this.work.viewFrame || 0, this.section()).angle;
+  }
   anchor(mark) {
-    const uv = illustrationUV(mark), value = surfaceAnchor(uv, mark.surfaceAngle, this.rowAt(uv[1]), this.work.viewFrame || 0);
+    const uv = illustrationUV(mark), value = surfaceAnchor(uv, mark.surfaceAngle, this.rowAt(uv[1]), this.work.viewFrame || 0, this.section());
     // Store vessel-space coordinates once; changing rotation must not shift a motif's height or size.
     mark.surfaceAngle ??= value.angle;
     mark.surfaceV ??= value.level;
@@ -466,15 +495,15 @@ export class Craft2D {
   }
   surfacePoint(angle, level, back = this.layer === 'back') {
     if (!this.rotating && back) return null;
-    return projectCurvedSurface(angle, level, this.rotating ? this.work.viewFrame || 0 : 0, v => this.rowAt(v), back);
+    return projectCurvedSurface(angle, level, this.rotating ? this.work.viewFrame || 0 : 0, v => this.rowAt(v), back, this.section());
   }
   project(mark) {
     const p=this.anchor(mark);
     return this.surfacePoint(p.angle,p.level);
   }
   motifSurfacePaths(mark, open = false) {
-    const a=this.anchor(mark), w=this.surface.width,h=this.surface.height, size=Math.min(w,h)*.00103*normalizeStampSize(mark.stampSize);
-    return sampledPaths(open ? cutoutPath(mark.pattern || this.work.pattern) : motifPath(mark.pattern || this.work.pattern)).map(path=>({closed:path.closed,points:path.points.map(([x,y])=>({angle:a.angle+x*size/w/a.radius,level:a.level+y*size/h}))}));
+    const a=this.anchor(mark), w=this.surface.width,h=this.surface.height, size=Math.min(w,h)*.00103*normalizeStampSize(mark.stampSize), scale=sectionScale(this.section());
+    return sampledPaths(open ? cutoutPath(mark.pattern || this.work.pattern) : motifPath(mark.pattern || this.work.pattern)).map(path=>({closed:path.closed,points:path.points.map(([x,y])=>({angle:a.angle+x*size/w/a.radius*scale,level:a.level+y*size/h}))}));
   }
   getInlayTargets() {
     if(!this.source)return [];
@@ -486,9 +515,9 @@ export class Craft2D {
   inlayColor(point) {
     const dark = this.darkCells ? this.darkCells.has(inlayCell(point.angle,point.level)) : (this.work.inlay?.slip || this.work.clay?.slip)==='dark';
     if (!dark) return '#fff0d3';
-    // 자토 is a red clay that fires black: red while the vessel is still clay or biscuit, black once it is glazed
-    // and fired (from the moment the glaze goes on, when the body takes its celadon colour too).
-    return this.glaze > 0 || this.stage === 'glazed' || this.stage === 'finished' ? '#342d30' : '#b0452f';
+    // 자토 is a red clay that fires black: red on the clay, the biscuit and under the raw glaze, black once the
+    // second firing has turned the body celadon.
+    return this.stage === 'finished' ? '#342d30' : '#b0452f';
   }
   inlayState(point) {
     const state=this.work.inlay;
@@ -578,7 +607,7 @@ export class Craft2D {
       const shape=this.projectedPath(c,path.points,path.closed);
       if(erase){c.fillStyle='#000';c.fill(shape);}else{
         c.strokeStyle='#71554b';c.lineWidth=size*10;c.stroke(shape);
-        c.save();c.translate(size*2.5,size*2.5);c.lineWidth=size*5;c.strokeStyle=['finished','glazed'].includes(this.stage)?'#c3d0ae':'#dfb78e';c.stroke(shape);c.restore();
+        c.save();c.translate(size*2.5,size*2.5);c.lineWidth=size*5;c.strokeStyle=this.stage==='finished'?'#c3d0ae':this.coated()?'#e6cf9a':'#dfb78e';c.stroke(shape);c.restore();
       }
     }
     c.restore();
@@ -831,11 +860,7 @@ export class Craft2D {
     return this.mask.data[(iy * this.mask.width + ix) * 4 + 3] > 64
       ? {
           uv: [u, v],
-          surfaceAngle: surfaceAngle(
-            u,
-            this.rowAt(v),
-            this.work.viewFrame || 0,
-          ),
+          surfaceAngle: this.pressedAngle([u, v]),
           screen: [e.clientX, e.clientY],
         }
       : null;
@@ -948,11 +973,7 @@ export class Craft2D {
         this.pulse = 1;
         this.onMark({
           uv,
-          surfaceAngle: surfaceAngle(
-            uv[0],
-            this.rowAt(uv[1]),
-            this.work.viewFrame || 0,
-          ),
+          surfaceAngle: this.pressedAngle(uv),
           x: uv[0] * 360,
           y: uv[1] * 360,
           pattern: this.work.pattern,
