@@ -6,7 +6,7 @@ const {chromium}=require('playwright');
 const base=process.env.BASE_URL||'http://127.0.0.1:4173';
 const root=path.join(__dirname,'..');
 const trackedAssets=[
- '/assets/loading/girl-run.webp','/assets/loading/boy-run.webp','/assets/loading/dust.webp',
+ '/assets/loading/girl-run-24.webp','/assets/loading/boy-run-24.webp','/assets/loading/dust.webp',
  '/assets/scenes/counter.webp','/assets/scenes/workbench.webp',
  '/assets/fonts/Hakgyoansim-BoardmarkerR.woff2'
 ];
@@ -65,6 +65,44 @@ const deferred=()=>{let resolve;const promise=new Promise(done=>resolve=done);re
   }
   assert.ok(rates.fast>rates.slow+.15,`fast loading (${rates.fast}) must visibly outrun slow loading (${rates.slow})`);
 
+  const cycle=await controlled();
+  const initialStatus=(await cycle.page.locator('#loading-status').innerText()).trim();
+  assert.ok(initialStatus,'loading begins with a workshop caption');
+  cycle.releaseAssets();
+  await cycle.page.locator('.loading-runner.is-ready').nth(1).waitFor();
+  // A naturally stalled download slows enough to observe every pose on a
+  // normal 60 Hz display, including the extra poses in the last sprite row.
+  await cycle.page.waitForFunction(()=>{
+   const loader=document.querySelector('#game-loading');
+   return Number(loader?.dataset.progress)>.8&&Number(loader?.dataset.playbackRate)<=.55;
+  },null,{timeout:10000});
+  await cycle.page.waitForFunction(initial=>{
+   const text=document.querySelector('#loading-status')?.textContent.trim();
+   return text&&text!==initial;
+  },initialStatus,{timeout:3500});
+  assert.equal(await cycle.page.locator('#app').evaluate(el=>el.inert),true,'captions rotate while the real app import is still pending');
+  const poses=await cycle.page.evaluate(()=>new Promise((resolve,reject)=>{
+   const runners=[...document.querySelectorAll('#game-loading .loading-runner')];
+   const seen=runners.map(()=>new Map()),started=performance.now();
+   function sample(now){
+    runners.forEach((runner,i)=>seen[i].set(Number(runner.dataset.frame),getComputedStyle(runner).backgroundPosition));
+    if(seen.every(frames=>frames.size>=24)){
+     resolve(runners.map((runner,i)=>({runner:runner.dataset.runner,frames:[...seen[i].keys()].sort((a,b)=>a-b),positions:[...new Set(seen[i].values())]})));
+    }else if(now-started>6500){
+     reject(new Error(`Incomplete run cycle: ${seen.map((frames,i)=>`${runners[i].dataset.runner} showed ${frames.size}/24 poses`).join(', ')}`));
+    }else requestAnimationFrame(sample);
+   }
+   requestAnimationFrame(sample);
+  }));
+  assert.deepEqual(poses.map(pose=>pose.runner).sort(),['boy','girl']);
+  for(const pose of poses){
+   assert.deepEqual(pose.frames,Array.from({length:24},(_,i)=>i),`${pose.runner} displays all 24 run poses`);
+   assert.equal(pose.positions.length,24,`${pose.runner} displays a different sprite cell for every pose`);
+  }
+  await cycle.page.screenshot({path:'/tmp/loading-24-frame-cycle.png'});
+  cycle.releaseApp();await cycle.page.locator('#game-loading').waitFor({state:'detached',timeout:10000});
+  assert.deepEqual(cycle.errors,[]);await cycle.page.close();
+
   for(const reducedMotion of ['no-preference','reduce']){
    const test=await controlled({viewport:{width:390,height:844},reducedMotion}),{page}=test;
    test.releaseAssets();await page.waitForFunction(()=>Number(document.querySelector('#game-loading')?.dataset.progress)>0);
@@ -87,11 +125,14 @@ const deferred=()=>{let resolve;const promise=new Promise(done=>resolve=done);re
   await restored.page.locator('#game-loading').waitFor({state:'detached',timeout:10000});
   assert.equal(await restored.page.locator('#app').evaluate(el=>el.inert),false,'restoring an unfinished startup does not leave a permanent loader');await restored.page.close();
 
-  const broken=await controlled({failAsset:'/assets/loading/girl-run.webp'});broken.releaseAssets();broken.releaseApp();
+  const broken=await controlled({failAsset:'/assets/loading/girl-run-24.webp'});broken.releaseAssets();broken.releaseApp();
   await broken.page.locator('#game-loading').waitFor({state:'detached',timeout:10000});await broken.page.locator('.shop-cover').waitFor();assert.deepEqual(broken.errors,[]);await broken.page.close();
   const failed=await controlled({failApp:true});failed.releaseAssets();failed.releaseApp();
   await failed.page.waitForFunction(()=>document.querySelector('#game-loading')?.dataset.phase==='error');
+  const errorStatus=await failed.page.locator('#loading-status').innerText();assert.match(errorStatus,/불러오지 못/);
+  await failed.page.waitForTimeout(2900);
+  assert.equal(await failed.page.locator('#loading-status').innerText(),errorStatus,'atmosphere captions never overwrite an app-load error');
   const retry=failed.page.locator('#game-loading button');assert.ok(await retry.isVisible(),'an app-load failure offers retry rather than an endless spinner');assert.match(await retry.innerText(),/다시|재시도/);await failed.page.screenshot({path:'/tmp/loading-error.png'});failed.allowApp();await retry.click();await failed.page.locator('.shop-cover').waitFor();await failed.page.locator('#game-loading').waitFor({state:'detached',timeout:10000});assert.equal(await failed.page.locator('#app').evaluate(el=>el.inert),false,'retry recovers the game after a transient module failure');await failed.page.close();
-  console.log(`Loading: measured fast/slow footsteps (${rates.fast.toFixed(2)} / ${rates.slow.toFixed(2)}), stable progress, sprite frames, immediate readiness, phone fit, reduced motion and failure recovery passed.`);
+  console.log(`Loading: measured fast/slow footsteps (${rates.fast.toFixed(2)} / ${rates.slow.toFixed(2)}), stable progress, all 24 sprite poses per runner, rotating captions, immediate readiness, phone fit, reduced motion and failure recovery passed.`);
  }finally{await browser.close();}
 })().catch(error=>{console.error(error);process.exit(1);});
