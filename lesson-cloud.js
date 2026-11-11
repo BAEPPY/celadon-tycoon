@@ -48,9 +48,11 @@ export function mountWordCloud(container, {fill = false} = {}) {
       overflowWrap: 'anywhere', wordBreak: 'keep-all', margin: '0', visibility: 'hidden'});
   });
 
-  function measure(width, scale) {
-    const minimum = Math.max(14, Math.round(smallest * scale));
-    const maximum = smallest === largest ? minimum : Math.max(minimum * 2, Math.round(largest * scale));
+  function measure(width, scale, floor = 14) {
+    const top = Math.round(largest * scale);
+    // `floor` keeps the least common words readable when one long word has to shrink to fit the width.
+    const minimum = Math.max(14, Math.min(Math.round(top / 2), Math.max(Math.round(floor), Math.round(smallest * scale))));
+    const maximum = smallest === largest ? minimum : Math.max(minimum * 2, top);
     words.forEach((element, index) => {
       // Retain an obvious frequency difference while fitting; equal counts stay equal.
       const weight = largest === smallest ? 0 : (sizes[index] - smallest) / (largest - smallest);
@@ -72,8 +74,10 @@ export function mountWordCloud(container, {fill = false} = {}) {
     let height = minimum - top - bottom, positions, boxes;
     // Filling a box: from words half the box tall downwards (the usual sizes are for a board about 430px tall).
     const steps = [1, .88, .77, .67, .58, .5, .43, .37, .31, .26, .22, .18, .15, .12, .1, .08];
-    for (const scale of fill ? steps.map(step => step * height / 144) : [1, .86, .72, .6, .5, .4, .3, .2]) {
-      boxes = measure(width, scale);
+    // Filling a box, the small words first keep a fifteenth of its height; only a crowded cloud lets them go smaller.
+    const tries = fill ? [height * .066, 14].flatMap(floor => steps.map(step => [step * height / 144, floor])) : [1, .86, .72, .6, .5, .4, .3, .2].map(scale => [scale, 14]);
+    for (const [scale, floor] of tries) {
+      boxes = measure(width, scale, floor);
       positions = placeCloudWords(boxes, width, height);
       if (positions) break;
     }

@@ -1,3 +1,19 @@
+# Site fonts: 학교안심 보드마카 R and 빗썸고딕 Original
+
+The class's teacher chose two fonts for every page of the site. They are declared as one family, `Celadon Text`:
+regular text is **학교안심 보드마카 R** (KERIS) and bold text (headings, buttons, word-cloud words) is **빗썸고딕
+Original** (Bithumb, based on Gmarket Sans). The game uses 학교안심 보드마카 R alone, in the place Jua had.
+
+- `Hakgyoansim-BoardmarkerR.woff2` / `.woff` — from `Hakgyoansim_BoardmarkerR.ttf` (all 11,172 Hangul syllables). See
+  `Hakgyoansim-NOTICE.txt`.
+- `BithumbGothic-Original.woff2` / `.woff` — from `Bithumb Gothic Original.ttf` (2,350 Hangul syllables; other
+  syllables fall back to the next font). SIL Open Font License 1.1, preserved in `OFL-BithumbGothic.txt`.
+
+Both pairs are format conversions only, made with FontTools (`TTFont(path); font.flavor = 'woff2' | 'woff'; font.save(...)`):
+nothing was subset or renamed. WOFF is for PowerPoint versions that show the add-in with Internet Explorer 11, which
+reads neither WOFF2 nor (for these fonts' embedding setting) plain TTF. Self-hosting keeps the fonts available on
+school networks.
+
 # Jua
 
 Jua Regular by Woowahan Brothers, distributed under the SIL Open Font License 1.1.

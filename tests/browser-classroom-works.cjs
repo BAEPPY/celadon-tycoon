@@ -37,12 +37,12 @@ const base=process.env.BASE_URL||'http://127.0.0.1:4173';
     await teacher.waitForTimeout(4300);
     assert.equal(await teacher.getAttribute('[data-action=works-sort][data-sort=score]','aria-pressed'),'true','choice survives polling');
     // 비슷한 주문끼리: the three works answered the same order (a pillow), so they stand side by side with the students'
-    // names, the best score first. The order's patterns and the patterns made carry their numbers (three cranes and two
-    // clouds were ordered, one crane was stamped), and a work made as another vessel says which.
+    // names, the best score first. The order's patterns and the patterns made are named (cranes and clouds were ordered,
+    // a crane was stamped), and a work made as another vessel says which.
     await teacher.click('[data-action=works-view][data-view=compare]');
     assert.match(await teacher.locator('.compare-head').innerText(),/청자 베개 주문\s*3점/);
     assert.deepEqual(await teacher.locator('.compare-card').evaluateAll(cards=>cards.map(card=>[card.dataset.workId,card.querySelector('.student-line').textContent,...[...card.querySelectorAll('.compare-facts dd')].map(item=>item.textContent)])),
-      [['gallery-3','3번 학생3','왕실 · 학 3·구름 2 · 상감','학 1 · 상감'],['gallery-10','10번 학생10','왕실 · 학 3·구름 2 · 상감','학 1 · 상감'],['gallery-2','2번 학생2','왕실 · 학 3·구름 2 · 상감','청자 매병 · 학 1 · 상감']]);
+      [['gallery-3','3번 학생3','왕실 · 학·구름 무늬 · 상감','학 무늬 · 상감'],['gallery-10','10번 학생10','왕실 · 학·구름 무늬 · 상감','학 무늬 · 상감'],['gallery-2','2번 학생2','왕실 · 학·구름 무늬 · 상감','청자 매병 · 학 무늬 · 상감']]);
     assert.equal(await teacher.locator('[data-action=works-sort]').count(),0,'the comparison has its own order');
     await teacher.waitForFunction(()=>!document.querySelector('.compare-card .image-wait'));
     await teacher.waitForTimeout(4300);

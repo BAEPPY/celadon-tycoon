@@ -1,5 +1,6 @@
 import {ClassroomError, ClassroomService, configuredTeacherPasscode} from '../classroom-domain.js';
 import {classroomStorageStatus, classroomStore, StoreUnavailable} from '../classroom-store.js';
+import {groupWithAI as defaultGrouper} from './cloud-groups.js';
 
 // Includes a bounded full drawing plus its preview, below Vercel's 4.5 MB request limit.
 export const MAX_CLASSROOM_BODY_BYTES = 4_000_000;
@@ -22,7 +23,7 @@ async function body(req) {
 }
 function bearer(req) { const value = req.headers?.authorization || ''; return typeof value === 'string' && /^Bearer [A-Za-z0-9_-]+$/.test(value) ? value.slice(7) : ''; }
 
-export function createClassroomHandler({store, now, makeCode, makeToken} = {}) {
+export function createClassroomHandler({store, now, makeCode, makeToken, groupWithAI = defaultGrouper} = {}) {
   return async function handler(req, res) {
     try {
       if (!['GET', 'POST'].includes(req.method)) { res.setHeader('Allow', 'GET, POST'); return send(res, 405, {error: '지원하지 않는 요청이에요.', code: 'method'}); }
@@ -35,7 +36,7 @@ export function createClassroomHandler({store, now, makeCode, makeToken} = {}) {
       }
       const raw = req.method === 'POST' ? await body(req) : Object.fromEntries(new URL(req.url, 'http://localhost').searchParams);
       if (req.method === 'GET' && raw.action === 'health') return send(res, 200, {...classroomStorageStatus(), teacherPasscode: Boolean(configuredTeacherPasscode()), serverNow: now ? now() : Date.now()});
-      const service = new ClassroomService(store || classroomStore(), {now, makeCode, makeToken});
+      const service = new ClassroomService(store || classroomStore(), {now, makeCode, makeToken, groupWithAI});
       const auth = bearer(req);
       let result;
       if (req.method === 'GET' && raw.action === 'teacher') result = await service.overview(raw, auth);
@@ -46,6 +47,7 @@ export function createClassroomHandler({store, now, makeCode, makeToken} = {}) {
       else if (req.method === 'POST' && raw.action === 'create') result = await service.create(raw, auth);
       else if (req.method === 'POST' && raw.action === 'join') result = await service.join(raw);
       else if (req.method === 'POST' && raw.action === 'control') result = await service.control(raw, auth);
+      else if (req.method === 'POST' && raw.action === 'group-cloud') result = await service.groupCloud(raw, auth);
       // The cron secret itself never leaves the server; the check only says whether cleanup can authenticate.
       else if (req.method === 'POST' && raw.action === 'preflight') result = {...await service.preflight(raw, auth), cleanup: typeof process.env.CRON_SECRET === 'string' && process.env.CRON_SECRET.length >= 32};
       else if (req.method === 'POST' && raw.action === 'answer') result = await service.answer(raw, auth);

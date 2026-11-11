@@ -6,9 +6,10 @@ import assert from 'node:assert/strict';
 import { SHAPES, ORDERS, TECHNIQUES, PATTERNS, FIRING, MIN_MOTIFS, MIN_MOTIF_KINDS, drawNextOrder, evaluateWork, orderMotifs, workMotifCounts, decorationProgress, motifRequest } from './domain.js';
 import {orderQuote} from './dialogue.js';
 
-// As many stamps of each pattern as an order asks for (a free order gets two kinds, four in all).
+// So many stamps of each pattern: stamps({crane: 3, cloud: 2}).
 const stamps = counts => Object.entries(counts).flatMap(([pattern, count]) => Array.from({length: count}, (_, index) => ({x: 150 + index * 20, y: 190, pattern})));
-const orderStamps = order => stamps(orderMotifs(order).length ? Object.fromEntries(orderMotifs(order).map(motif => [motif.pattern, motif.count])) : {cloud: 2, crane: 2});
+// One stamp of every pattern an order names (a free order gets two kinds).
+const orderStamps = order => stamps(Object.fromEntries((orderMotifs(order).length ? orderMotifs(order).map(motif => motif.pattern) : ['cloud', 'crane']).map(pattern => [pattern, 1])));
 
 const completedWork = (overrides = {}) => {const work = {
   orderId: 'royal-rest', shape: 'pillow', technique: 'inlay', pattern: 'crane',
@@ -213,31 +214,35 @@ test('조롱박 주전자와 병, 같은 분류의 다른 예시도 구별한다
 test('복합 무늬 주문은 모든 무늬가 있어야 하고 마지막 선택만 바꾸어 채울 수 없다',()=>{
  const work=completedWork({orderId:'example-plumBambooMaebyeong',shape:'maebyeong',modelId:'plumBambooMaebyeong',pattern:'bamboo',placements:stamps({plum:2,crane:1})});
  assert.equal(evaluateWork(work).objective,70);
- assert.equal(evaluateWork({...work,placements:[...work.placements,{x:160,y:180,pattern:'bamboo'}]}).objective,70,'one bamboo where two were ordered');
- assert.equal(evaluateWork({...work,placements:[...work.placements,...stamps({bamboo:2})]}).objective,80);
+ assert.equal(evaluateWork({...work,placements:[...work.placements,{x:160,y:180,pattern:'bamboo'}]}).objective,80);
 });
 
-test('무늬 주문은 두 가지 이상의 무늬와 개수를 말하고, 개수가 모자라면 무늬 조건을 채우지 못한다',()=>{
+test('무늬 주문은 두 가지 이상의 무늬를 말하되 몇 개씩 넣을지는 정하지 않는다',()=>{
  for(const order of ORDERS){
-  const motifs=orderMotifs(order),total=motifs.reduce((sum,motif)=>sum+motif.count,0);
+  const motifs=orderMotifs(order),request=motifRequest(order,{archaic:true});
+  // No order tells how many motifs to place: that is the maker's choice (the bench asks for four of two kinds).
+  for(const text of [orderQuote(order),order.quote,request])assert.doesNotMatch(text.replace('위치와 개수는','위치와 수는'),/\d\s*개|개수|몇 개/,`${order.id}: ${text}`);
   if(order.pattern==='any'||order.technique==='plain'){assert.deepEqual(motifs,[],order.id);continue;}
-  assert.ok(motifs.length>=MIN_MOTIF_KINDS,order.id);assert.ok(total>=MIN_MOTIFS&&total<=5,`${order.id}: ${total}`);
-  assert.equal(motifs[0].pattern,order.pattern,order.id);
-  for(const motif of motifs){assert.ok(PATTERNS.some(pattern=>pattern.id===motif.pattern),order.id);assert.ok(motif.count>=1,order.id);
-   // The customer says each kind with its number, and the plain-style text of the order does too.
-   for(const text of [orderQuote(order),order.quote])assert.ok(text.includes(`${motif.name} ${motif.count}개`),`${order.id}: ${text}`);}
+  assert.ok(motifs.length>=MIN_MOTIF_KINDS&&motifs.length<=3,order.id);assert.equal(motifs[0].pattern,order.pattern,order.id);
+  assert.equal(new Set(motifs.map(motif=>motif.pattern)).size,motifs.length,order.id);
+  for(const motif of motifs){assert.ok(PATTERNS.some(pattern=>pattern.id===motif.pattern),order.id);assert.equal('count' in motif,false);
+   // The customer names each kind, and the plain-style text of the order does too.
+   for(const text of [orderQuote(order),order.quote])assert.ok(text.includes(motif.name),`${order.id}: ${text}`);}
  }
- assert.equal(orderQuote(ORDERS[0]),'누워서 쉴 때 머리를 받칠 것이 필요하오. 학 무늬를 다른 색의 흙으로 넣어 주시오. 무늬는 학 3개에 구름 2개를 곁들여 주시오.');
- assert.equal(motifRequest(ORDERS.find(order=>order.id==='example-plumBambooMaebyeong')),'무늬는 매화 2개에 대나무 2개와 학 1개를 곁들여 주세요.');
- // A free order tells how much decoration a decorated work needs; a plain order asks for none.
- assert.equal(motifRequest(ORDERS.find(order=>order.id==='royal-fragrance'),{archaic:true}),'구멍무늬는 두 가지 모양을 섞어 4개 이상 뚫어 주시오.');
- assert.equal(motifRequest(ORDERS.find(order=>order.id==='noble-banquet'),{archaic:true}),'무늬를 넣는다면 두 가지를 섞어 4개 이상 넣어 주시오.');
- assert.equal(motifRequest(ORDERS.find(order=>order.id==='example-pitcher')),'');
- // Three cranes and two clouds were ordered.
- const short=evaluateWork(completedWork({placements:stamps({crane:2,cloud:2})}));
- assert.equal(short.total,90);assert.match(short.breakdown.find(row=>row.key==='design').feedback,/학 3개·구름 2개.*종류와 개수/);
- assert.equal(evaluateWork(completedWork({placements:stamps({crane:3})})).total,90,'the second kind is missing');
- assert.equal(evaluateWork(completedWork({placements:stamps({crane:4,cloud:3,lotus:1})})).total,100,'more than ordered, and another kind besides, still fills the order');
+ assert.equal(orderQuote(ORDERS[0]),'누워서 쉴 때 머리를 받칠 것이 필요하오. 학 무늬를 다른 색의 흙으로 넣어 주시오. 무늬는 학에 구름을 곁들여 주시오.');
+ // 을/를 and 와/과 follow the last sound of the pattern's name.
+ const request=id=>motifRequest(ORDERS.find(order=>order.id===id));
+ assert.deepEqual([request('example-plumBambooMaebyeong'),request('noble-lotus-rest'),request('lady-crane-vessel'),request('example-poemGourdBottle')],
+  ['무늬는 매화에 대나무와 학을 곁들여 주세요.','무늬는 연꽃에 버드나무를 곁들여 주세요.','무늬는 학에 매화를 곁들여 주세요.','무늬는 글자에 연꽃을 곁들여 주세요.']);
+ // A free order says only that a decorated work mixes two kinds; a plain order asks for none.
+ assert.equal(motifRequest(ORDERS.find(order=>order.id==='royal-fragrance'),{archaic:true}),'구멍무늬는 두 가지 모양을 섞어 뚫어 주시오.');
+ assert.equal(motifRequest(ORDERS.find(order=>order.id==='noble-banquet'),{archaic:true}),'무늬를 넣는다면 두 가지를 섞어 넣어 주시오.');
+ assert.equal(request('example-pitcher'),'');
+ // Cranes and clouds were ordered: each kind once is enough, however many; a missing kind is not.
+ assert.equal(evaluateWork(completedWork({placements:stamps({crane:1,cloud:1})})).total,100);
+ assert.equal(evaluateWork(completedWork({placements:stamps({crane:4,cloud:1,lotus:2})})).total,100,'more, and another kind besides, still fills the order');
+ const missing=evaluateWork(completedWork({placements:stamps({crane:4})}));
+ assert.equal(missing.total,90);assert.match(missing.breakdown.find(row=>row.key==='design').feedback,/주문에 있는 학·구름를 다시 확인해 보세요/);
 });
 
 test('무늬 작업대는 두 가지 이상의 무늬를 네 개 이상 넣어야 다음 순서로 넘어간다',()=>{

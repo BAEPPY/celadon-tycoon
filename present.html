@@ -7,7 +7,9 @@
 <style>
 /* A window for showing one screen of the site from a slide: the game (or a live board or 3D model) fills the screen
    under a thin bar with "슬라이드로 돌아가기". Made for PowerPoint versions that cannot show the site inside a slide. */
-*{box-sizing:border-box}html,body{margin:0;height:100%;overflow:hidden;background:#1f2a30;font-family:'Noto Sans KR','Malgun Gothic',Arial,sans-serif}
+@font-face{font-family:'Celadon Text';src:url('/assets/fonts/Hakgyoansim-BoardmarkerR.woff2') format('woff2'),url('/assets/fonts/Hakgyoansim-BoardmarkerR.woff') format('woff');font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:'Celadon Text';src:url('/assets/fonts/BithumbGothic-Original.woff2') format('woff2'),url('/assets/fonts/BithumbGothic-Original.woff') format('woff');font-weight:700;font-style:normal;font-display:swap}
+*{box-sizing:border-box}html,body{margin:0;height:100%;overflow:hidden;background:#1f2a30;font-family:'Celadon Text','Noto Sans KR','Malgun Gothic',Arial,sans-serif}
 body{--bar:34px;--key:26px;--text:13px}
 /* On a touch screen (an interactive whiteboard) the bar is taller and sits at the bottom edge, where a hand reaches. */
 body.big{--bar:60px;--key:46px;--text:17px}

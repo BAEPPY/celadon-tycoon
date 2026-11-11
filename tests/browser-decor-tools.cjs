@@ -71,7 +71,7 @@ const reachable=(page,selector)=>page.locator(selector).evaluate(el=>{const r=el
     // The next step stays locked until the vessel carries four motifs of at least two kinds; the bench counts them.
     const bench=async()=>({locked:await page.locator('[data-action=inlay-fill]').isDisabled(),count:(await page.locator('.motif-check').innerText()).replace(/\s+/g,' '),rule:await page.locator('.motif-rule').innerText()});
     assert.deepEqual(await bench(),{locked:true,count:'무늬 2/4개 종류 1/2가지',rule:'무늬를 두 가지 이상 섞어 4개 이상 넣으면 다음으로 갈 수 있어요.'});
-    assert.match(await page.locator('.order-summary').innerText(),/학 3개 · 구름\(운\) 2개/,'the order names each pattern with its number');
+    assert.match(await page.locator('.order-summary').innerText(),/무늬\s*학 · 구름\(운\)/,'the order names its patterns, not how many of each');assert.doesNotMatch(await page.locator('.order-summary').innerText(),/\d개/);
     await page.click('[data-pattern=cloud]');await page.waitForSelector('.illustration-viewport[data-status=ready]');
     const third=await surfacePoint(page,.2,.62);await page.mouse.click(third.x,third.y);
     await page.waitForFunction(key=>JSON.parse(localStorage.getItem(key)).draft.placements.length===3,KEY);

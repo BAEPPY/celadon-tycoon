@@ -1,9 +1,12 @@
 /* Live board for PowerPoint versions that show add-ins with Internet Explorer 11 (Office 2016/2019).
    Only features that engine has: no custom properties, grid, gap, clamp or aspect-ratio. Sizes follow the root font
    size, which legacy.js sets from the width of the box on the slide. */
+/* The site's two fonts (regular 학교안심 보드마카 R, bold 빗썸고딕 Original). That engine reads the WOFF files. */
+@font-face{font-family:'Celadon Text';src:url('/assets/fonts/Hakgyoansim-BoardmarkerR.woff2') format('woff2'),url('/assets/fonts/Hakgyoansim-BoardmarkerR.woff') format('woff');font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:'Celadon Text';src:url('/assets/fonts/BithumbGothic-Original.woff2') format('woff2'),url('/assets/fonts/BithumbGothic-Original.woff') format('woff');font-weight:700;font-style:normal;font-display:swap}
 html,body{margin:0;height:100%}
 #lg-root,#lg-root *{box-sizing:border-box}
-#lg-root{position:absolute;top:0;left:0;right:0;bottom:0;overflow:hidden;word-break:keep-all;word-wrap:break-word;background:#f3f5f7;color:#25313b;font-family:'Malgun Gothic','Noto Sans KR',Arial,sans-serif;font-size:1rem;line-height:1.45}
+#lg-root{position:absolute;top:0;left:0;right:0;bottom:0;overflow:hidden;word-break:keep-all;word-wrap:break-word;background:#f3f5f7;color:#25313b;font-family:'Celadon Text','Malgun Gothic','Noto Sans KR',Arial,sans-serif;font-size:1rem;line-height:1.45}
 #lg-root button{font-family:inherit;font-size:.82rem;font-weight:700;border-radius:.4rem;border:1px solid #c9d8dc;background:#fff;color:#067477;padding:.3rem .65rem;cursor:pointer}
 #lg-root button[disabled]{color:#9aa7ae;background:#eef1f3;cursor:default}
 #lg-root button.lg-on{background:#078e91;border-color:#078e91;color:#fff}
@@ -134,6 +137,17 @@ html,body{margin:0;height:100%}
 .lg-cloud-flow{overflow-y:auto;text-align:center;padding:.4rem}
 .lg-cloud-flow .lg-cw{position:static;display:inline-block;margin:0 .15rem}
 .lg-cloud-empty{position:absolute;left:0;right:0;top:38%;text-align:center;font-size:1.5rem;line-height:1.7;color:#94a4ac}
+/* A word of a cloud can be tapped: a box over the board shows what was actually written under it. */
+.lg-word,.lg-cw{cursor:pointer}
+.lg-detail{position:absolute;top:0;left:0;right:0;bottom:0;z-index:4;background:#21383f;background:rgba(33,56,63,.55);text-align:center;overflow-y:auto;padding:2.2rem 1rem}
+.lg-detail-box{display:inline-block;width:30rem;max-width:92%;text-align:left;background:#fff;border-radius:.9rem;padding:1.1rem 1.3rem 1.2rem;box-shadow:0 .6rem 2.4rem rgba(23,56,62,.3)}
+#lg-root .lg-detail-box h2{font-size:1.9rem;line-height:1.25;color:#067477;word-break:break-all}
+.lg-detail-box h2 span{display:inline-block;margin-left:.6rem;padding:.1rem .7rem;border-radius:1rem;background:#e8f7f5;font-size:.9rem;vertical-align:middle}
+.lg-detail-box p{font-size:.82rem;color:#687783;margin:.4rem 0 .6rem}
+.lg-detail-box ul{list-style:none;margin:0 0 .8rem;padding:0}
+.lg-detail-box li{position:relative;margin-top:.4rem;padding:.5rem 4.2rem .5rem .8rem;border-radius:.5rem;background:#f3f8f7;font-size:1.15rem;line-height:1.4;word-break:break-all}
+.lg-detail-box li b{position:absolute;right:.8rem;top:.6rem;font-size:.9rem;color:#067477}
+#lg-root .lg-detail-box button{font-size:.95rem;padding:.45rem 1.2rem}
 .lg-model-name{font-size:1.2rem;font-weight:700;margin-top:.2rem}
 .lg-form{max-width:36rem;margin:0 auto;background:#fff;border:1px solid #d9e3e6;border-radius:.7rem;padding:.9rem 1.1rem}
 .lg-form h1{margin:0 0 .5rem;font-size:1.15rem}

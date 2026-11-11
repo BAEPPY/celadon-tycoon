@@ -349,7 +349,7 @@ function receive(payload,{initial=false}={}){
 function schedulePoll(delay=teacherMode?4000:3000){clearTimeout(pollTimer);if(session&&!disposed)pollTimer=setTimeout(poll,delay);}
 async function poll(){
   if(pollRunning||!session)return;schedulePoll();pollRunning=true;const requestSession=session;
-  try{const payload=await api(observerMode?'observe':teacherMode?'teacher':'state');if(session!==requestSession)return;receive(payload);if(!teacherMode&&active(room.activity)&&dirty[answerActivity()]&&!saving)queueSave();retryWorks();}
+  try{const payload=await api(observerMode?'observe':teacherMode?'teacher':'state');if(session!==requestSession)return;receive(payload);if(!teacherMode&&active(room.activity)&&dirty[answerActivity()]&&!saving)queueSave();retryWorks();if(teacherMode)requestCloudGrouping();}
   catch(error){if(session!==requestSession)return;
     if(observerMode&&error.code==='observer-waiting'){showObserverPreview();return;}
     if(error.status===403||error.status===404)closeObserverInvite({restoreFocus:false});
@@ -417,26 +417,47 @@ function renderStudent(){
   }
   updateSaveStatus();updateTimer();updateConnection();syncCompletionDialog();
 }
+// The words of the cloud on the screen, kept for the tap that asks what was written under one of them.
+let shownCloudWords=[];
 function cloudMarkup(words,kind){
   const clean=(words||[]).filter(w=>typeof w.text==='string'&&w.text.trim()).slice(0,45),counts=clean.map(w=>Math.max(1,Number(w.count)||1)),max=Math.max(1,...counts),min=Math.min(max,...counts);
   const fontSize=count=>max===min?32:Math.round(18+54*Math.pow((Math.max(1,Number(count)||1)-min)/(max-min),1.4));
   const colors=['#e87854','#21948f','#507fa6','#9c73ad','#759651','#c09a45'];
-  return `<div class="word-cloud" data-kind="${kind}" aria-label="${kind==='beauty'?'고려청자의 아름다움':kind==='name'?'예상한 이름':'예상한 쓰임'} 워드클라우드">${clean.length?clean.map((w,i)=>`<span style="font-size:${fontSize(w.count)}px;color:${colors[i%colors.length]}" title="${Number(w.count)||1}명이 쓴 말">${esc(w.text)}</span>`).join(''):'<span class="empty">아직 도착한 생각이 없어요.<br>학생들의 답변이 여기에 모입니다.</span>'}</div>`;
+  shownCloudWords=clean;
+  // A word may stand for several answers of similar meaning: tapping it shows what was actually written.
+  return `<div class="word-cloud" data-kind="${kind}" aria-label="${kind==='beauty'?'고려청자의 아름다움':kind==='name'?'예상한 이름':'예상한 쓰임'} 워드클라우드">${clean.length?clean.map((w,i)=>`<span role="button" tabindex="0" data-action="cloud-word" data-word="${i}" style="font-size:${fontSize(w.count)}px;color:${colors[i%colors.length]}" title="${Number(w.count)||1}명이 쓴 말 · 누르면 어떤 말인지 보여요">${esc(w.text)}</span>`).join(''):'<span class="empty">아직 도착한 생각이 없어요.<br>학생들의 답변이 여기에 모입니다.</span>'}</div>`;
 }
-function revealedAnswer(activity,id){return teacherData?.reveal?.[activity===1?'comparison':'observations']?.[id];}
-function teacherViewerOptions(activity,id){return {getExpandedInfo:()=>room.revealed?.[activity]?revealedAnswer(activity,id):null};}
-function teacherResultTabs(){
-  if(![1,2].includes(teacherActivity))return '';
-  const revealed=Boolean(room.revealed?.[teacherActivity]),exhibit=teacherResultViews[teacherActivity]==='exhibit'&&revealed;
-  const running=room.activity===teacherActivity&&effectiveStatus()==='active',canReveal=observerMode&&boardPresenter&&!revealed&&Boolean(room.runs?.[teacherActivity])&&!running;
-  const closedNote=revealed||canReveal?'':observerMode&&boardPresenter?(running?'활동을 마치면 열 수 있어요':'활동을 진행한 뒤 열 수 있어요'):observerMode?'선생님이 정답을 공개하면 열려요':'';
-  return `<nav class="teacher-result-tabs" aria-label="활동 결과 보기"><button data-action="teacher-result-view" data-view="responses" class="${exhibit?'':'active'}" aria-pressed="${!exhibit}">학생 응답 보기</button><button data-action="teacher-result-view" data-view="exhibit" class="${exhibit?'active':''}" aria-pressed="${Boolean(exhibit)}" ${revealed||canReveal?'':'disabled'} ${closedNote?`title="${closedNote}"`:''}>청자 설명 보기</button>${closedNote?`<span class="result-tab-note">${closedNote}</span>`:''}</nav>`;
+function closeCloudWord(){document.querySelector('dialog.cloud-word-dialog')?.remove();}
+function openCloudWord(index){
+  const word=shownCloudWords[index];if(!word)return;closeCloudWord();
+  const answers=Array.isArray(word.answers)&&word.answers.length?word.answers:[{text:word.text,count:word.count}],total=Number(word.count)||answers.reduce((sum,answer)=>sum+(Number(answer.count)||1),0);
+  const dialog=document.createElement('dialog');dialog.className='cloud-word-dialog';dialog.setAttribute('aria-labelledby','cloud-word-title');
+  dialog.innerHTML=`<header><h2 id="cloud-word-title">${esc(word.text)}</h2><span class="cloud-word-count">${total}명</span><button type="button" class="button secondary small" data-close-cloud-word aria-label="닫기">닫기 <span aria-hidden="true">×</span></button></header><p class="cloud-word-note">${answers.length>1?'비슷한 뜻이라 한 낱말로 모았어요. 친구들은 이렇게 썼어요.':'친구들은 이렇게 썼어요.'}</p><ul class="cloud-word-list">${answers.map(answer=>`<li><span>${esc(answer.text)}</span><b>${Number(answer.count)||1}명</b></li>`).join('')}</ul>`;
+  // Tapping outside the box (the dimmed page) closes it, as 닫기 and Esc do.
+  dialog.addEventListener('click',event=>{if(event.target===dialog||event.target.closest('[data-close-cloud-word]'))dialog.close();});
+  dialog.addEventListener('close',()=>dialog.remove());
+  (document.fullscreenElement||document.body).append(dialog);dialog.showModal();dialog.querySelector('[data-close-cloud-word]').focus();
 }
-function exhibitMarkup(){
-  const artifacts=teacherActivity===1?COMPARISON_ARTIFACTS:OBSERVATION_ARTIFACTS;
-  const artifact=artifacts.find(a=>a.id===exhibitObjects[teacherActivity])||artifacts[0],index=artifacts.indexOf(artifact),answer=revealedAnswer(teacherActivity,artifact.id);
-  if(!answer)return '<section class="panel teacher-empty"><p>청자 설명을 불러오고 있어요.</p></section>';
-  return `<section class="exhibit-page panel" data-testid="exhibit-page" data-exhibit-activity="${teacherActivity}" data-exhibit-id="${esc(artifact.id)}"><div class="exhibit-layout"><div class="exhibit-model"><span class="activity-label">${esc(artifact.label)} · 함께 살펴보기</span><div class="viewer-host" data-exhibit-viewer="${esc(artifact.id)}"></div></div><article class="exhibit-description" aria-live="polite"><div class="exhibit-meta">${answer.countryLabel?`<span>${esc(answer.countryLabel)}</span>`:''}${answer.date&&answer.date!==answer.countryLabel?`<span>${esc(answer.date)}</span>`:''}</div><h2>${esc(answer.name)}</h2>${answer.use?`<p class="exhibit-use"><strong>쓰임</strong>${esc(answer.use)}</p>`:''}<p class="exhibit-note">${esc(answer.note||'')}</p>${answer.sourceUrl?`<a class="exhibit-source" href="${esc(answer.sourceUrl)}" target="_blank" rel="noopener noreferrer">자료 출처 보기 ↗</a>`:''}${answer.licenseUrl?`<a class="exhibit-source" href="${esc(answer.licenseUrl)}" target="_blank" rel="noopener noreferrer">${esc(answer.license)}</a>`:''}</article></div><div class="exhibit-navigation"><button class="button secondary" data-action="exhibit-previous" ${index===0?'disabled':''} aria-label="이전 청자 설명">← 이전</button><nav class="exhibit-number-pages" aria-label="청자별 설명 페이지">${artifacts.map(a=>`<button data-action="exhibit-object" data-id="${a.id}" class="${a.id===artifact.id?'active':''}" aria-label="청자 ${a.id} 설명 보기" ${a.id===artifact.id?'aria-current="page"':''}>${a.id}</button>`).join('')}</nav><button class="button secondary" data-action="exhibit-next" ${index===artifacts.length-1?'disabled':''} aria-label="다음 청자 설명">다음 →</button></div><p class="exhibit-page-count">청자 ${index+1} / ${artifacts.length}</p></section>`;
+// The cloud this screen shows, by its name for the helper (beauty, name-1…5, use-1…5), if it shows one.
+function shownCloudKey(){
+  if(boardPin?.cloud)return boardPin.cloud.kind==='beauty'?'beauty':`${boardPin.cloud.kind}-${boardPin.cloud.object}`;
+  if(!teacherMode||!room)return null;
+  if(teacherBeautyView())return 'beauty';
+  return teacherActivity===2&&teacherResultViews[2]!=='exhibit'?`${cloudKind}-${teacherObject}`:null;
+}
+// When the cloud on the screen has answers the AI helper has not grouped yet, the teacher's screen and a slide's
+// screen (PPT link) ask for them: at most once every seven seconds for a cloud, one request at a time.
+const cloudAsk={at:{},busy:false};
+async function requestCloudGrouping(){
+  const key=shownCloudKey();
+  if(!key||cloudAsk.busy||!teacherData?.cloudPending?.includes(key)||now()<(cloudAsk.at[key]||0))return;
+  cloudAsk.at[key]=now()+7000;cloudAsk.busy=true;const requestSession=session;
+  try{const result=await api('group-cloud',{method:'POST',body:{cloud:key}});
+    // No helper answers here: the plain rules stay, and it is asked again only after a while.
+    if(result.reason==='unavailable')cloudAsk.at[key]=now()+60000;
+    if(result.grouped&&session===requestSession)poll();
+  }catch{cloudAsk.at[key]=now()+30000;}
+  finally{cloudAsk.busy=false;}
 }
 function teacherContent(){
   if(teacherActivity===3)return teacherWorks();
@@ -504,9 +525,8 @@ function compareGroups(){
   for(const group of list)group.works.sort((a,b)=>workScore(b)-workScore(a)||(Number(a.number)||0)-(Number(b.number)||0)||workKey(a).localeCompare(workKey(b)));
   return list.sort((a,b)=>b.works.length-a.works.length||a.label.localeCompare(b.label,'ko'));
 }
-// "학 3·구름 2 · 상감": what an order asked for, or what was made, in a few words (works kept before the numbers were
-// recorded have the pattern names alone: "학·구름 무늬").
-const motifWords=item=>item.motifs?.length?item.motifs.map(motif=>`${motif.name} ${motif.count}`).join('·'):item.patterns?.length?`${item.patterns.join('·')} 무늬`:'';
+// "학·구름 무늬 · 상감": what an order asked for, or what was made, in a few words.
+const motifWords=item=>item.patterns?.length?`${item.patterns.join('·')} 무늬`:'';
 const orderWords=order=>[order.customer.replace(/의 주문$/,''),motifWords(order)||(order.techniqueId==='plain'?'':order.technique?'무늬는 자유':'무늬·기법은 자유'),order.technique].filter(Boolean).join(' · ');
 const madeWords=(made,order)=>[made.shape!==order?.shape?made.shapeName:'',made.techniqueId==='plain'?'':motifWords(made)||'무늬 없음',made.technique].filter(Boolean).join(' · ');
 function compareCard(w){
@@ -924,6 +944,7 @@ async function handleClick(event){
   // 확인 번호 is a text box (a password box would switch the Korean keyboard off), hidden by CSS until 보기 is pressed.
   const reveal=event.target.closest('[data-passcode-toggle]');if(reveal){const input=reveal.closest('.passcode-field').querySelector('input'),shown=!input.classList.toggle('masked');reveal.setAttribute('aria-pressed',String(shown));reveal.textContent=shown?'가리기':'보기';input.focus();return;}
   const button=event.target.closest('[data-action]');if(!button||button.disabled)return;const action=button.dataset.action;if(!actionAllowed(action))return;
+  if(action==='cloud-word'){openCloudWord(Number(button.dataset.word));return;}
   if(['copy-observer','copy-ppt-link','refresh-boards','preflight','download-results','end','new-room','delete-room'].includes(action)){manageOpen=false;button.closest('details')?.removeAttribute('open');}
   try{
     if(action==='retry-connection'){saveState='pending';await poll();if(!teacherMode)queueSave();return;}
@@ -988,6 +1009,8 @@ async function handleClick(event){
   }catch(error){toast(error.message);}
 }
 app.addEventListener('click',handleClick);
+// A word of a cloud is a button for the keyboard too.
+app.addEventListener('keydown',event=>{if((event.key==='Enter'||event.key===' ')&&event.target.matches?.('[data-action=cloud-word]')){event.preventDefault();event.target.click();}});
 app.addEventListener('paste',event=>{
   const input=event.target.closest('input[name=code]');if(!input)return;
   const code=extractClassroomCode(event.clipboardData?.getData('text')||'');

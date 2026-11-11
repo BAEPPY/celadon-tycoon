@@ -130,6 +130,7 @@
         if (lastCode === value.state.code && lastRefresh !== null && number(value.state.boardRefresh) !== lastRefresh) { window.location.reload(); return; }
         lastCode = value.state.code; lastRefresh = number(value.state.boardRefresh);
         data = value; receivedAt = new Date().getTime(); waiting = false; problem = ''; connected = true;
+        askGrouping(link);
       } else if (status === 409 && value && value.code === 'observer-waiting') {
         data = null; waiting = true; problem = ''; connected = true; lastRefresh = null;
       } else if (status === 403 || status === 404) {
@@ -138,6 +139,47 @@
       render(); schedule();
     });
   }
+
+  // ---------- answers of similar meaning ----------
+  // The cloud this box shows, by its name for the helper (beauty, name-1…5, use-1…5), if it shows one.
+  function shownCloud() {
+    var panel = panelNow();
+    if (panel === 'cloud') return saved().cloud;
+    if (panel === 'beauty') return 'beauty';
+    if (panel === 'uses' && !(view.exhibit[2] && data && data.state && data.state.revealed && data.state.revealed[2])) return view.kind + '-' + (has(OBSERVATION_IDS, view.object) ? view.object : '1');
+    return '';
+  }
+  // When that cloud has answers the AI helper has not grouped yet, a PPT link asks for them: at most once every seven
+  // seconds for a cloud, one request at a time. Other links are not told which clouds wait, so they never ask.
+  var groupingAt = {}, groupingBusy = false;
+  function askGrouping(link) {
+    var key = shownCloud(), pending = data && data.cloudPending, time = new Date().getTime();
+    if (!key || groupingBusy || !pending || !has(pending, key) || time < (groupingAt[key] || 0)) return;
+    groupingAt[key] = time + 7000; groupingBusy = true;
+    request('POST', '', {action: 'group-cloud', code: link.code, cloud: key}, link.key, function (status, value) {
+      groupingBusy = false;
+      if (status !== 200) groupingAt[key] = new Date().getTime() + 30000;
+      else if (value && value.reason === 'unavailable') groupingAt[key] = new Date().getTime() + 60000;
+      else if (value && value.grouped) schedule(0);
+    });
+  }
+  // What was written under a word, for the box that opens when the word is tapped.
+  function answersOf(word) {
+    var list = word && word.answers && word.answers.length ? word.answers : [{text: word.text, count: word.count}], kept = [];
+    for (var i = 0; i < list.length && i < 60; i++) kept.push({text: String(list[i].text), count: Math.max(1, number(list[i].count))});
+    return JSON.stringify({text: String(word.text), count: Math.max(1, number(word.count)), answers: kept});
+  }
+  function showWord(json) {
+    var word; try { word = JSON.parse(json); } catch (e) { return; }
+    hideWord();
+    var rows = '', box = document.createElement('div');
+    for (var i = 0; i < word.answers.length; i++) rows += '<li><span>' + esc(word.answers[i].text) + '</span><b>' + word.answers[i].count + '명</b></li>';
+    box.className = 'lg-detail'; box.setAttribute('data-act', 'word-close');
+    box.innerHTML = '<div class="lg-detail-box"><h2>' + esc(word.text) + '<span>' + word.count + '명</span></h2><p>' + (word.answers.length > 1 ? '비슷한 뜻이라 한 낱말로 모았어요. 친구들은 이렇게 썼어요.' : '친구들은 이렇게 썼어요.') + '</p><ul>' + rows + '</ul>' +
+      '<button type="button" data-act="word-close">닫기</button></div>';
+    root.appendChild(box);
+  }
+  function hideWord() { var box = root && root.querySelector('.lg-detail'); if (box && box.parentNode) box.parentNode.removeChild(box); }
 
   // ---------- pictures that turn ----------
   function showFrame(node, frame) {
@@ -267,7 +309,7 @@
     for (i = 0; i < words.length; i++) most = Math.max(most, number(words[i].count));
     for (i = 0; i < words.length && i < 40; i++) {
       var count = number(words[i].count), size = 0.95 + 1.5 * (most > 1 ? (count - 1) / (most - 1) : 0);
-      html += '<span class="lg-word" style="font-size:' + size.toFixed(2) + 'rem">' + esc(words[i].text) + (count > 1 ? '<small>' + count + '명</small>' : '') + '</span>';
+      html += '<span class="lg-word" data-act="word" data-word="' + esc(answersOf(words[i])) + '" style="font-size:' + size.toFixed(2) + 'rem">' + esc(words[i].text) + (count > 1 ? '<small>' + count + '명</small>' : '') + '</span>';
     }
     return '<div class="lg-cloud">' + html + '</div>';
   }
@@ -365,12 +407,8 @@
     return groups;
   }
   function words(parts) { var kept = []; for (var i = 0; i < parts.length; i++) if (parts[i]) kept.push(parts[i]); return kept.join(' · '); }
-  // "학 3·구름 2": the patterns with their numbers (works kept before the numbers were recorded: "학·구름 무늬").
-  function motifWords(item) {
-    var motifs = item.motifs || [], patterns = item.patterns || [], parts = [], i;
-    if (motifs.length) { for (i = 0; i < motifs.length; i++) parts.push(motifs[i].name + ' ' + motifs[i].count); return parts.join('·'); }
-    return patterns.length ? patterns.join('·') + ' 무늬' : '';
-  }
+  // "학·구름 무늬": the patterns an order names, or the patterns a work carries.
+  function motifWords(item) { var patterns = item.patterns || []; return patterns.length ? patterns.join('·') + ' 무늬' : ''; }
   function orderWords(order) {
     return words([String(order.customer || '').replace(/의 주문$/, ''), motifWords(order) || (order.techniqueId === 'plain' ? '' : order.technique ? '무늬는 자유' : '무늬·기법은 자유'), order.technique]);
   }
@@ -435,7 +473,7 @@
       count = Math.max(1, number(words[i].count));
       // weight 0…1: how common the word is among those shown (the sizes are set from it when the cloud is laid out).
       var weight = most === least ? 0 : Math.pow((count - least) / (most - least), 1.4);
-      html += '<span class="lg-cw" data-weight="' + weight.toFixed(3) + '" style="color:' + CLOUD_COLORS[i % CLOUD_COLORS.length] + '" title="' + count + '명이 쓴 말">' + esc(words[i].text) + '</span>';
+      html += '<span class="lg-cw" data-act="word" data-word="' + esc(answersOf(words[i])) + '" data-weight="' + weight.toFixed(3) + '" style="color:' + CLOUD_COLORS[i % CLOUD_COLORS.length] + '" title="' + count + '명이 쓴 말">' + esc(words[i].text) + '</span>';
     }
     return '<div class="lg-cloud-only" data-cloud="' + esc(saved().cloud) + '">' +
       (words.length ? html : '<p class="lg-cloud-empty">' + (waiting ? '지금은 열린 수업이 없어요.<br>수업이 열리면 생각이 이곳에 모여요.' : '아직 도착한 생각이 없어요.<br>학생들의 답변이 여기에 모입니다.') + '</p>') +
@@ -472,6 +510,9 @@
     }
     return placed;
   }
+  // The widths the words had when they were placed; if they change (the fonts arrive after the page), tick() lays the cloud out again.
+  var cloudMeasure = '';
+  function cloudWidths(words) { var total = 0; for (var i = 0; i < words.length; i++) total += words[i].offsetWidth; return words.length + ':' + total; }
   function layoutCloud() {
     var box = root && root.querySelector('.lg-cloud-only');
     if (!box) return;
@@ -479,10 +520,13 @@
     // A little room is left at the edges of the box.
     var left = Math.round(box.clientWidth * .025), top = Math.round(box.clientHeight * .025), width = box.clientWidth - left * 2, height = box.clientHeight - top * 2;
     if (!words.length || width <= 0 || height <= 0) return;
-    // The largest sizes that fit: from words half the box tall down to small ones, never below 12px.
+    // The largest sizes that fit: from words half the box tall down to small ones. When one long word has to shrink
+    // to fit the width, the least common words keep a readable size (a fifteenth of the box) as long as that fits;
+    // only a crowded cloud lets them go smaller (never below 12px).
     var scales = [1, .88, .77, .67, .58, .5, .43, .37, .31, .26, .22, .18, .15, .12, .1, .08], positions = null, boxes;
-    for (var s = 0; s < scales.length && !positions; s++) {
-      var smallest = Math.max(12, height * .125 * scales[s]), largest = Math.max(smallest * 2, height * .5 * scales[s]);
+    for (var s = 0; s < scales.length * 2 && !positions; s++) {
+      var scale = scales[s % scales.length], floor = s < scales.length ? height * .066 : 12;
+      var largest = Math.max(24, height * .5 * scale), smallest = Math.max(12, Math.min(largest / 2, Math.max(floor, height * .125 * scale)));
       boxes = [];
       for (i = 0; i < words.length; i++) {
         var size = Math.round(smallest + number(words[i].getAttribute('data-weight')) * (largest - smallest));
@@ -498,6 +542,7 @@
       return;
     }
     box.className = 'lg-cloud-only';
+    cloudMeasure = cloudWidths(words);
     for (i = 0; i < positions.length; i++) { var word = words[positions[i].index]; word.style.left = left + positions[i].x + 'px'; word.style.top = top + positions[i].y + 'px'; word.style.visibility = 'visible'; }
     box.setAttribute('data-layout', 'ready');
   }
@@ -594,6 +639,7 @@
     // PowerPoint can give the box another size without telling the page (zooming the slide, starting the show).
     var box = boxSize();
     if (box.width !== fitted.width || box.height !== fitted.height) fit();
+    else { var cloud = root && root.querySelector('.lg-cloud-only[data-layout=ready]'); if (cloud && cloudWidths(cloud.querySelectorAll('.lg-cw')) !== cloudMeasure) layoutCloud(); }
   }
   // ---------- size ----------
   // Every size on the board follows the root font size. It starts from the box (1/64 of its width, and no more than
@@ -635,7 +681,9 @@
     var node = actionOf(event.target || event.srcElement);
     if (!node || node.disabled) return;
     var act = node.getAttribute('data-act'), activity = Number(node.getAttribute('data-activity'));
-    if (act === 'setup') { view.setup = true; lastBody = ''; render(); return; }
+    if (act === 'word') { showWord(node.getAttribute('data-word')); return; }
+    if (act === 'word-close') { hideWord(); return; }
+    if (act === 'setup') { hideWord(); view.setup = true; lastBody = ''; render(); return; }
     if (act === 'open-game') {
       // Newer PowerPoint can hand the address to the computer's own browser; otherwise the link opens as usual.
       try {
@@ -762,7 +810,7 @@
     function finish(inOffice) { if (!done) { done = true; start(inOffice); } }
     // Office.js can take a few seconds to answer; say so instead of leaving the box empty.
     var loading = document.createElement('div'); loading.id = 'lg-loading';
-    loading.style.cssText = 'padding:18px;font-family:Malgun Gothic,sans-serif;font-size:15px;color:#687783';
+    loading.style.cssText = 'padding:18px;font-family:Celadon Text,Malgun Gothic,sans-serif;font-size:15px;color:#687783';
     loading.innerHTML = '실시간 화면을 준비하고 있어요…';
     document.body.appendChild(loading);
     var script = document.createElement('script');

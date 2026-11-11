@@ -19,7 +19,7 @@ const defaultModel=shape=>designsForShape(shape).find(d=>ROTATION_IDS.includes(d
 export function orderSummary(work) {
   const o=ORDERS.find(o=>o.id===work.orderId);if(!o)return '';
   const motifs=orderMotifs(o);
-  return `<aside class="order-summary" aria-label="주문 요약"><h3>오늘의 주문</h3><dl><dt>모양</dt><dd>${esc(o.modelId?getModelArtifact(o.modelId)?.shortName:SHAPES.find(s=>s.id===o.shape)?.name.replace('청자 ',''))}</dd><dt>기법</dt><dd>${{inlay:'상감',openwork:'투각',plain:'무문',any:'자유롭게'}[o.technique]}</dd><dt>무늬</dt><dd>${o.technique==='plain'?'새 무늬 없음':motifs.length?esc(motifs.map(m=>`${motifLabel(m.pattern)} ${m.count}개`).join(' · ')):'자유롭게'}</dd></dl><button class="text-button" data-action="order">주문 전체 보기</button></aside>`;
+  return `<aside class="order-summary" aria-label="주문 요약"><h3>오늘의 주문</h3><dl><dt>모양</dt><dd>${esc(o.modelId?getModelArtifact(o.modelId)?.shortName:SHAPES.find(s=>s.id===o.shape)?.name.replace('청자 ',''))}</dd><dt>기법</dt><dd>${{inlay:'상감',openwork:'투각',plain:'무문',any:'자유롭게'}[o.technique]}</dd><dt>무늬</dt><dd>${o.technique==='plain'?'새 무늬 없음':motifs.length?esc(motifs.map(m=>motifLabel(m.pattern)).join(' · ')):'자유롭게'}</dd></dl><button class="text-button" data-action="order">주문 전체 보기</button></aside>`;
 }
 function heading(title){return `<header class="station-heading"><span>${title}</span><button class="small-button" data-action="order">주문서 보기</button></header>`;}
 export function clayMarkup(work) {

@@ -683,7 +683,7 @@ test('comparison percentages use each pot’s respondents; observation responses
   for (const student of students.slice(0, 2)) await f.service.answer({code: f.room.code, participantId: student.participantId,
     activity: 2, runId: second.state.runId, clientRevision: 1, answers: {'1': {name: '베개', use: '머리를 받칩니다.'}}}, student.participantToken);
   result = await f.service.overview({code: f.room.code}, f.room.teacherToken);
-  assert.deepEqual(result.observations[0].nameWords, [{text: '베개', count: 2}]);
+  assert.deepEqual(result.observations[0].nameWords, [{text: '베개', count: 2, answers: [{text: '베개', count: 2}]}]);
   assert.equal(result.observations[0].responses.length, 2);
   for (const student of students) assert.ok(!JSON.stringify(result.observations).includes(student.student.name));
   const own = await f.service.state({code: f.room.code, participantId: students[0].participantId}, students[0].participantToken);
@@ -712,26 +712,84 @@ test('a finished work keeps what was ordered and what was made in words, so boar
   // The order: which vessel (its use), who asked, and the pattern and technique asked for ('' and [] when left free).
   const rest = orderDigest({orderId: 'royal-rest'});
   assert.deepEqual(rest, {id: 'royal-rest', shape: 'pillow', shapeName: '청자 베개', use: '누워서 쉴 때 머리를 받칩니다.', customer: '왕실의 주문',
-    title: rest.title, quote: rest.quote, techniqueId: 'inlay', technique: '상감', patterns: ['학', '구름'], motifs: [{name: '학', count: 3}, {name: '구름', count: 2}]});
-  assert.match(rest.quote, /학 3개에 구름 2개/);
+    title: rest.title, quote: rest.quote, techniqueId: 'inlay', technique: '상감', patterns: ['학', '구름']});
+  assert.match(rest.quote, /무늬는 학에 구름을 곁들여/);
   const free = orderDigest({orderId: 'royal-simple-vessel'});
-  assert.deepEqual([free.shape, free.shapeName, free.techniqueId, free.technique, free.patterns, free.motifs], ['maebyeong', '청자 매병', 'any', '', [], []]);
-  assert.deepEqual(orderDigest({orderId: 'example-plumBambooMaebyeong'}).motifs, [{name: '매화', count: 2}, {name: '대나무', count: 2}, {name: '학', count: 1}], 'every pattern an order names, with its number');
+  assert.deepEqual([free.shape, free.shapeName, free.techniqueId, free.technique, free.patterns], ['maebyeong', '청자 매병', 'any', '', []]);
+  assert.deepEqual(orderDigest({orderId: 'example-plumBambooMaebyeong'}).patterns, ['매화', '대나무', '학'], 'every pattern an order names');
   assert.equal(orderDigest({orderId: 'no-such-order'}), null);
-  // What was made: how many of each pattern were really placed, none for a plain work; a named drawing counts once.
+  // What was made: the patterns really placed (each once), none for a plain work; a named drawing counts as its pattern.
   assert.deepEqual(madeDigest({shape: 'maebyeong', technique: 'inlay', drawingLabel: '', strokes: [], placements: [{pattern: 'crane'}, {pattern: 'cloud'}, {pattern: 'crane'}]}),
-    {shape: 'maebyeong', shapeName: '청자 매병', techniqueId: 'inlay', technique: '상감', patterns: ['학', '구름'], motifs: [{name: '학', count: 2}, {name: '구름', count: 1}]});
-  assert.deepEqual(madeDigest({shape: 'pillow', technique: 'inlay', drawingLabel: 'lotus', strokes: [{points: [[0, 0], [0, 0]]}], placements: [{pattern: 'crane'}]}).motifs, [{name: '학', count: 1}, {name: '연꽃', count: 1}]);
-  assert.deepEqual(madeDigest({shape: 'pitcher', technique: 'plain', drawingLabel: '', strokes: [], placements: [{pattern: 'crane'}]}).motifs, []);
+    {shape: 'maebyeong', shapeName: '청자 매병', techniqueId: 'inlay', technique: '상감', patterns: ['학', '구름']});
+  assert.deepEqual(madeDigest({shape: 'pillow', technique: 'inlay', drawingLabel: 'lotus', strokes: [{points: [[0, 0], [0, 0]]}], placements: [{pattern: 'crane'}]}).patterns, ['학', '연꽃']);
+  assert.deepEqual(madeDigest({shape: 'pitcher', technique: 'plain', drawingLabel: '', strokes: [], placements: [{pattern: 'crane'}]}).patterns, []);
   // Teachers and visitors both get the two digests with a work; visitors still get no name or number.
   const f = await fixture(), student = await f.join(1, '비교 학생'), {state} = await f.control('start', 3);
   await f.service.submitWork({code: f.room.code, participantId: student.participantId, runId: state.runId, work: rawWork(), preview: png}, student.participantToken);
   const [teacherWork] = (await f.service.overview({code: f.room.code}, f.room.teacherToken)).works;
-  assert.deepEqual([teacherWork.order.shape, teacherWork.order.customer, teacherWork.made.shape, teacherWork.made.technique, teacherWork.made.motifs], ['pillow', '왕실의 주문', 'pillow', '상감', [{name: '학', count: 1}]]);
+  assert.deepEqual([teacherWork.order.shape, teacherWork.order.customer, teacherWork.made.shape, teacherWork.made.technique, teacherWork.made.patterns], ['pillow', '왕실의 주문', 'pillow', '상감', ['학']]);
   const {observerToken} = await f.control('observer-link');
   const [seen] = (await f.service.observe({code: f.room.code}, observerToken)).works;
   assert.deepEqual(seen.order, teacherWork.order); assert.deepEqual(seen.made, teacherWork.made);
   assert.equal(seen.name, undefined); assert.equal(seen.number, undefined); assert.ok(!JSON.stringify(seen).includes('비교 학생'));
+});
+
+test('answers that mean the same are one word of a cloud: by the rules at once, by the helper when a screen asks', async () => {
+  const store = new MemoryStore(); let clock = 1700000000000; const asked = [];
+  // A stand-in for the AI helper: puts every answer about resting the head together, under its own word.
+  let helper = async input => { asked.push(input); const rest = input.answers.map((answer, id) => /머리|베고|낮잠|누워/.test(answer.text) ? id : -1).filter(id => id >= 0);
+    return [{label: '머리를 받치고 쉬어요', ids: rest}, ...input.answers.map((answer, id) => rest.includes(id) ? null : {label: answer.text, ids: [id]}).filter(Boolean)]; };
+  const service = new ClassroomService(store, {now: () => clock, groupWithAI: input => helper(input)}), room = await service.create({}), code = room.code;
+  const control = (command, activity) => service.control({code, command, activity}, room.teacherToken);
+  const students = []; for (let n = 1; n <= 6; n++) students.push(await service.join({code, number: n, name: `학생${n}`}));
+  const second = await control('start', 2);
+  const answer = (index, name, use, revision = 1) => service.answer({code, participantId: students[index].participantId, activity: 2, runId: second.state.runId, clientRevision: revision, answers: {'1': {name, use}}}, students[index].participantToken);
+  await answer(0, '베개', '머리를 받쳐요'); await answer(1, '베게', '머리 받쳐요.'); await answer(2, '돌베개', '베고 자요'); await answer(3, '의자', '낮잠 잘 때 써요'); await answer(4, '의자', '발을 올려요');
+  const overview = () => service.overview({code}, room.teacherToken), cloud = async () => (await overview()).observations[0];
+  // At once, by the rules: spelling, spacing and endings; the answers behind each word are kept.
+  let first = await cloud();
+  assert.deepEqual(first.nameWords, [{text: '베개', count: 3, answers: [{text: '베개', count: 1}, {text: '베게', count: 1}, {text: '돌베개', count: 1}]}, {text: '의자', count: 2, answers: [{text: '의자', count: 2}]}]);
+  assert.deepEqual(first.useWords.map(word => [word.text, word.count]), [['머리 받쳐요', 2], ['베고 자요', 1], ['발을 올려요', 1], ['낮잠 잘 때 써요', 1]]);
+  assert.deepEqual((await overview()).cloudPending, ['name-1', 'use-1'], 'both clouds have answers the helper has not seen');
+  // The teacher's screen asks for one cloud: the helper's grouping is kept with the class.
+  assert.deepEqual(await service.groupCloud({code, cloud: 'use-1'}, room.teacherToken), {grouped: true, words: 5});
+  assert.equal(asked.length, 1); assert.equal(asked[0].question, '이 청자는 어디에 썼을까요?'); assert.deepEqual(asked[0].existing, []);
+  assert.deepEqual(asked[0].answers.map(item => item.text).sort(), ['낮잠 잘 때 써요', '머리 받쳐요', '머리를 받쳐요', '발을 올려요', '베고 자요']);
+  assert.ok(!JSON.stringify(asked).includes('학생'), 'the helper is never told who wrote what');
+  first = await cloud();
+  assert.deepEqual(first.useWords.map(word => [word.text, word.count, word.answers.map(item => item.text)]), [['머리를 받치고 쉬어요', 4, ['베고 자요', '머리 받쳐요', '머리를 받쳐요', '낮잠 잘 때 써요']], ['발을 올려요', 1, ['발을 올려요']]]);
+  assert.deepEqual((await overview()).cloudPending, ['name-1']);
+  assert.deepEqual(await service.groupCloud({code, cloud: 'use-1'}, room.teacherToken), {grouped: false, reason: 'current'}); assert.equal(asked.length, 1);
+  // A new answer shows at once (alone, or with a word by the rules) and makes the cloud pending again; asking again
+  // within a few seconds is put off, and then the helper gets the groups made so far.
+  await answer(5, '방석', '누워서 쉬어요');
+  assert.deepEqual((await cloud()).useWords.map(word => [word.text, word.count]), [['머리를 받치고 쉬어요', 4], ['발을 올려요', 1], ['누워서 쉬어요', 1]]);
+  assert.deepEqual(await service.groupCloud({code, cloud: 'use-1'}, room.teacherToken), {grouped: false, reason: 'recent'});
+  clock += 6000;
+  assert.deepEqual(await service.groupCloud({code, cloud: 'use-1'}, room.teacherToken), {grouped: true, words: 6});
+  assert.deepEqual(asked[1].existing.map(group => [group.label, group.ids.length]), [['머리를 받치고 쉬어요', 4], ['발을 올려요', 1]]);
+  assert.deepEqual((await cloud()).useWords.map(word => [word.text, word.count]), [['머리를 받치고 쉬어요', 5], ['발을 올려요', 1]]);
+  // A slide's screen (the PPT link) may ask too and sees which clouds wait; a visitor's link may not ask and is not told.
+  const ppt = await service.control({code, command: 'observer-link', role: 'presenter'}, room.teacherToken), visitor = await service.control({code, command: 'observer-link'}, room.teacherToken);
+  assert.deepEqual((await service.observe({code}, ppt.observerToken)).cloudPending, ['name-1']); assert.equal((await service.observe({code}, visitor.observerToken)).cloudPending, undefined);
+  clock += 6000;
+  assert.equal((await service.groupCloud({code, cloud: 'name-1'}, ppt.observerToken)).grouped, true);
+  await rejectsCode(service.groupCloud({code, cloud: 'name-1'}, visitor.observerToken), 'teacher-auth');
+  await rejectsCode(service.groupCloud({code, cloud: 'name-1'}, students[0].participantToken), 'teacher-auth');
+  await rejectsCode(service.groupCloud({code, cloud: 'name-9'}, room.teacherToken), 'invalid-cloud');
+  // Visitors get the same words, with what was written but no names.
+  const seen = await service.observe({code}, visitor.observerToken);
+  assert.deepEqual(seen.observations[0].useWords, (await cloud()).useWords); assert.ok(!JSON.stringify(seen).includes('학생1'));
+  // If the helper fails, the words stay as they were and it is not asked again at once; with no helper nothing is asked.
+  await answer(0, '베개', '보물을 넣어요', 2); clock += 6000; helper = async () => { throw new Error('timeout'); };
+  assert.deepEqual(await service.groupCloud({code, cloud: 'use-1'}, room.teacherToken), {grouped: false, reason: 'unavailable'});
+  assert.deepEqual((await cloud()).useWords.map(word => [word.text, word.count]), [['머리를 받치고 쉬어요', 4], ['발을 올려요', 1], ['보물을 넣어요', 1]]);
+  assert.deepEqual(await service.groupCloud({code, cloud: 'use-1'}, room.teacherToken), {grouped: false, reason: 'recent'});
+  const plain = new ClassroomService(store, {now: () => clock + 60000});
+  assert.deepEqual(await plain.groupCloud({code, cloud: 'use-1'}, room.teacherToken), {grouped: false, reason: 'unavailable'});
+  // A new run of the activity starts from the rules again.
+  await control('pause'); await control('start', 2);
+  assert.deepEqual((await overview()).cloudPending, []); assert.deepEqual((await cloud()).useWords, []);
 });
 
 test('unfinished works, invalid images, oversized images, and writes under a different student are rejected', async () => {
@@ -1295,7 +1353,7 @@ test('beauty responses form an anonymous phrase cloud with actual frequency and 
   const texts = ['은은한 푸른빛', '은은한 푸른빛.', '학 무늬가 섬세해요'];
   for (let i = 0; i < students.length; i++) await f.service.beautyAnswer({code, participantId: students[i].participantId, runId: beauty.state.runId, clientRevision: 1, text: texts[i], final: i < 2}, students[i].participantToken);
   const teacher = await f.service.overview({code}, f.room.teacherToken), link = await f.control('observer-link'), observer = await f.service.observe({code}, link.observerToken);
-  assert.deepEqual(teacher.beauty.words, [{text: '은은한 푸른빛', count: 2}, {text: '학 무늬가 섬세해요', count: 1}]);
+  assert.deepEqual(teacher.beauty.words, [{text: '은은한 푸른빛', count: 2, answers: [{text: '은은한 푸른빛', count: 2}]}, {text: '학 무늬가 섬세해요', count: 1, answers: [{text: '학 무늬가 섬세해요', count: 1}]}]);
   assert.equal(teacher.beauty.respondents, 3); assert.equal(teacher.beauty.total, 3); assert.equal(teacher.beauty.submitted, 2);
   assert.deepEqual(observer.beauty, teacher.beauty); assert.equal(teacher.participants[0].beautySubmitted, true); assert.equal(teacher.participants[2].beautyComplete, true);
   for (const name of ['첫째', '둘째', '셋째']) assert.ok(!JSON.stringify(observer).includes(name));
