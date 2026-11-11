@@ -4,18 +4,55 @@ import { angleDelta, frameAngle } from './rotation-rules.js';
 // Height stays in vessel space, so rotation carries decoration around the body.
 export const SURFACE_ELEVATION = .24;
 
-// Most vessels are round: a point of the surface is an angle around the body. The pillow is a box, about 0.57 times
-// as deep as it is wide. Its surface is measured along the outline seen from above (front face, right end, back face,
-// left end) and scaled so that one turn is still 2π — a motif then stays on the face it was pressed into, and passes
-// around a corner as the pillow turns, instead of sliding over the faces as it would on a cylinder.
-// `elevation` is how much nearer points sit lower in the pillow's pictures (measured from the slope of its long face
-// in each of them: about 0.29, a little more than the round vessels' 0.24).
-export const SECTIONS = Object.freeze({ pillow: Object.freeze({ depth: .567, elevation: .29 }) });
+// Most vessels are round: a point of the surface is an angle around the body. Two are not, and their surface is
+// measured along the outline seen from above, scaled so that one turn is still 2π — a motif then stays on the part
+// it was pressed into and turns with it, instead of sliding over the body as it would on a cylinder:
+//  - the pillow is a box about 0.57 times as deep as it is wide (front face, right end, back face, left end);
+//  - the duck dropper is an oval about 0.55 times as deep as it is long (its pictures are 0.69 wide from the side and
+//    0.38 from the front).
+// `elevation` is how much nearer points sit lower in the pictures (the pillow's, measured from the slope of its long
+// face, is about 0.29; others keep the round vessels' 0.24). `wholeOutline`: a box's slanted faces cut a single row
+// of the picture short, so it is placed across the picture's whole width instead (craft-2d.js).
+export const SECTIONS = Object.freeze({
+  pillow: Object.freeze({ shape: 'box', depth: .567, elevation: .29, wholeOutline: true }),
+  duckDropper: Object.freeze({ shape: 'oval', depth: .55 }),
+});
 export const sectionFor = id => SECTIONS[id] || null;
 const TAU = Math.PI * 2;
-// How far along the outline one unit of width is, as an angle (1 for a round body).
-export const sectionScale = section => section ? TAU / (4 + 4 * section.depth) : 1;
 const clampUnit = value => Math.max(-.995, Math.min(.995, value));
+
+// The oval's outline, measured once per depth: the length along it (in half lengths) at evenly spaced angles θ, where
+// θ = 0 is the middle of the side facing the viewer of frame 0 and the point is (sin θ, depth · cos θ).
+const OVAL_STEPS = 1024, ovals = new Map();
+function ovalTable(depth) {
+  if (ovals.has(depth)) return ovals.get(depth);
+  const along = [0];
+  for (let i = 1; i <= OVAL_STEPS; i++) {
+    const a = (i - 1) / OVAL_STEPS * TAU, b = i / OVAL_STEPS * TAU, speed = t => Math.hypot(Math.cos(t), depth * Math.sin(t));
+    along.push(along[i - 1] + (speed(a) + speed(b)) / 2 * (b - a));
+  }
+  const table = { along, length: along[OVAL_STEPS] };
+  ovals.set(depth, table);
+  return table;
+}
+const wrap = value => ((value % TAU) + TAU) % TAU;
+function ovalAngleOf(table, theta) {
+  const at = wrap(theta) / TAU * OVAL_STEPS, i = Math.min(OVAL_STEPS - 1, Math.floor(at)), s = table.along[i] + (table.along[i + 1] - table.along[i]) * (at - i);
+  const angle = s / table.length * TAU;
+  return angle > Math.PI ? angle - TAU : angle;
+}
+function ovalThetaOf(table, angle) {
+  const s = wrap(angle) / TAU * table.length;
+  let low = 0, high = OVAL_STEPS;
+  while (high - low > 1) { const mid = (low + high) >> 1; if (table.along[mid] <= s) low = mid; else high = mid; }
+  const part = (s - table.along[low]) / ((table.along[low + 1] - table.along[low]) || 1);
+  return (low + part) / OVAL_STEPS * TAU;
+}
+function outlineLength(section) {
+  return section.shape === 'oval' ? ovalTable(section.depth).length : 4 + 4 * section.depth;
+}
+// How far along the outline one unit of width is, as an angle (1 for a round body).
+export const sectionScale = section => section ? TAU / outlineLength(section) : 1;
 
 // The point of a box outline for an angle: its place (x to the right, z toward the viewer of frame 0, half the width
 // = 1) and the way its face looks.
@@ -28,10 +65,15 @@ function boxPoint(section, angle) {
   if (s <= 3 + 2 * d) return { x: 1 - (s - 1 - 2 * d), z: -d, nx: 0, nz: -1 };
   return { x: -1, z: -d + (s - 3 - 2 * d), nx: -1, nz: 0 };
 }
-// The angle of the point seen at `t` (-1 … 1 across the outline) in a view: the visible face that lies there.
-function boxAngle(section, view, t) {
-  const phi = frameAngle(view), c = Math.cos(phi), s = Math.sin(phi), d = section.depth, length = 4 + 4 * d;
-  const target = t * (Math.abs(c) + d * Math.abs(s));
+function ovalPoint(section, angle) {
+  const d = section.depth, theta = ovalThetaOf(ovalTable(d), angle), x = Math.sin(theta), z = d * Math.cos(theta), n = Math.hypot(x, z / (d * d));
+  return { x, z, nx: x / n, nz: z / (d * d) / n };
+}
+// The angle of the point seen at `t` (-1 … 1 across the outline) in a view: the visible part that lies there.
+function sectionAngle(section, view, t) {
+  const phi = frameAngle(view), c = Math.cos(phi), s = Math.sin(phi), d = section.depth;
+  if (section.shape === 'oval') return ovalAngleOf(ovalTable(d), Math.atan2(d * s, c) + Math.asin(t));
+  const length = 4 + 4 * d, target = t * (Math.abs(c) + d * Math.abs(s));
   // each face: where it starts and ends (x, z), how it looks (nx, nz), and where it starts along the outline
   const faces = [[-1, d, 1, d, 0, 1, -1], [1, d, 1, -d, 1, 0, 1], [1, -d, -1, -d, 0, -1, 1 + 2 * d], [-1, -d, -1, d, -1, 0, 3 + 2 * d]];
   let best = null;
@@ -43,15 +85,16 @@ function boxAngle(section, view, t) {
   }
   return (best ? best.at : 0) / length * TAU;
 }
-// Where a box point lands in a view: across the outline (-1 … 1), how far it sits below its own level (`drop`, scaled
-// like `across`) and how squarely its face looks at the viewer.
-// The pictures of every view stand on the same floor line, so the nearest corner of the box is always the lowest
-// point, at the height the front face has in the front view. A point drops by how near it is, less what the nearest
-// corner is nearer than the front face was — otherwise a turned pillow's motifs would hang below the pillow.
-// `back` is the far wall seen through the vessel; it mirrors the near one.
-function boxView(section, angle, view, back = false) {
-  const phi = frameAngle(view), c = Math.cos(phi), s = Math.sin(phi), p = boxPoint(section, angle), d = section.depth;
-  const half = Math.abs(c) + d * Math.abs(s), nearest = Math.abs(s) + d * Math.abs(c), toward = p.x * s + p.z * c;
+// Where a point of the outline lands in a view: across the outline (-1 … 1), how far it sits below its own level
+// (`drop`, scaled like `across`) and how squarely its surface looks at the viewer.
+// The pictures of every view stand on the same floor line, so the nearest point of the body is always the lowest,
+// at the height the front had in the front view. A point drops by how near it is, less what the nearest point is
+// nearer than the front was — otherwise a turned pillow's motifs would hang below the pillow. (For a round body this
+// is the cylinder's own rule.) `back` is the far wall seen through the vessel; it mirrors the near one.
+function sectionView(section, angle, view, back = false) {
+  const phi = frameAngle(view), c = Math.cos(phi), s = Math.sin(phi), d = section.depth, oval = section.shape === 'oval';
+  const p = oval ? ovalPoint(section, angle) : boxPoint(section, angle);
+  const half = oval ? Math.hypot(c, d * s) : Math.abs(c) + d * Math.abs(s), nearest = oval ? Math.hypot(s, d * c) : Math.abs(s) + d * Math.abs(c), toward = p.x * s + p.z * c;
   return { across: (p.x * c - p.z * s) / half, drop: ((back ? -toward : toward) - nearest + d) / half, facing: p.nx * s + p.nz * c, half };
 }
 
@@ -59,8 +102,8 @@ export function surfaceAnchor(uv, angle, row, view = 0, section = null) {
   const radius = Math.max(.035, (row[1] - row[0]) / 2);
   const t = clampUnit((uv[0] - (row[0] + row[1]) / 2) / radius);
   if (section) {
-    const pressed = boxAngle(section, view, t), seen = boxView(section, pressed, view);
-    // `radius` is half the width of the front face on screen, so a motif keeps its size on every face.
+    const pressed = sectionAngle(section, view, t), seen = sectionView(section, pressed, view);
+    // `radius` is half the width of the front on screen, so a motif keeps its size wherever it is pressed.
     return { angle: angle ?? pressed, radius: Math.max(.035, radius / seen.half), level: uv[1] - radius * (section.elevation ?? SURFACE_ELEVATION) * seen.drop };
   }
   return { angle: angle ?? frameAngle(view) + Math.asin(t), radius,
@@ -68,7 +111,7 @@ export function surfaceAnchor(uv, angle, row, view = 0, section = null) {
 }
 export function projectCurvedSurface(angle, level, view, rowAt, back = false, section = null) {
   if (section) {
-    const seen = boxView(section, angle, view, back), elevation = section.elevation ?? SURFACE_ELEVATION;
+    const seen = sectionView(section, angle, view, back), elevation = section.elevation ?? SURFACE_ELEVATION;
     if (back ? seen.facing > -.035 : seen.facing < .035) return null;
     let row = rowAt(level), radius, v = level;
     for (let i = 0; i < 3; i++) {

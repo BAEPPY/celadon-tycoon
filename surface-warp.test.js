@@ -75,3 +75,36 @@ test('베개를 돌려도 가까운 모서리는 바닥선에 머물러 무늬�
   }
   assert.ok(last>.68&&last<.76,`at 75 degrees the far end is about where the picture has it (${last})`);
 });
+test('오리 연적은 길쭉한 타원이라 무늬가 옆면에 붙어 돌고, 깊이 1인 타원은 원통과 같다',()=>{
+  const duck=sectionFor('duckDropper');
+  assert.equal(duck.shape,'oval');assert.ok(duck.depth>.45&&duck.depth<.65);
+  assert.ok(!duck.wholeOutline,'a rounded body is placed across the row at its own height');
+  // An oval as deep as it is wide is the cylinder the round vessels use.
+  const round={shape:'oval',depth:1},row=()=>[.25,.75];
+  assert.ok(Math.abs(sectionScale(round)-1)<1e-4);
+  for(const view of [0,3,7,12,19])for(const u of [.3,.45,.6,.72]){
+    const a=surfaceAnchor([u,.6],undefined,row(),view),b=surfaceAnchor([u,.6],undefined,row(),view,round);
+    assert.ok(Math.abs(wrap(a.angle-b.angle))<1e-3&&Math.abs(a.level-b.level)<1e-9,`press ${view} ${u}`);
+    for(const later of [view+2,view+5]){
+      const p=projectCurvedSurface(a.angle,a.level,later,row),q=projectCurvedSurface(b.angle,b.level,later,row,false,round);
+      assert.equal(Boolean(p),Boolean(q));if(p)assert.ok(Math.abs(p.uv[0]-q.uv[0])<1e-3&&Math.abs(p.uv[1]-q.uv[1])<1e-6,`view ${later}`);
+    }
+  }
+  // The duck: what is pressed lands where it was pressed, in every view.
+  for(const view of [0,2,4,6,9,13,18])for(const u of [.3,.45,.6,.72]){
+    const a=surfaceAnchor([u,.6],undefined,row(),view,duck),p=projectCurvedSurface(a.angle,a.level,view,row,false,duck);
+    assert.ok(p&&Math.abs(p.uv[0]-u)<1e-6&&Math.abs(p.uv[1]-.6)<1e-9,`view ${view}, u ${u}`);
+  }
+  // Rows as wide as the oval seen in each view: the nearest point stays on its line, and motifs on the long side stay
+  // spread over the part of the body that side takes (a cylinder would push them to the edge by 60 degrees).
+  const rowFor=view=>{const phi=view*Math.PI/12,radius=.35*Math.hypot(Math.cos(phi),duck.depth*Math.sin(phi));return ()=>[.5-radius,.5+radius];};
+  const marks=[.3,.5,.7].map(u=>surfaceAnchor([u,.6],undefined,rowFor(0)(),0,duck));
+  const seen=marks.map(mark=>projectCurvedSurface(mark.angle,mark.level,4,rowFor(4),false,duck)),width=rowFor(4)()[1]-rowFor(4)()[0];
+  assert.ok(seen.every(Boolean));assert.ok((seen[2].uv[0]-seen[0].uv[0])/width>.25,`spread over ${(seen[2].uv[0]-seen[0].uv[0])/width} of the width at 60 degrees`);
+  const cylinder=marks.map((mark,i)=>{const a=surfaceAnchor([[.3,.5,.7][i],.6],undefined,rowFor(0)(),0);return projectCurvedSurface(a.angle,a.level,4,rowFor(4));});
+  const shown=cylinder.filter(Boolean),cylinderSpread=shown.length>1?shown[shown.length-1].uv[0]-shown[0].uv[0]:0;
+  assert.ok(shown.length<3||cylinderSpread<seen[2].uv[0]-seen[0].uv[0],'on a cylinder they would be hidden or crowded');
+  // The side is edge-on from the front (a quarter turn), so its middle is hidden then.
+  assert.equal(projectCurvedSurface(marks[1].angle,marks[1].level,6,rowFor(6),false,duck),null);
+});
+const wrap=value=>Math.atan2(Math.sin(value),Math.cos(value));
