@@ -5,10 +5,10 @@
 .loading-card h1{margin:0;font-size:clamp(23px,3.2vw,31px);line-height:1.4;font-weight:400;color:#526d5d}
 .loading-stage{height:228px;position:relative;display:flex;justify-content:center;align-items:flex-end;gap:8px;margin:20px 0 14px;isolation:isolate;overflow:hidden}
 .loading-stage:after{content:'';position:absolute;bottom:4px;left:7%;right:7%;height:3px;border-radius:50%;background:#c9cdb0;z-index:-1}
-.loading-runner{width:204px;aspect-ratio:1;flex:0 1 204px;min-width:0;background-size:400% 200%;background-repeat:no-repeat;background-position:0 0;visibility:hidden}
+.loading-runner{width:204px;aspect-ratio:1;flex:0 1 204px;min-width:0;background-size:600% 400%;background-repeat:no-repeat;background-position:0 0;visibility:hidden}
 .loading-runner.is-ready{visibility:visible}
-.loading-runner[data-runner=girl]{background-image:url('./assets/loading/girl-run.webp')}
-.loading-runner[data-runner=boy]{background-image:url('./assets/loading/boy-run.webp');background-position:0 100%}
+.loading-runner[data-runner=girl]{background-image:url('./assets/loading/girl-run-24.webp')}
+.loading-runner[data-runner=boy]{background-image:url('./assets/loading/boy-run-24.webp');background-position:0 66.6666667%}
 .loading-dust{position:absolute;bottom:11px;width:70px;height:auto;opacity:0;visibility:hidden;z-index:-1;pointer-events:none}
 .loading-dust.is-ready{visibility:visible}.loading-dust.first{left:3%}.loading-dust.second{left:45%}
 .loading-progress-row{display:flex;align-items:center;gap:13px;margin:0 12px}
