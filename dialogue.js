@@ -37,7 +37,7 @@ export const ORDER_QUOTES = Object.freeze({
  'example-pitcher':'물을 따를 주전자가 필요하오. 용의 머리와 물고기의 몸을 닮은 어룡 형태를 고르고, 새 무늬는 넣지 마시오.',
  'example-incense':'둥근 칠보무늬 뚜껑의 향로 형태를 본떠 향 피울 그릇을 만드시오. 새 구름 구멍무늬도 뚫어 주시오.',
  'example-stool':'정원에서 앉아 쉴 투각 의자를 부탁하오. 몸통에 연꽃 모양 구멍무늬를 넣어 주시오.',
- 'example-maebyeong':'재현 매병의 작은 입과 넓은 어깨를 살려 내용물을 담을 병을 부탁하오. 학과 구름 두 무늬를 상감으로 넣어 주시오.',
+ 'example-maebyeong':'작은 입과 넓은 어깨를 가진 매병에 내용물을 담아 두려 하오. 학과 구름 두 무늬를 상감으로 넣어 주시오.',
  'example-cupStand':'음료를 마실 잔과 그 잔을 올려 둘 받침이 함께 필요하오. 한 세트로 빚고 연꽃을 상감으로 넣어 주시오.',
  'example-chrysanthemumCup':'직접 음료를 마실 잔이 필요하오. 국화무늬 잔의 형태를 본떠 상감 국화를 넣어 주시오.',
  'example-willowMaebyeong':'내용물을 담을 매병에 물가의 풍경을 담고 싶소. 물가무늬 매병의 형태를 본떠 버드나무를 상감으로 넣으시오.',
@@ -49,7 +49,7 @@ export const ORDER_QUOTES = Object.freeze({
  'example-gourdPitcher':'잔에 물을 따를 조롱박 주전자와 받침을 부탁하오. 손잡이와 주둥이가 있는 형태를 골라 포도무늬를 상감으로 넣어 주시오.',
  'example-bambooShootPitcher':'죽순을 본뜬 주전자로 손님에게 물을 따르려 하오. 죽순 형태를 고르고 새 무늬는 넣지 마시오.',
  'example-wildflowerPitcher':'풀꽃 주전자와 받침의 형태를 본떠 빚으시오. 음료를 따를 때 쓸 것이니 풀꽃을 상감으로 넣어 주시오.',
- 'example-qilinIncense':'시기 미정으로 표시된 기린 향로를 참고해 향로를 만드시오. 세 다리와 동물 형태를 살리고 새 무늬는 넣지 마시오.',
+ 'example-qilinIncense':'방 안에서 향을 피우려 하오. 상상 속 동물인 기린의 모습과 세 다리를 살려 향로를 빚고, 새 무늬는 넣지 마시오.',
  'example-qilinDecoratedIncense':'기린장식 향로를 본떠 향을 피울 그릇을 부탁하오. 동물 장식 아래 몸통에 구름무늬를 상감으로 넣어 주시오.',
  'example-duckIncense':'오리 모양 뚜껑이 이미 달린 향로 형태를 고르시오. 향을 피울 것이니 새 무늬는 넣지 마시오.',
  'example-peonyPitcher':'모란 주전자의 조롱박 몸통을 본떠 물을 따를 그릇을 만드시오. 새 작품에도 모란을 상감으로 넣어 주시오.',
@@ -58,8 +58,70 @@ export const ORDER_QUOTES = Object.freeze({
  'example-poemGourdBottle':'조롱박 병의 형태로 내용물을 담을 병을 부탁하오. 연꽃과 글자 무늬를 모두 상감으로 표현해 주시오.',
 });
 
-// What the customer says, ending with the pattern part of the order (kinds and numbers) in the same way of speaking.
-export function orderQuote(order){
+/** The mentor sets a making challenge, rather than requesting a vessel for her own use. */
+export const ARTISAN_ORDER_QUOTES = Object.freeze({
+ 'royal-rest':'누워서 쉴 때 머리를 받칠 물건을 만들어 보아라. 학 무늬는 다른 색의 흙으로 넣어 보아라.',
+ 'noble-banquet':'손님들에게 물을 따를 물건을 만들어 보아라. 잡기 편한 손잡이와 물을 따르는 주둥이를 갖추고, 장식은 스스로 정해 보아라.',
+ 'royal-fragrance':'방 안에서 향을 피울 물건을 만들어 보아라. 향 연기가 나오도록 뚜껑에 구멍을 뚫어 보아라.',
+ 'noble-garden':'정원을 바라보며 앉아 쉴 물건을 만들어 보아라. 몸체에는 뚫린 무늬를 넣어 보아라.',
+ 'noble-vessel':'내용물을 담아 둘 병을 만들어 보아라. 입은 좁고 어깨는 풍성하게 빚고, 구름 무늬도 넣어 보아라.',
+ 'lady-cloud-rest':'누워서 머리를 받칠 물건을 만들어 보아라. 구름 무늬를 파고 다른 색 흙으로 채워 보아라.',
+ 'noble-lotus-rest':'잠잘 때 머리를 받칠 물건을 만들어 보아라. 다른 색의 흙을 넣은 연꽃 무늬로 꾸며 보아라.',
+ 'royal-quiet-rest':'잠시 누워 쉴 때 머리를 받칠 물건을 만들어 보아라. 모양을 잘 다듬고, 장식은 스스로 정해 보아라.',
+ 'lady-crane-rest':'누워 쉴 때 머리 아래에 둘 물건을 만들어 보아라. 날아가는 학 무늬도 넣어 보아라.',
+ 'noble-cloud-rest':'머리를 받치고 누워 쉴 물건을 만들어 보아라. 구름 무늬를 넣되, 위치와 개수는 스스로 정해 보아라.',
+ 'royal-crane-pour':'연회에서 물을 따를 물건을 만들어 보아라. 손잡이와 주둥이를 만들고, 학 무늬는 다른 색 흙으로 넣어 보아라.',
+ 'lady-cloud-pour':'손님께 물을 따를 물건을 만들어 보아라. 구름 무늬를 파서 다른 색 흙으로 채워 보아라.',
+ 'noble-lotus-pour':'연회에서 술을 담아 따를 물건을 만들어 보아라. 손잡이를 달고 연꽃 무늬를 상감으로 넣어 보아라.',
+ 'royal-cloud-pour':'손잡이를 잡고 물을 따를 수 있는 물건을 만들어 보아라. 몸통에는 구름 무늬를 넣어 보아라.',
+ 'lady-crane-pour':'손님들의 잔에 물을 따를 물건을 만들어 보아라. 손잡이와 주둥이를 갖추고, 학 무늬도 넣어 보아라.',
+ 'lady-lotus-fragrance':'방 안에서 향을 피울 물건을 만들어 보아라. 뚜껑에 연꽃 모양의 구멍무늬를 뚫어 보아라.',
+ 'noble-cloud-fragrance':'향을 피울 물건을 만들어 보아라. 연기가 나오도록 뚜껑에 구름 모양을 뚫어 보아라.',
+ 'royal-crane-fragrance':'향을 피울 물건을 만들어 보아라. 뚜껑에 학 무늬를 뚫어 향 연기가 나올 길을 내 보아라.',
+ 'lady-evening-fragrance':'저녁에 방 안에서 향을 피울 물건을 만들어 보아라. 연기가 빠져나갈 구멍무늬를 뚫어 보아라.',
+ 'noble-lotus-fragrance':'향을 담아 피울 물건을 만들어 보아라. 뚜껑에는 연꽃 무늬를 뚫어 넣어 보아라.',
+ 'royal-cloud-seat':'정원을 보며 앉아 쉴 물건을 만들어 보아라. 몸체에는 구름 모양의 구멍무늬를 뚫어 보아라.',
+ 'lady-lotus-seat':'연못을 바라보며 앉을 물건을 만들어 보아라. 몸체에 연꽃 모양을 뚫어 꾸며 보아라.',
+ 'noble-crane-seat':'손님과 이야기를 나누며 앉을 물건을 만들어 보아라. 몸체에 학 무늬를 뚫어 넣어 보아라.',
+ 'royal-courtyard-seat':'뜰에서 잠시 앉아 쉴 물건을 만들어 보아라. 몸체에 뚫린 무늬를 넣되, 무늬의 모양은 스스로 정해 보아라.',
+ 'lady-cloud-seat':'정원에서 앉아 꽃을 볼 물건을 만들어 보아라. 몸체에는 구름 무늬를 뚫어 보아라.',
+ 'royal-crane-vessel':'내용물을 담아 둘 병을 만들어 보아라. 입은 좁고 어깨는 풍성하게, 학 무늬는 상감으로 넣어 보아라.',
+ 'lady-cloud-vessel':'내용물을 담아 둘 병을 만들어 보아라. 좁은 입과 넓은 어깨를 빚고, 다른 색 흙으로 구름 무늬를 채워 보아라.',
+ 'noble-lotus-vessel':'내용물을 담을 병을 입이 좁고 어깨가 넓게 만들어 보아라. 연꽃 무늬를 상감으로 넣어 보아라.',
+ 'lady-crane-vessel':'내용물을 담을 병을 만들어 보아라. 입은 좁게, 어깨는 넓게 만들고 학 무늬도 넣어 보아라.',
+ 'royal-simple-vessel':'내용물을 담을 병을 만들어 보아라. 좁은 입과 풍성한 어깨를 잘 표현하고, 장식은 자유롭게 정해 보아라.',
+ 'example-pillow':'머리를 받칠 베개를 만들어 보아라. 베개의 넓은 옆면에 학을 상감으로 넣어 보아라.',
+ 'example-pitcher':'물을 따를 주전자를 만들어 보아라. 용의 머리와 물고기의 몸을 닮은 어룡 형태를 고르고, 새 무늬는 넣지 말아라.',
+ 'example-incense':'둥근 칠보무늬 뚜껑의 향로 형태를 본떠 향 피울 그릇을 만들어 보아라. 새 구름 구멍무늬도 뚫어 보아라.',
+ 'example-stool':'정원에서 앉아 쉴 투각 의자를 만들어 보아라. 몸통에 연꽃 모양 구멍무늬를 넣어 보아라.',
+ 'example-maebyeong':'내용물을 담아 둘 매병을 작은 입과 넓은 어깨를 갖추어 만들어 보아라. 학과 구름 두 무늬를 상감으로 넣어 보아라.',
+ 'example-cupStand':'음료를 마실 잔과 그 잔을 올려 둘 받침을 한 세트로 빚어 보아라. 연꽃을 상감으로 넣어 보아라.',
+ 'example-chrysanthemumCup':'직접 음료를 마실 잔을 만들어 보아라. 국화무늬 잔의 형태를 본떠 상감 국화를 넣어 보아라.',
+ 'example-willowMaebyeong':'내용물을 담을 매병에 물가의 풍경을 표현해 보아라. 물가무늬 매병의 형태를 본떠 버드나무를 상감으로 넣어 보아라.',
+ 'example-pomegranatePitcher':'물을 담아 따를 주전자를 석류 열매 모양으로 빚어 보아라. 열매의 입체적인 모양을 살리고 새 무늬는 넣지 말아라.',
+ 'example-plumBambooMaebyeong':'매화·대나무 매병의 형태를 본떠 병을 만들어 보아라. 매화와 대나무, 학 세 무늬를 모두 상감으로 넣어 보아라.',
+ 'example-cloudCraneMaebyeong':'구름·학 매병의 잘록한 허리와 어깨를 본떠 내용물을 담을 병을 만들어 보아라. 구름과 학을 모두 상감으로 넣어 보아라.',
+ 'example-pomegranateDropper':'먹을 갈 때 벼루에 물을 조금씩 부을 연적을 만들어 보아라. 원숭이가 석류를 안은 형태를 고르고 새 무늬는 넣지 말아라.',
+ 'example-duckDropper':'벼루에 물을 조금씩 부을 오리 모양 연적을 만들어 보아라. 오리 향로가 아닌 연적 형태를 고르고, 새 무늬는 넣지 말아라.',
+ 'example-gourdPitcher':'잔에 물을 따를 조롱박 주전자와 받침을 만들어 보아라. 손잡이와 주둥이가 있는 형태를 골라 포도무늬를 상감으로 넣어 보아라.',
+ 'example-bambooShootPitcher':'손님에게 물을 따를 주전자를 죽순 모양으로 빚어 보아라. 죽순 형태를 고르고 새 무늬는 넣지 말아라.',
+ 'example-wildflowerPitcher':'음료를 따를 풀꽃 주전자와 받침의 형태를 본떠 빚어 보아라. 풀꽃을 상감으로 넣어 보아라.',
+ 'example-qilinIncense':'방 안에서 향을 피울 향로를 만들어 보아라. 상상 속 동물인 기린의 모습과 세 다리를 살리고, 새 무늬는 넣지 말아라.',
+ 'example-qilinDecoratedIncense':'기린장식 향로를 본떠 향을 피울 그릇을 만들어 보아라. 동물 장식 아래 몸통에 구름무늬를 상감으로 넣어 보아라.',
+ 'example-duckIncense':'향을 피울 물건을 만들어 보아라. 오리 모양 뚜껑이 이미 달린 향로 형태를 고르고, 새 무늬는 넣지 말아라.',
+ 'example-peonyPitcher':'모란 주전자의 조롱박 몸통을 본떠 물을 따를 그릇을 만들어 보아라. 새 작품에도 모란을 상감으로 넣어 보아라.',
+ 'example-lotusIncense':'연꽃 향로의 꽃잎 같은 몸통 형태를 골라 보아라. 향 연기가 통하도록 연꽃 구멍무늬도 넣어 보아라.',
+ 'example-gourdBottle':'내용물을 담아 둘 조롱박 모양 병을 만들어 보아라. 손잡이와 주둥이가 따로 없는 병 형태를 고르고 새 무늬는 넣지 말아라.',
+ 'example-poemGourdBottle':'조롱박 병의 형태로 내용물을 담을 병을 만들어 보아라. 연꽃과 글자 무늬를 모두 상감으로 표현해 보아라.',
+});
+
+// Only an explicit cast changes the order voice; legacy/server callers keep the customer dialogue.
+export function orderQuote(order,customerId){
+ if(customerId==='artisan'){
+  const spoken=ARTISAN_ORDER_QUOTES[order?.id]||'제시된 쓰임과 조건을 살펴, 그에 맞는 청자를 만들어 보아라.';
+  const request=motifRequest(order,{archaic:true}).replace(/주시오\.$/,'보아라.');
+  return ['이제 혼자 청자를 빚을 수 있는지 보겠다.',spoken,request].filter(Boolean).join(' ');
+ }
  const spoken=ORDER_QUOTES[order?.id];
  if(!spoken)return String(order?.quote || '쓰임에 맞는 청자를 빚어 주시오.');
  const request=motifRequest(order,{archaic:true});
@@ -88,9 +150,9 @@ const REVIEWS=Object.freeze({
   angry:[['이건 주문과 다르오!','이대로는 쓰기 어렵겠구려. 부탁한 조건부터 다시 확인하시오.'],['형편없소!','이번 청자는 쓰임을 놓쳤구려. 천천히 고쳐 다시 보여 주시오.'],['다시 빚어 주시오!','내가 부탁한 물건과 어떤 점이 다른지 먼저 살펴보시오.']],
  },
  artisan:{
-  happy:[['잘했소, 작은 도공!','쓰임과 솜씨를 함께 생각했구려. 그대의 손끝이 한층 야무져졌소.'],['고맙소! 장인의 마음이 보이오.','흙을 다룬 과정과 그 까닭까지 잘 들었소.'],['참으로 훌륭하구려!','이 청자에 담은 생각을 다른 이에게도 들려주시오.']],
-  uncertain:[['흠, 조금 아쉽구려…','좋은 시작이오. 빠진 조건을 찾아 한 번만 더 다듬어 보시오.'],['손끝을 조금 더 살펴보시오.','모양과 기법을 고른 까닭이 작품에도 드러나면 좋겠소.'],['아직 배울 곳이 남았소.','주문과 작품을 나란히 놓고 다른 부분을 찾아보시오.']],
-  angry:[['이대로는 내보낼 수 없소!','쓰임부터 다시 생각해 보시오. 실패한 곳을 고치는 것도 도공의 일이오.'],['흠, 주문을 놓쳤구려!','모양과 제작 과정을 차근차근 확인하시오. 다시 하면 나아질 것이오.'],['형편없소, 이번 마무리는!','손을 놓지는 마시오. 고칠 부분을 찾아 다시 빚어 보시오.']],
+  happy:[['혼자서도 잘 해냈구나!','쓰임에 맞게 빚고 제작 과정도 잘 마쳤구나. 무엇을 생각하며 만들었는지 설명한 점도 좋았다.'],['이번 도전을 잘 해냈구나!','모양과 기법, 무늬를 살펴 스스로 완성했구나. 다음 도전에서도 그 솜씨를 발휘해 보자.'],['도공의 솜씨가 자랐구나!','만드는 과정과 그 까닭을 잘 익혔구나. 이제 배운 것을 새로운 청자에도 써 보자.']],
+  uncertain:[['조금만 더 다듬어 보자.','여기까지 스스로 해낸 점이 좋구나. 아직 맞지 않는 조건을 함께 살펴보자.'],['배운 것을 다시 살펴보자.','잘한 점을 살리고, 부족한 부분은 한 가지씩 고쳐 보자.'],['한 걸음 더 나아가 보자.','도전 조건과 작품을 나란히 보며 다음에 보완할 곳을 찾아보자.']],
+  angry:[['괜찮다, 다시 배워 보자.','이번에 어려웠던 부분부터 살펴보자. 고칠 곳을 알고 다시 해 보는 것도 도공의 배움이란다.'],['차근차근 다시 도전해 보자.','놓친 조건을 하나씩 확인해 보자. 다음에는 배운 것을 스스로 적용해 보아라.'],['이번 경험을 다음에 살려 보자.','어느 부분에서 어려웠는지 함께 짚어 보자. 다시 연습하면 더 잘할 수 있단다.']],
  },
 });
 const hash=text=>{let n=0;for(const c of String(text))n=(Math.imul(n,31)+c.charCodeAt(0))>>>0;return n;};
@@ -100,14 +162,14 @@ const EXPLANATION_REVIEWS=Object.freeze({
  queen:[['청자는 곱게 완성했소.','부탁한 모양과 제작은 잘 갖추었소. 이 청자의 쓰임과 솜씨를 말로도 전해 주시오.'],['작품은 마음에 드는구려.','주문의 조건은 잘 맞췄소. 그 모양과 무늬를 고른 까닭을 조금 더 들려주시오.'],['이야기가 조금 아쉽소.','청자를 잘 만든 것은 보이오. 어디에 쓰고 어떤 공을 들였는지 보태 주시오.']],
  noble:[['청자는 제대로 만들었소.','주문한 모양과 제작은 모두 맞소. 이 물건을 어떻게 쓰고 만들었는지 설명해 주시오.'],['기물은 흡족하구려.','부탁한 조건을 꼼꼼히 갖췄소. 작품에 담은 까닭까지 들으면 좋겠구려.'],['설명을 더 듣고 싶소.','청자는 주문에 맞게 잘 빚었소. 그대가 생각한 쓰임과 솜씨를 들려주시오.']],
  noblewoman:[['청자는 마음에 드오.','부탁한 대로 잘 빚었구려. 우리 집 어디에 쓰면 좋을지 이야기도 보태 주시오.'],['잘 만든 것은 알겠소.','모양과 제작 조건은 모두 맞소. 무슨 생각으로 만들었는지 더 듣고 싶구려.'],['이야기만 더 들려주시오.','부탁한 기물은 잘 완성했소. 쓰임과 공들인 부분을 차근히 이야기해 주시오.']],
- artisan:[['손끝의 솜씨는 좋구려.','주문과 제작 과정은 모두 맞췄소. 이제 왜 그렇게 만들었는지 설명해 보시오.'],['청자는 잘 완성했소.','모양과 제작을 제대로 익혔구려. 그 까닭을 말로 풀어내는 연습도 해 보시오.'],['생각을 더 들려주시오.','주문에 맞게 잘 빚었소. 어느 곳에 쓰고 무엇에 공을 들였는지 이야기해 보시오.']],
+ artisan:[['혼자서 청자를 잘 완성했구나.','쓰임과 제작 조건을 모두 잘 맞췄구나. 이제 왜 그렇게 만들었는지 설명하는 연습을 해 보자.'],['만드는 솜씨는 잘 익혔구나.','모양과 제작을 제대로 익혔구나. 그 까닭을 네 말로 풀어내 보아라.'],['작품에 담은 생각도 들려주렴.','조건에 맞게 청자를 잘 빚었구나. 어디에 쓰고 무엇에 공을 들였는지 이야기해 보아라.']],
 });
 const REPAIR_QUOTES=Object.freeze({
  king:{use:['과인이 무엇에 쓰려 했는지 다시 살피시오. 그 쓰임에 맞는 기물을 고르시오.','부탁한 쓰임과 고른 기물의 형태가 다르구려. 쓸 자리를 생각하여 다시 고르시오.'],process:['기물의 제작이 아직 끝나지 않았구려. 남은 과정을 차근히 마무리하시오.','제작 단계에 빠진 곳이 보이오. 마무리한 뒤 다시 가져오시오.'],design:['기법이나 무늬, 세부 형태에서 주문과 다른 조건이 있소. 아래 짚은 부분을 살피시오.','과인이 부탁한 세부 조건이 아직 맞지 않소. 짚어 드리는 조건을 다시 확인하시오.']},
  queen:{use:['부탁한 자리에 쓰기에는 기물의 종류가 다르구려. 쓰임에 맞는 형태를 골라 주시오.','내가 무엇을 하려 했는지 떠올려 보시오. 그 일에 알맞은 기물을 부탁하오.'],process:['완성까지 남은 제작 과정이 있소. 차례대로 마무리해 주시오.','제작의 한 단계가 빠졌구려. 남은 손질을 마친 뒤 다시 보여 주시오.'],design:['부탁한 기법과 무늬, 세부 형태 중 다른 조건이 보이오. 짚은 곳을 맞춰 주시오.','주문의 세부 조건을 조금 더 살펴 주시오. 고칠 곳을 아래에 짚어 두었소.']},
  noble:{use:['내가 부탁한 쓰임에는 다른 형태가 필요하오. 주문을 읽고 기물부터 다시 골라 주시오.','이 물건의 쓰임이 부탁한 것과 다르오. 어디에 쓸지 생각하며 형태를 고르시오.'],process:['제작이 덜 끝났구려. 남은 단계를 마쳐야 받아 쓸 수 있소.','완성에 필요한 과정이 빠졌소. 순서를 살펴 끝까지 마무리하시오.'],design:['기법과 무늬, 세부 형태 중 주문과 맞지 않는 조건이 있소. 아래 조건을 다시 보시오.','부탁한 세부 조건이 아직 빠져 있소. 짚어 드린 부분을 고쳐 주시오.']},
  noblewoman:{use:['내가 쓸 곳과 기물의 종류가 맞지 않소. 그 쓰임에 알맞은 형태로 골라 주시오.','어디에 두고 무엇을 할 물건인지 다시 살펴보시오. 그에 맞는 기물이 필요하오.'],process:['정성을 들여 마무리할 단계가 남았구려. 빠진 제작 과정을 이어 주시오.','아직 완성하지 못한 과정이 있소. 남은 손질을 마친 뒤 보여 주시오.'],design:['부탁한 기법이나 무늬, 세부 형태에 다른 점이 남았소. 짚은 조건을 다시 살펴 주시오.','주문에서 세세히 부탁한 부분을 더 맞춰 주시오. 고칠 조건을 아래에 적었소.']},
- artisan:{use:['먼저 이 기물의 쓰임을 떠올려 보시오. 주문한 일에 알맞은 형태를 다시 골라 보시오.','쓰임과 형태를 잇는 연습이 더 필요하오. 무엇을 할 물건인지부터 다시 살피시오.'],process:['제작 과정에 빠진 단계가 있구려. 순서대로 끝까지 해내는 것도 도공의 솜씨요.','마무리하지 못한 제작 단계를 살펴보시오. 남은 일을 차근히 끝내 보시오.'],design:['세부 형태와 기법, 무늬에서 주문과 다른 조건을 찾아보시오. 고칠 부분을 아래에 짚었소.','주문의 세부 조건을 다시 확인할 차례요. 짚어 준 조건부터 맞춰 보시오.']},
+ artisan:{use:['무엇에 쓸 물건인지부터 다시 생각해 보자. 그 쓰임에 알맞은 형태를 고르는 연습을 해 보아라.','쓰임과 형태를 연결해 보자. 이 물건으로 하려던 일을 떠올리면 형태를 고를 수 있단다.'],process:['제작 과정에서 마치지 못한 단계를 함께 살펴보자. 다음에는 순서대로 끝까지 해 보아라.','아직 마무리하지 못한 제작 단계가 있구나. 남은 과정을 확인하고 다음 도전에 살려 보자.'],design:['세부 형태와 기법, 무늬 중 도전 조건과 다른 부분을 찾아보자. 아래에 짚은 곳부터 확인해 보아라.','세부 조건을 맞추는 연습을 해 보자. 짚어 준 기법이나 무늬, 형태를 다음 도전에서 살려 보아라.']},
 });
 const glazeOnlyShortfall=shortfall=>shortfall?.key==='process'&&Number.isFinite(shortfall.glazeScore)&&shortfall.glazeScore<10&&shortfall.score===20+shortfall.glazeScore;
 function reviewDetail(shortfall){
@@ -125,6 +187,24 @@ function reviewDetail(shortfall){
  }
  return ['selfBeauty','explanationBeauty'].includes(shortfall.key)?'공들인 부분과 그때 한 작업, 그렇게 표현한 까닭을 구체적으로 설명하시오.':'만든 모양·무늬가 어디에 쓰기 알맞은지 까닭을 덧붙여 주시오.';
 }
+function mentorReviewDetail(shortfall){
+ if(!shortfall)return '오늘 스스로 해낸 과정과 작품에 담은 생각을 기억하며 다음 도전도 해 보자.';
+ const feedback=String(shortfall.feedback||'');
+ if(shortfall.key==='use'){
+  const shape=feedback.match(/이 주문에는 (.+?)의 쓰임/);
+  return shape?`이번 쓰임에는 ${shape[1]}의 형태가 알맞단다. 왜 그런지 생각하며 다시 골라 보아라.`:'무엇에 쓸 청자인지 떠올리고, 그 쓰임에 맞는 형태를 골라 보아라.';
+ }
+ if(glazeOnlyShortfall(shortfall))return feedback.includes('얇으면')?'유약에서 조금 일찍 꺼냈구나. 다음에는 5초에 가깝게 담가 빛깔과 광택을 살려 보자.':'유약에 조금 오래 담갔구나. 다음에는 5초에 가깝게 꺼내 유약이 흘러내리는 것을 줄여 보자.';
+ if(shortfall.key==='process')return feedback.includes('제작 단계를')?'고른 표현 방법의 제작 단계부터 끝까지 마치는 연습을 해 보자.':'건조 → 초벌 → 유약 → 재벌의 순서로 남은 과정을 마치는 연습을 해 보자.';
+ if(shortfall.key==='design'){
+  if(feedback.includes('물이 샐'))return '몸통에 구멍이 있으면 물이 샐 수 있단다. 물을 담을 기물에는 상감이나 무문을 골라 보아라.';
+  if(feedback.includes('세부 형태'))return '참고 예시와 네가 고른 세부 형태를 나란히 놓고 다른 곳을 찾아보아라.';
+  const motif=feedback.match(/주문에 있는 (.+?)를 다시/);if(motif)return `${motif[1]} 무늬가 모두 들어 있는지 살펴보자. 다음에는 필요한 무늬를 먼저 확인해 보아라.`;
+  const technique=feedback.match(/이 주문에는 (.+?) 기법이 필요/);if(technique)return `이번 도전에는 ${technique[1]} 기법이 필요하단다. 그 방법으로 표현하는 연습을 해 보자.`;
+  return '기법과 무늬, 세부 형태 가운데 아직 맞지 않는 조건을 확인하고 다음 도전에 살려 보자.';
+ }
+ return ['selfBeauty','explanationBeauty'].includes(shortfall.key)?'어디에 공을 들였는지, 어떤 작업을 했는지, 왜 그렇게 표현했는지 네 말로 이야기해 보아라.':'네가 만든 모양과 무늬가 어디에 쓰기 알맞은지, 그 까닭을 덧붙여 보아라.';
+}
 export function customerReview(order,score,work={}){
  const character=castForOrder(order||{id:'unknown'},work.customerId),mood=reviewMood(score),seed=hash(`${work.id||''}:${order?.id||''}:${score?.total||0}`);
  const shortfalls=(score?.breakdown||[]).filter(item=>item.max>0&&item.score<item.max);
@@ -137,7 +217,7 @@ export function customerReview(order,score,work={}){
  if(explanationOnly){const variants=EXPLANATION_REVIEWS[character.id];[headline,quote]=variants[seed%variants.length];}
  else if(mood!=='happy'){
   const focus=objectiveShortfalls.length?shortfall.key:'design',variants=REPAIR_QUOTES[character.id][focus];
-  quote=glazeOnlyShortfall(shortfall)?'제작 순서는 잘 지켰소. 유약을 담그는 시간을 조금 더 살펴보시오.':variants[seed%variants.length];
+  quote=glazeOnlyShortfall(shortfall)?(character.id==='artisan'?'제작 순서는 잘 지켰구나. 이제 유약을 담그는 시간을 맞추는 연습을 해 보자.':'제작 순서는 잘 지켰소. 유약을 담그는 시간을 조금 더 살펴보시오.'):variants[seed%variants.length];
  }
- return {character:character.id,mood,headline,quote,detail:reviewDetail(shortfall),focus:shortfall?.key||'complete',learningFeedback:shortfall?.feedback||'',total:Number(score?.total)||0};
+ return {character:character.id,mood,headline,quote,detail:character.id==='artisan'?mentorReviewDetail(shortfall):reviewDetail(shortfall),focus:shortfall?.key||'complete',learningFeedback:shortfall?.feedback||'',total:Number(score?.total)||0};
 }

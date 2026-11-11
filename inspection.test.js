@@ -31,3 +31,11 @@ test('선별 화면은 네 청자를 동시에 보여 주며 실패와 재도전
  const work={preview:'data:image/webp;base64,example',inspection:newInspection(()=>0)};const html=inspectionMarkup(work);assert.equal((html.match(/data-inspect-index=/g)||[]).length,4);assert.ok(!html.includes('inspection-sample'));assert.ok(!html.includes('inspection-feedback'));assert.ok(!html.includes('inspection-retry'));
  work.inspection=smashSample(work.inspection,work.inspection.items.indexOf('sound'));const failure=inspectionMarkup(work);assert.match(failure,/실패…/);assert.match(failure,/다시 골라볼까요/);assert.match(failure,/data-inspection-retry/);assert.equal(work.preview,'data:image/webp;base64,example');
 });
+test('완성한 작품을 준비하는 동안 오래된 흰 유약 그림이나 예시 도자기를 대신 표시하지 않는다',()=>{
+ const work={modelId:'pillow',shape:'pillow',preview:'data:image/png;base64,STALE_WHITE_WORKBENCH',inspection:newInspection(()=>0)};
+ const html=inspectionMarkup(work);
+ assert.ok(!html.includes('STALE_WHITE_WORKBENCH'));
+ assert.ok(!html.includes('assets/vessels/'));
+ assert.equal((html.match(/style="visibility:hidden"/g)||[]).length,4);
+ assert.equal(work.preview,'data:image/png;base64,STALE_WHITE_WORKBENCH','저장한 원작 미리보기는 변경하지 않는다');
+});

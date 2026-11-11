@@ -1013,6 +1013,9 @@ export class Craft2D {
   }
   // Export the authored surface, not the screen-sized preview. The kiln keeps
   // the same proportions, decoration and openings throughout drying/glazing.
+  // `image` retains the CURRENT stage (use it for finished-work inspection).
+  // `glazedImage` always means WHITE UNFIRED glaze, even when this renderer is
+  // showing a finished green vessel. It is only an immersion-preview layer.
   exportWorkSurface() {
     if (!this.source || !this.surface || !this.work) return null;
     this.paint();

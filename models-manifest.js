@@ -168,7 +168,7 @@ export const MODEL_ARTIFACTS = Object.freeze({
     referenceTint: false,
   }),
   qilinIncense: Object.freeze({
-    id: 'qilinIncense', shortName: '기린 향로 (시기 미정)', name: '청자 기린모양 향로',
+    id: 'qilinIncense', shortName: '기린 향로', name: '청자 기린모양 향로',
     use: '향을 피울 때 사용하는 향로입니다. 상상 속 동물인 기린의 모습을 표현했습니다.',
     src: local('celadon-qilin-incense.glb'),
     sourceUrl: 'https://www.museum.go.kr/MUSEUM/contents/M0505000000.do?relicId=185757&schM=view&searchId=search',

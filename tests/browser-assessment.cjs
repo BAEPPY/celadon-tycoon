@@ -92,9 +92,14 @@ async function seed(page, draft) {
     assert.ok(api.length>=2);assert.equal(api[0].accepted,false);assert.equal(api.at(-1).accepted,true);
 
     // A brief, concrete revision like the learner's actual answer must also pass.
-    const incense = {...work,id:'short-incense-assessment',orderId:'lady-lotus-fragrance',shape:'incense',modelId:'incense',technique:'openwork',pattern:'lotus',
+    const incense = {...work,id:'short-incense-assessment',customerId:'artisan',orderId:'lady-lotus-fragrance',shape:'incense',modelId:'incense',technique:'openwork',pattern:'lotus',
       placements:[{x:180,y:180,uv:[.45,.5],pattern:'lotus'}]};
-    await seed(page,incense);await page.click('[data-action=explain]');
+    await seed(page,incense);
+    assert.match(await page.locator('.counter-speech>span').innerText(),/도공 선생님의 질문/);
+    assert.match(await page.locator('.counter-speech>p').innerText(),/혼자 여기까지 완성했구나/);
+    await page.click('[data-action=explain]');
+    assert.equal(await page.locator('.explanation-order h3').innerText(),'도공 선생님의 과제');
+    assert.match(await page.locator('.explanation-order p').innerText(),/^이제 혼자 청자를 빚을 수 있는지 보겠다\./);
     await page.fill('#work-title','따뜻한 향기');
     await page.fill('#explain-use',shortIncenseUse);
     await page.fill('#explain-beauty','오늘 점심은 피자였어요.');
@@ -114,6 +119,12 @@ async function seed(page, draft) {
     assert.equal(state.draft.step,4);assert.equal(state.draft.assessment.source,'rubric');
     assert.equal(state.draft.assessment.accepted,true);assert.ok(state.draft.assessment.use.score>=5&&state.draft.assessment.beauty.score>=5);
     assert.equal(state.gallery.length,1);assert.equal(state.gallery[0].explanationBeauty,shortIncenseBeauty);
+    assert.equal(state.gallery[0].customerId,'artisan');
+    assert.match(await page.locator('.review-speaker').innerText(),/도공 선생님의 평가/);
+    assert.match(await page.locator('.review-score').innerText(),/과제·제작/);
+    assert.doesNotMatch(await page.locator('.review-quote').innerText(),/주문|받겠소|고맙소|형편없소/);
+    await page.locator('.reaction-portrait').evaluate(async image=>{await image.decode();await Promise.all(image.parentElement.getAnimations().map(animation=>animation.finished));});
+    await page.screenshot({path:'/tmp/mentor-review-1024.png'});
     assert.equal(await page.locator('#popup').evaluate(el=>el.open),false);
     assert.equal(api.at(-1).accepted,true);
     assert.deepEqual(errors,[]);
