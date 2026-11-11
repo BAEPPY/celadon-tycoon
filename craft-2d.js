@@ -481,12 +481,25 @@ export class Craft2D {
   section() {
     return this.rotating ? sectionFor(this.work.modelId || this.work.shape) : null;
   }
+  // The outline a point is placed across. A round vessel uses the row at the point's own height. A box seen from
+  // above shows slanted faces, which a single row cuts short, so it uses the picture's widest extent at every height.
+  surfaceRow(v) {
+    if (!this.section()) return this.rowAt(v);
+    const source = this.source;
+    if (!source?.rows) return [.22, .78];
+    if (!source.outline) {
+      let left = 1, right = 0;
+      for (const row of source.rows) if (row) { left = Math.min(left, row[0]); right = Math.max(right, row[1]); }
+      source.outline = right > left ? [left, right] : [.22, .78];
+    }
+    return source.outline;
+  }
   // The place on the vessel under a point of the picture, as the angle kept with a mark.
   pressedAngle(uv) {
-    return surfaceAnchor(uv, undefined, this.rowAt(uv[1]), this.work.viewFrame || 0, this.section()).angle;
+    return surfaceAnchor(uv, undefined, this.surfaceRow(uv[1]), this.work.viewFrame || 0, this.section()).angle;
   }
   anchor(mark) {
-    const uv = illustrationUV(mark), value = surfaceAnchor(uv, mark.surfaceAngle, this.rowAt(uv[1]), this.work.viewFrame || 0, this.section());
+    const uv = illustrationUV(mark), value = surfaceAnchor(uv, mark.surfaceAngle, this.surfaceRow(uv[1]), this.work.viewFrame || 0, this.section());
     // Store vessel-space coordinates once; changing rotation must not shift a motif's height or size.
     mark.surfaceAngle ??= value.angle;
     mark.surfaceV ??= value.level;
@@ -495,7 +508,7 @@ export class Craft2D {
   }
   surfacePoint(angle, level, back = this.layer === 'back') {
     if (!this.rotating && back) return null;
-    return projectCurvedSurface(angle, level, this.rotating ? this.work.viewFrame || 0 : 0, v => this.rowAt(v), back, this.section());
+    return projectCurvedSurface(angle, level, this.rotating ? this.work.viewFrame || 0 : 0, v => this.surfaceRow(v), back, this.section());
   }
   project(mark) {
     const p=this.anchor(mark);
