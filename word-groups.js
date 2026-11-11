@@ -75,20 +75,16 @@ export function distinctAnswers(texts) {
  * (answer → word) where there is one; answers it does not know join a word by the rules or stand alone.
  */
 export function groupAnswers(texts, map = null) {
-  const groups = [];
+  const groups = [], byLabel = new Map();
   const known = map && typeof map === 'object' ? map : {};
-  const answers = distinctAnswers(texts);
-  for (const answer of answers) {
+  // Most common first. An answer joins the helper's word for it, or a word it is the same as by the rules — so the
+  // same word spelled another way is one word even if the helper kept the spellings apart.
+  for (const answer of distinctAnswers(texts)) {
     const label = typeof known[answer.text] === 'string' && known[answer.text].trim() ? known[answer.text].trim() : null;
-    if (!label) continue;
-    let group = groups.find(item => item.label === label);
-    if (!group) groups.push(group = {label, fixed: true, answers: []});
-    group.answers.push(answer);
-  }
-  for (const answer of answers) {
-    if (typeof known[answer.text] === 'string' && known[answer.text].trim()) continue;
-    let group = groups.find(item => item.answers.some(member => sameAnswer(member.text, answer.text)));
+    let group = (label && byLabel.get(label)) || groups.find(item => item.answers.some(member => sameAnswer(member.text, answer.text)));
     if (!group) groups.push(group = {label: null, answers: []});
+    if (label && !byLabel.has(label)) byLabel.set(label, group);
+    if (label && !group.label) group.label = label;
     group.answers.push(answer);
   }
   return groups.map(group => {

@@ -31,6 +31,8 @@ test('the helper’s grouping is used for the answers it knows; new answers join
   assert.deepEqual(groupAnswers(texts, map).map(word => [word.text, word.count, word.answers.map(answer => answer.text)]), [
     ['머리를 받쳐요', 3, ['누워서 쉬어요', '머리를 받쳐요', '낮잠 잘 때 써요']], ['발을 올려요', 2, ['발 올려요', '발을 올려요']],
     ['베고 자요', 1, ['베고 자요']], ['보물을 넣어요', 1, ['보물을 넣어요']]]);
+  // If the helper keeps two spellings of one word apart, the rules still make them one word (under the commoner one's name).
+  assert.deepEqual(groupAnswers(['베개', '베개', '베게', '배개', '의자'], {'베개': '베개', '베게': '베게', '배개': '배개', '의자': '의자'}).map(word => [word.text, word.count]), [['베개', 4], ['의자', 1]]);
   assert.deepEqual(ungroupedAnswers(['베개'], null), [], 'one answer needs no grouping');
   assert.deepEqual(ungroupedAnswers(texts, Object.fromEntries(texts.map(text => [text, '쉬어요']))), []);
 });
