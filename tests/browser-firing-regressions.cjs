@@ -10,14 +10,15 @@ const base=process.env.BASE_URL||'http://127.0.0.1:4173';
  const css=(await Promise.all(['style.css','arcade.css','stations.css','kiln-workshop.css','mobile-game.css'].map(name=>fs.readFile(path.join(__dirname,'..',name),'utf8')))).join('\n');
  const browser=await chromium.launch({headless:true,executablePath:process.env.CHROMIUM_PATH||'/usr/bin/chromium',args:['--no-sandbox']});
  try{
-  for(const viewport of [{width:1366,height:768},{width:1024,height:600},{width:390,height:844}]){
-   const page=await browser.newPage({viewport}),errors=[];page.on('pageerror',e=>errors.push(e.message));
+  for(const viewport of [{width:1366,height:768},{width:1024,height:600},{width:390,height:844},{width:844,height:390}]){
+   const page=await browser.newPage({viewport,hasTouch:viewport.width<1024}),errors=[];page.on('pageerror',e=>errors.push(e.message));
    await page.setContent(`<html lang="ko"><head><base href="${base}/"></head><body><main id="host"></main></body></html>`);
    await page.addStyleTag({content:css+'\nbody{margin:0;background:#ead0ac}#host{position:relative;width:100vw;height:100vh}'});
    await page.addScriptTag({content:code.outputFiles[0].text});
    for(const kind of ['biscuit','fire']){
     await page.evaluate(kind=>{window.game?.dispose();window.game=new KilnTest.KilnGame(document.querySelector('#host'),kind);cancelAnimationFrame(game.frame);},kind);
     await page.waitForFunction(()=>[...document.querySelectorAll('.kiln-fanning-scene img')].every(i=>i.complete&&i.naturalWidth>0));
+    const scene=await page.locator('.kiln-fanning-scene').boundingBox();assert.ok(Math.abs(scene.width/scene.height-4/3)<.01,'clip masks always share the source aspect ratio');
     const pause=page.locator('[data-mini=pause]'),button=page.locator('.bellows-button');
     const taps=()=>page.evaluate(()=>game.fanTaps);
     await page.keyboard.press('Space');assert.equal(await taps(),1);
@@ -45,6 +46,8 @@ const base=process.env.BASE_URL||'http://127.0.0.1:4173';
     assert.equal(await page.evaluate(()=>game.kiln.steady),0,'stopping fanning drains accumulated progress to zero');
     assert.equal(await page.locator('.mini-progress-track').getAttribute('aria-valuenow'),'0');
     assert.equal(await page.evaluate(()=>scrollY),0,'Space does not scroll the screen');
+    const cardSizes=await page.evaluate(()=>[.3,.55,.8].map(heat=>{game.kiln={...game.kiln,heat,failed:false};game.update(0);const r=game.element.querySelector('.minigame-card').getBoundingClientRect();return [r.y,r.height];}));
+    assert.ok(cardSizes.every(([y,h])=>Math.abs(y-cardSizes[0][0])<1&&Math.abs(h-cardSizes[0][1])<1),'changing heat messages cannot shake the card');
     await page.locator('[data-mini=cancel]').click();assert.equal(await page.locator('.kiln-minigame').count(),0);
    }
    assert.deepEqual(errors,[]);console.log(`Firing regressions ${viewport.width}: tap continuity, pause/resume focus, rigid fan, progress reset passed`);await page.close();

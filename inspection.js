@@ -130,6 +130,51 @@ function drawCeramicFracture(c,{dx,dy,dw,dh}){
  else{chip(.48,.49,14*scale,20*scale,-.3);chip(.55,.24,4.5*scale,6*scale,.2);}
  c.restore();
 }
+function drawGlazeLoss(c,{dx,dy,dw,dh}){
+ const intact=c.getImageData(0,0,c.canvas.width,c.canvas.height);
+ const wide=dw>dh*1.45,scale=Math.max(.8,Math.min(1.25,Math.min(dw,dh)/190)),path=new Path2D();
+ const move=(u,v)=>path.moveTo(dx+dw*u,dy+dh*v),line=(u,v)=>path.lineTo(dx+dw*u,dy+dh*v);
+ const curve=(a,b,d,e,f,g)=>path.bezierCurveTo(dx+dw*a,dy+dh*b,dx+dw*d,dy+dh*e,dx+dw*f,dy+dh*g);
+ // A connected bare area continues off the side and bottom of the pot. Its
+ // broken glaze edge is uneven, without closed sticker-like oval patches.
+ if(wide){
+  move(-.03,.65);curve(.06,.72,.09,.60,.15,.65);line(.18,.59);
+  curve(.22,.61,.20,.69,.28,.64);line(.30,.57);
+  curve(.34,.61,.38,.50,.42,.56);line(.41,.64);
+  curve(.45,.67,.49,.59,.53,.63);line(.55,.71);
+  curve(.59,.73,.64,.67,.67,.75);line(.64,.82);
+  curve(.70,.84,.69,.91,.75,.93);line(.73,1.04);line(-.03,1.04);
+ }else{
+  move(-.03,.51);curve(.09,.53,.17,.43,.24,.48);line(.27,.43);
+  curve(.32,.46,.29,.54,.36,.53);line(.40,.48);
+  curve(.47,.51,.41,.60,.48,.62);line(.52,.59);
+  curve(.56,.67,.49,.69,.54,.74);line(.59,.77);
+  curve(.55,.83,.62,.88,.59,.93);line(.66,1.04);line(-.03,1.04);
+ }
+ path.closePath();c.save();
+ const clay=c.createLinearGradient(dx,dy+dh*.5,dx+dw*.6,dy+dh);
+ clay.addColorStop(0,'#a39a82');clay.addColorStop(.45,'#c1b69a');clay.addColorStop(1,'#b0a68e');
+ c.fillStyle=clay;c.fill(path);c.save();c.clip(path);
+ // Matte fired clay has short rough striations, unlike the smooth green glaze.
+ for(let j=0;j<100;j++){
+  const x=dx+dw*((j*37)%97)/100,y=dy+dh*(.46+((j*23)%59)/100),length=(2+(j*7)%10)*scale;
+  c.strokeStyle=j%3===0?'#eee4c84a':'#796e5752';c.lineWidth=(j%4===0?1.15:.65)*scale;
+  c.beginPath();c.moveTo(x,y);c.lineTo(x+length*.45,y+.8*scale);c.lineTo(x+length,y-.4*scale);c.stroke();
+ }
+ // A narrow inset shadow and pale exposed edge show the thickness of the
+ // remaining glaze. All rendering stays alpha-clipped to the original work.
+ c.translate(0,2*scale);c.strokeStyle='#625e4eaa';c.lineWidth=3*scale;c.stroke(path);
+ c.translate(0,-3.2*scale);c.strokeStyle='#eee7cc';c.lineWidth=1.8*scale;c.stroke(path);
+ c.restore();c.strokeStyle='#7b806766';c.lineWidth=.7*scale;c.stroke(path);c.restore();
+ // Losing glaze does not remove the pot's outer contour. Preserve the original
+ // rim around its silhouette and openings, rather than painting over that edge.
+ const altered=c.getImageData(0,0,c.canvas.width,c.canvas.height),w=c.canvas.width,h=c.canvas.height,r=Math.ceil(w/400*3),original=intact.data,target=altered.data,horizontal=r*4,vertical=r*w*4;
+ for(let y=r;y<h-r;y++)for(let x=r;x<w-r;x++){
+  const i=(y*w+x)*4,a=i+3;if(original[a]<=24)continue;
+  if(original[a-horizontal]<=24||original[a+horizontal]<=24||original[a-vertical]<=24||original[a+vertical]<=24)for(let channel=0;channel<4;channel++)target[i+channel]=original[i+channel];
+ }
+ c.putImageData(altered,0,0);
+}
 async function copies(work,signal){
  const img=await inspectionSource(work,signal);
  if(signal.aborted)throw new DOMException('Inspection closed','AbortError');
@@ -141,7 +186,7 @@ async function copies(work,signal){
   else c.drawImage(img,bounds.x,bounds.y,bounds.width,bounds.height,dx,dy,dw,dh);
   c.globalCompositeOperation='source-atop';
   if(kind==='crack')drawCeramicFracture(c,{dx,dy,dw,dh});
-  if(kind==='glaze'){c.fillStyle='#c69d79';c.strokeStyle='#aa7b61';c.lineWidth=2;for(const [u,v,rr]of[[.37,.58,.2],[.65,.8,.13]]){const x=dx+dw*u,y=dy+dh*v,rx=dw*rr,ry=dh*rr;c.beginPath();c.moveTo(x-rx,y);c.bezierCurveTo(x-rx*.9,y-ry*1.2,x-rx*.2,y-ry*1.25,x+rx*.4,y-ry*.8);c.bezierCurveTo(x+rx*1.25,y-ry*.5,x+rx*1.2,y+ry*.6,x+rx*.3,y+ry);c.bezierCurveTo(x-rx*.3,y+ry*1.2,x-rx*1.2,y+ry*.7,x-rx,y);c.fill();c.stroke();c.fillStyle='#e0bb94';for(let j=0;j<8;j++){c.beginPath();c.arc(x+Math.sin(j*2.3)*rx*.7,y+Math.cos(j*3.8)*ry*.7,2,0,Math.PI*2);c.fill();}c.fillStyle='#c69d79';}}
+  if(kind==='glaze')drawGlazeLoss(c,{dx,dy,dw,dh});
   c.globalCompositeOperation='destination-over';c.fillStyle='#70534038';c.beginPath();c.ellipse(200,395,Math.min(147,dw*.43),4,0,0,Math.PI*2);c.fill();result[kind]=canvas.toDataURL('image/png');
  }
  return {images:result,hitY:(dy+dh*.52)/400};
