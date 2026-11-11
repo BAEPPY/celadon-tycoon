@@ -1,0 +1,24 @@
+/* The loader uses generated whole-body poses, with no clipped body parts. */
+.game-loading{position:fixed;inset:0;z-index:200;display:grid;place-items:center;padding:24px;background:#f5eddd;color:#654d47;font-family:'Celadon Game',sans-serif;box-sizing:border-box;overflow:auto}
+.loading-card{box-sizing:border-box;width:min(620px,100%);padding:30px 38px 28px;border:2px solid #b99b82;border-radius:26px;background:#fff8e9;box-shadow:0 7px 0 #dfcdb8;text-align:center}
+.loading-brand{margin:0 0 8px;font-size:17px;color:#86725c;letter-spacing:.02em}
+.loading-card h1{margin:0;font-size:clamp(23px,3.2vw,31px);line-height:1.4;font-weight:400;color:#526d5d}
+.loading-stage{height:228px;position:relative;display:flex;justify-content:center;align-items:flex-end;gap:8px;margin:20px 0 14px;isolation:isolate;overflow:hidden}
+.loading-stage:after{content:'';position:absolute;bottom:4px;left:7%;right:7%;height:3px;border-radius:50%;background:#c9cdb0;z-index:-1}
+.loading-runner{width:204px;aspect-ratio:1;flex:0 1 204px;min-width:0;background-size:400% 200%;background-repeat:no-repeat;background-position:0 0;visibility:hidden}
+.loading-runner.is-ready{visibility:visible}
+.loading-runner[data-runner=girl]{background-image:url('./assets/loading/girl-run.webp')}
+.loading-runner[data-runner=boy]{background-image:url('./assets/loading/boy-run.webp');background-position:0 100%}
+.loading-dust{position:absolute;bottom:11px;width:70px;height:auto;opacity:0;visibility:hidden;z-index:-1;pointer-events:none}
+.loading-dust.is-ready{visibility:visible}.loading-dust.first{left:3%}.loading-dust.second{left:45%}
+.loading-progress-row{display:flex;align-items:center;gap:13px;margin:0 12px}
+.loading-progress{height:12px;flex:1;border:1px solid #a4af92;background:#e8e7d4;border-radius:20px;overflow:hidden}
+.loading-progress-fill{height:100%;width:0;background:#8faa8e;border-radius:inherit}
+#loading-percent{min-width:42px;font-size:17px;color:#668068;font-variant-numeric:tabular-nums}
+#loading-status{font-size:16px;line-height:1.5;color:#947861;margin:15px 0 0}
+#loading-retry{font:inherit;font-size:18px;border:2px solid #98756c;border-radius:8px;background:#d3ddbf;color:#4f654e;padding:10px 24px;margin-top:17px;cursor:pointer}
+#loading-retry[hidden]{display:none}
+#loading-retry:focus-visible{outline:3px solid #397b70;outline-offset:4px}
+.game-loading[data-phase=error] .loading-stage{opacity:.6}
+@media(max-width:600px){.game-loading{padding:16px}.loading-card{padding:26px 16px 23px;border-radius:22px}.loading-brand{font-size:15px}.loading-stage{height:180px;margin-top:12px;gap:0}.loading-runner{width:160px;flex-basis:160px}.loading-progress-row{margin:0 4px}.loading-dust{width:52px}.loading-card h1{font-size:25px}#loading-status{font-size:15px}}
+@media(max-height:470px){.game-loading{padding:12px}.loading-card{padding:14px 28px;max-width:550px}.loading-brand{margin:0;font-size:14px}.loading-card h1{font-size:23px}.loading-stage{height:152px;margin:5px 0 8px}.loading-runner{width:150px;flex-basis:150px}#loading-status{margin-top:8px;font-size:14px}}
