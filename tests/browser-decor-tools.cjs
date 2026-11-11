@@ -152,10 +152,22 @@ const reachable=(page,selector)=>page.locator(selector).evaluate(el=>{const r=el
     // 자토 is called 붉은 흙 and is red on the brush and on the vessel; once the vessel is glazed and fired the same
     // places are black, and the white ones stay white.
     const unfired=await slipPixels(page);assert.ok(unfired.dark>40,`red before firing: ${JSON.stringify(unfired)}`);
+    // Raw glaze is an ochre coat: with the glaze on, the vessel is ochre (not yet celadon), the decoration shows only
+    // faintly through it and the red slip has not turned black. Only the second firing brings the celadon colour.
+    const bodyColour=()=>page.locator('.illustration-viewport>canvas').first().evaluate(canvas=>{
+      const data=canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height).data;let n=0,r=0,g=0,b=0;
+      for(let i=0;i<data.length;i+=16){if(data[i+3]<220)continue;const lum=data[i]+data[i+1]+data[i+2];if(lum<300||lum>690)continue;n++;r+=data[i];g+=data[i+1];b+=data[i+2];}
+      return n?[Math.round(r/n),Math.round(g/n),Math.round(b/n)]:[0,0,0];});
+    await seed({...(await saved(page)),step:2,firing:['dry','biscuit','glaze']});await page.waitForTimeout(300);
+    const glazed=await bodyColour(),coated=await slipPixels(page);
+    assert.ok(glazed[0]>glazed[1]+15&&glazed[1]>glazed[2]+35,`the glazed vessel is ochre: ${glazed}`);
+    assert.ok(coated.black<=unfired.black+unfired.dark/8,`nothing has turned black under the raw glaze: ${JSON.stringify({unfired,coated})}`);
+    assert.ok(coated.dark<unfired.dark/2&&coated.light<unfired.light/2,`the decoration is veiled by the glaze: ${JSON.stringify({unfired,coated})}`);
     await seed({...(await saved(page)),step:2,firing:['dry','biscuit','glaze','fire']});await page.waitForTimeout(300);
+    const celadon=await bodyColour();assert.ok(celadon[1]>=celadon[0]&&celadon[1]>celadon[2],`the fired vessel is celadon: ${celadon}`);
     const fired=await slipPixels(page);   // the vessel's own outline is dark too, so the black is compared with before
     assert.ok(fired.black>unfired.black+unfired.dark/4&&fired.dark<unfired.dark/5&&fired.light>40,`black after firing, white still white: ${JSON.stringify({unfired,fired})}`);
     assert.deepEqual(errors,[]);
-    console.log('Decoration tools: 크게 보기 at two Chromebook sizes with stamping, 흰 흙 and 붉은 흙 together (red until fired, then black), repainting, 색흙 다시 채우기, completion and wiping with both colours passed.');
+    console.log('Decoration tools: 크게 보기 at two Chromebook sizes with stamping, 흰 흙 and 붉은 흙 together (red until the second firing, then black), ochre raw glaze that turns celadon in the second firing, repainting, 색흙 다시 채우기, completion and wiping with both colours passed.');
   }finally{await browser.close();}
 })().catch(error=>{console.error(error);process.exitCode=1;});
