@@ -8,7 +8,7 @@ const base=process.env.BASE_URL||'http://127.0.0.1:4173',KEY='celadon-tycoon-v2'
 (async()=>{
  const {ORDERS}=await import(pathToFileURL(path.resolve(__dirname,'../domain.js'))),{orderQuote}=await import(pathToFileURL(path.resolve(__dirname,'../dialogue.js')));
  const customers=['king','queen','noble','noblewoman','artisan'];
- const targetOrders=[...ORDERS].sort((a,b)=>orderQuote(b).length-orderQuote(a).length).slice(0,2),longest=targetOrders[0];
+ const targetOrders=[...ORDERS].sort((a,b)=>Math.max(...customers.map(id=>orderQuote(b,id).length))-Math.max(...customers.map(id=>orderQuote(a,id).length))).slice(0,2),longest=targetOrders[0];
  const browser=await chromium.launch({headless:true,...(process.env.CHROMIUM_PATH?{executablePath:process.env.CHROMIUM_PATH}:{}),args:['--no-sandbox']});
  const failures=[];let total=0;
  try{
@@ -27,7 +27,16 @@ const base=process.env.BASE_URL||'http://127.0.0.1:4173',KEY='celadon-tycoon-v2'
      const s=scene.getBoundingClientRect();return {issues,quote:quote.textContent,tail:{left:tail.left,top:tail.top,transform:tail.transform,clipPath:tail.clipPath},bubble:{x:b.x,y:b.y,right:b.right,bottom:b.bottom},relative:{left:(b.x-s.x)/s.width,top:(b.y-s.y)/s.height}};
     });
     const label=`${width}×${height} ${order.id} ${customerId}`;
-    if(result.quote!==orderQuote(order))result.issues.push('full quote differs from order data');
+    if(customerId==='artisan'){
+     assert.match(result.quote,/혼자/);
+     assert.match(await page.locator('.counter-speech>span').innerText(),/도공 선생님의 시험/);
+     assert.equal(await page.locator('[data-action=accept]').innerText(),'혼자 해볼게요');
+     await page.locator('.counter-responses [data-action=order]').click();
+     assert.equal(await page.locator('#popup h2').innerText(),'도공 선생님의 과제');
+     assert.equal(await page.locator('#popup .order-quote').innerText(),orderQuote(order,customerId));
+     await page.locator('#popup [data-action=close-popup]').click();
+    }
+    if(result.quote!==orderQuote(order,customerId))result.issues.push('full quote differs from order data');
     if(result.relative.left>.34||result.relative.top<.19||result.relative.top>.21)result.issues.push('stale distant/high bubble position');
     failures.push(...result.issues.map(issue=>`${label}: ${issue}`));total++;
     if(order.id===longest.id&&(customerId==='queen'||width===1366)){await page.screenshot({path:`/tmp/bubble-longest-${width}-${customerId}.png`});if(customerId==='queen')await page.screenshot({path:`/tmp/bubble-longest-${width}.png`});console.log('Longest quote screenshot',width,customerId,longest.id,JSON.stringify(result));}

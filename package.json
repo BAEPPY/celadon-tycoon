@@ -58,7 +58,9 @@
     "test:present": "node tests/browser-present.cjs",
     "render:loading-guides": "node scripts/render-loading-runners.mjs",
     "test:glaze-dip": "node tests/browser-glaze-dip.cjs",
-    "test:glaze-surface": "node tests/browser-glaze-surface.cjs"
+    "test:glaze-surface": "node tests/browser-glaze-surface.cjs",
+    "test:shaping-controls": "node tests/browser-shaping-controls.cjs",
+    "test:inspection-source": "node tests/browser-inspection-source.cjs"
   },
   "dependencies": {
     "@vercel/blob": "2.8.2",

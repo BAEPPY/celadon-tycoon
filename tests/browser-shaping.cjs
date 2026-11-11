@@ -100,6 +100,9 @@ async function pull(page, canvas, index) {
         assert.ok(Math.abs((await saved(page)).sculpt.fraction-beforeResize.fraction)<.001, 'the same clay keeps its score after viewport resize');
         await page.setViewportSize(viewport);
         await page.waitForTimeout(120);
+        // Detailed contour checks use the fine tool; broad hand shaping is
+        // exercised separately in browser-shaping-controls.cjs.
+        await page.locator('[data-sculpt-range=fine]').click();
         for (let pass = 0; pass < 4; pass++) {
           for (let i = 0; i < 40; i++) {
             if (await page.locator('.sculpt-success').count()) break;

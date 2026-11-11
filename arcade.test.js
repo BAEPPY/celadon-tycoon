@@ -8,9 +8,20 @@ import {ORDERS} from './domain.js';
 
 test('흙 깎기는 목표 윤곽을 따라야 진행되고 바깥 드래그는 진행되지 않는다',()=>{const guide=[[.2,.2],[.8,.2],[.8,.8],[.2,.8]];let state=carveAlong(guide,[],[0,0],[.05,.05]);assert.equal(state.fraction,0);state=carveAlong(guide,state.visited,[.2,.2],[.8,.2]);assert.equal(state.fraction,.5);assert.equal(state.complete,false);state=carveAlong(guide,state.visited,[.8,.8],[.2,.8]);assert.equal(state.complete,true);});
 test('건조는 초록 구간의 정확한 타이밍만 성공한다',()=>{assert.equal(timingHit(.65),true);assert.equal(timingHit(.3),false);for(let t=0;t<10;t+=.01)assert.ok(timingPosition(t)>=0&&timingPosition(t)<=1);});
-test('초벌과 재벌은 약 초당 두 번의 부채질로 좁은 적정 온도를 유지할 수 있다',()=>{for(const kind of ['biscuit','fire']){let state=newKiln(kind);for(let i=0;i<1000&&!state.complete&&!state.failed;i++){if(i%20===0)state=fanKiln(state);state=stepKiln(state,.025);}assert.equal(state.complete,true);assert.ok(state.steady>=KILN_HEAT_RULES.steadySeconds);assert.ok(state.elapsed<7);}});
+test('초벌과 재벌은 약 초당 두 번의 부채질로 적정 온도를 유지할 수 있다',()=>{for(const kind of ['biscuit','fire']){let state=newKiln(kind);for(let i=0;i<1000&&!state.complete&&!state.failed;i++){if(i%20===0)state=fanKiln(state);state=stepKiln(state,.025);}assert.equal(state.complete,true);assert.ok(state.steady>=KILN_HEAT_RULES.steadySeconds);assert.ok(state.elapsed<7);}});
 test('한 번 누르고 계속 유지하거나 손을 놓으면 자동 완료되지 않는다',()=>{for(const tap of [true,false]){let state=newKiln('fire');if(tap)state=fanKiln(state);for(let i=0;i<500;i++)state=stepKiln(state,.025,true);assert.equal(state.failed,true);assert.equal(state.complete,false);assert.equal(newKiln('fire').failed,false);}});
-test('적정 온도는 46%에서 64%이며 한 번의 부채질은 정확히 한 번만 온도를 높인다',()=>{assert.equal(KILN_HEAT_RULES.safeMin,.46);assert.equal(KILN_HEAT_RULES.safeMax,.64);const initial=newKiln('fire'),tapped=fanKiln(initial);assert.equal(initial.heat,.5);assert.equal(tapped.heat,.6);for(const heat of [.44,.66])assert.equal(stepKiln({...tapped,heat},.01).steady,0);assert.ok(stepKiln({...tapped,heat:.55},.01).steady>0);});
+test('적정 온도는 같은 중심에서 1.5배 넓어진 41.5~68.5%이며 한 번의 부채질 세기는 같다',()=>{
+ assert.equal(KILN_HEAT_RULES.safeMin,.415);assert.equal(KILN_HEAT_RULES.safeMax,.685);
+ assert.ok(Math.abs((KILN_HEAT_RULES.safeMin+KILN_HEAT_RULES.safeMax)/2-.55)<1e-12);
+ assert.ok(Math.abs((KILN_HEAT_RULES.safeMax-KILN_HEAT_RULES.safeMin)/(.64-.46)-1.5)<1e-12);
+ for(const kind of ['biscuit','fire']){
+  const initial=newKiln(kind),tapped=fanKiln(initial);assert.equal(initial.heat,.5);assert.equal(tapped.heat,.6);
+  // Supply the pre-cooling heat so the assertion tests each exact judged edge.
+  const dt=.01,cooling=KILN_HEAT_RULES.cooling*dt;
+  for(const heat of [.415,.44,.55,.66,.685])assert.ok(stepKiln({...tapped,heat:heat+cooling},dt).steady>0,`${kind}: ${heat} is accepted`);
+  for(const heat of [.414,.686])assert.equal(stepKiln({...tapped,heat:heat+cooling},dt).steady,0,`${kind}: ${heat} is outside`);
+ }
+});
 test('부채질 전에는 진행되지 않고 멈추면 초벌과 재벌 진행 막대가 0으로 돌아간다',()=>{
  for(const kind of ['biscuit','fire']){
   let state=newKiln(kind);

@@ -4,7 +4,8 @@ export function carveAlong(guide,visited,from,to,radius=.045){const next=[...vis
 export function timingPosition(seconds){return .5+.46*Math.sin(seconds*2.1-Math.PI/2);}
 export function timingHit(position){return position>=.57&&position<=.79;}
 export function newKiln(kind){return {kind,heat:.5,steady:0,elapsed:0,overheat:0,started:false,complete:false,failed:false};}
-export const KILN_HEAT_RULES=Object.freeze({safeMin:.46,safeMax:.64,tapImpulse:.10,cooling:.20,steadySeconds:5.5,progressLoss:2.5});
+// Keep the 55% midpoint and widen the former 18-point band by 1.5 times.
+export const KILN_HEAT_RULES=Object.freeze({safeMin:.415,safeMax:.685,tapImpulse:.10,cooling:.20,steadySeconds:5.5,progressLoss:2.5});
 export function fanKiln(state){return state.complete||state.failed?{...state}:{...state,started:true,heat:clamp(state.heat+KILN_HEAT_RULES.tapImpulse)};}
 export function stepKiln(state,dt){
  if(state.complete||state.failed)return {...state};
