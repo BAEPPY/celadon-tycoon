@@ -4,7 +4,9 @@
 /* The site's two fonts (regular 학교안심 보드마카 R, bold 빗썸고딕 Original). That engine reads the WOFF files. */
 @font-face{font-family:'Celadon Text';src:url('/assets/fonts/Hakgyoansim-BoardmarkerR.woff2') format('woff2'),url('/assets/fonts/Hakgyoansim-BoardmarkerR.woff') format('woff');font-weight:400;font-style:normal;font-display:swap}
 @font-face{font-family:'Celadon Text';src:url('/assets/fonts/BithumbGothic-Original.woff2') format('woff2'),url('/assets/fonts/BithumbGothic-Original.woff') format('woff');font-weight:700;font-style:normal;font-display:swap}
-html,body{margin:0;height:100%}
+/* Spreading two fingers must not enlarge the whole page inside the box on the slide (it would stay that way); the
+   board itself still scrolls with a finger. The models have their own two-finger zoom (legacy.js). */
+html,body{margin:0;height:100%;-ms-content-zooming:none;-ms-touch-action:pan-x pan-y;touch-action:pan-x pan-y}
 #lg-root,#lg-root *{box-sizing:border-box}
 #lg-root{position:absolute;top:0;left:0;right:0;bottom:0;overflow:hidden;word-break:keep-all;word-wrap:break-word;background:#f3f5f7;color:#25313b;font-family:'Celadon Text','Malgun Gothic','Noto Sans KR',Arial,sans-serif;font-size:1rem;line-height:1.45}
 #lg-root button{font-family:inherit;font-size:.82rem;font-weight:700;border-radius:.4rem;border:1px solid #c9d8dc;background:#fff;color:#067477;padding:.3rem .65rem;cursor:pointer}
@@ -43,7 +45,7 @@ html,body{margin:0;height:100%}
 .lg-col.lg-wide{width:44%}
 .lg-count{float:right;font-size:.8rem;font-weight:400;color:#687783}
 .lg-label{display:block;font-size:.76rem;font-weight:700;color:#078e91;margin-bottom:.15rem}
-.lg-turn-box{margin:.4rem auto;max-width:100%;border-radius:.5rem;background:#f5f7f8;background:radial-gradient(ellipse at 50% 45%,#ffffff 0%,#eef2f3 80%)}
+.lg-turn-box{margin:.4rem auto;max-width:100%;overflow:hidden;border-radius:.5rem;background:#f5f7f8;background:radial-gradient(ellipse at 50% 45%,#ffffff 0%,#eef2f3 80%)}
 .lg-turn{position:relative;height:0;padding-top:100%;border-radius:.5rem;background-repeat:no-repeat;background-size:600% 400%;background-position:0 0;cursor:move;touch-action:none;-ms-touch-action:none;-ms-user-select:none;user-select:none}
 .lg-3d{position:absolute;top:0;left:0;width:100%;height:100%;cursor:move;touch-action:none;-ms-touch-action:none}
 .lg-turn-keys{text-align:center;margin-top:.2rem}

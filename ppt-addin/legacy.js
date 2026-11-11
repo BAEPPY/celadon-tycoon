@@ -183,6 +183,69 @@
   }
   function hideWord() { var box = root && root.querySelector('.lg-detail'); if (box && box.parentNode) box.parentNode.removeChild(box); }
 
+  // ---------- fingers ----------
+  // What fingers (or the mouse) do on a model. One finger drags; two fingers pinch, the distance between them giving the
+  // scale; two quick taps in one place are a double tap. `on` = {start(x, y, what) (false refuses), drag(x, y), end(),
+  // pinchStart(), pinch(scale), pinchEnd(), doubleTap()}. legacy-3d.js uses the same tracker for the 3D drawing.
+  function fingerTracker(on) {
+    var fingers = [], pinching = null, dragging = null, tap = null, lastTap = null, what = null;
+    function time() { return new Date().getTime(); }
+    function indexOf(id) { for (var i = 0; i < fingers.length; i++) if (fingers[i].id === id) return i; return -1; }
+    function spread() { var a = fingers[0], b = fingers[1]; return Math.max(8, Math.sqrt((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y))); }
+    function lift(id) {
+      var at = indexOf(id);
+      if (at < 0) return;
+      fingers.splice(at, 1);
+      if (pinching) {
+        if (fingers.length >= 2) return;
+        pinching = null; on.pinchEnd();
+        // The finger that stays goes on dragging from where it is.
+        if (fingers.length === 1 && on.start(fingers[0].x, fingers[0].y, what) !== false) dragging = fingers[0].id;
+        return;
+      }
+      if (dragging !== id) return;
+      dragging = null; on.end();
+      var now = time();
+      if (tap && !tap.moved && now - tap.at < 350) {
+        if (lastTap && now - lastTap.at < 450 && Math.abs(tap.x - lastTap.x) < 40 && Math.abs(tap.y - lastTap.y) < 40) { lastTap = null; on.doubleTap(); }
+        else lastTap = {x: tap.x, y: tap.y, at: now};
+      } else lastTap = null;
+      tap = null;
+    }
+    // A finger whose lifting never arrived (it left the box) is dropped after a few quiet seconds.
+    function forget() { var now = time(); for (var i = fingers.length - 1; i >= 0; i--) if (now - fingers[i].at > 4000) lift(fingers[i].id); }
+    return {
+      down: function (id, x, y, target) {
+        forget(); lift(id);
+        if (fingers.length >= 2) return false;
+        if (!fingers.length) {
+          if (on.start(x, y, target) === false) return false;
+          what = target; fingers.push({id: id, x: x, y: y, at: time()});
+          dragging = id; tap = {x: x, y: y, at: time(), moved: false};
+          return true;
+        }
+        // A second finger: the drag gives way to a pinch.
+        fingers.push({id: id, x: x, y: y, at: time()});
+        if (dragging !== null) { dragging = null; on.end(); }
+        tap = null; lastTap = null;
+        pinching = {distance: spread()}; on.pinchStart();
+        return true;
+      },
+      move: function (id, x, y) {
+        var at = indexOf(id);
+        if (at < 0) return false;
+        fingers[at].x = x; fingers[at].y = y; fingers[at].at = time();
+        if (pinching) { on.pinch(spread() / pinching.distance); return true; }
+        if (dragging !== id) return false;
+        if (tap && (Math.abs(x - tap.x) > 12 || Math.abs(y - tap.y) > 12)) tap.moved = true;
+        on.drag(x, y); return true;
+      },
+      up: lift,
+      count: function () { return fingers.length; }
+    };
+  }
+  window.__legacyFingers = fingerTracker;
+
   // ---------- pictures that turn ----------
   function showFrame(node, frame) {
     frame = ((Math.round(frame) % FRAMES) + FRAMES) % FRAMES;
@@ -221,19 +284,72 @@
   function dragMove(x) { if (drag) setFrame(drag.id, drag.frame - (x - drag.x) / (drag.width / 12)); }
   function dragEnd() { drag = null; }
   function turnTarget(event) { var node = event.target || event.srcElement; return node && node.className && String(node.className).indexOf('lg-turn') === 0 && node.getAttribute('data-model') ? node : null; }
-  function watchDragging() {
-    if (window.PointerEvent) {
-      root.addEventListener('pointerdown', function (event) { var node = turnTarget(event); if (node) { dragStart(node, event.clientX); event.preventDefault(); } });
-      document.addEventListener('pointermove', function (event) { dragMove(event.clientX); });
-      document.addEventListener('pointerup', dragEnd); document.addEventListener('pointercancel', dragEnd);
-      return;
+  // The model under a finger or the wheel: its turning picture, or the 3D drawing over it.
+  function modelUnder(event) {
+    var node = event.target || event.srcElement;
+    for (var i = 0; node && node !== root && i < 3; i++, node = node.parentNode) {
+      var name = String(node.className || '');
+      if ((name.indexOf('lg-turn') === 0 || name.indexOf('lg-3d') === 0) && node.getAttribute && node.getAttribute('data-model')) return node.getAttribute('data-model');
     }
-    root.addEventListener('mousedown', function (event) { var node = turnTarget(event); if (node) { dragStart(node, event.clientX); event.preventDefault(); } });
-    document.addEventListener('mousemove', function (event) { dragMove(event.clientX); });
-    document.addEventListener('mouseup', dragEnd);
-    root.addEventListener('touchstart', function (event) { var node = turnTarget(event); if (node && event.touches.length === 1) dragStart(node, event.touches[0].clientX); });
-    root.addEventListener('touchmove', function (event) { if (drag && event.touches.length === 1) { dragMove(event.touches[0].clientX); event.preventDefault(); } });
-    root.addEventListener('touchend', dragEnd);
+    return '';
+  }
+  // Closer or farther: the 3D model itself, or (where 3D does not work) its picture, up to three times.
+  function setPictureZoom(id, zoom) {
+    pictureZoom[id] = Math.max(1, Math.min(3, zoom));
+    var shown = root.querySelectorAll('.lg-turn');
+    for (var z = 0; z < shown.length; z++) if (shown[z].getAttribute('data-model') === id) scalePicture(shown[z], pictureZoom[id]);
+  }
+  function zoomModel(id, factor) { if (threeD && threeD.shown(id)) threeD.zoom(id, factor); else setPictureZoom(id, (pictureZoom[id] || 1) * factor); }
+  // Fingers on a turning picture: one turns it, two spread apart enlarge it, a double tap brings it twice as close.
+  var pictureModel = '', pictureBase = 1;
+  var pictureFingers = fingerTracker({
+    start: function (x, y, node) { pictureModel = node.getAttribute('data-model'); dragStart(node, x); },
+    drag: function (x) { dragMove(x); },
+    end: dragEnd,
+    pinchStart: function () { pictureBase = pictureZoom[pictureModel] || 1; },
+    pinch: function (scale) { setPictureZoom(pictureModel, pictureBase * scale); },
+    pinchEnd: function () {},
+    doubleTap: function () { setPictureZoom(pictureModel, (pictureZoom[pictureModel] || 1) > 1.4 ? 1 : 2); }
+  });
+  function watchDragging() {
+    var i;
+    if (window.PointerEvent) {
+      root.addEventListener('pointerdown', function (event) { var node = turnTarget(event); if (node && pictureFingers.down('p' + event.pointerId, event.clientX, event.clientY, node)) event.preventDefault(); });
+      document.addEventListener('pointermove', function (event) {
+        // A mouse button let go outside the box: the drag ends as soon as the mouse is back.
+        if (event.pointerType === 'mouse' && event.buttons === 0) pictureFingers.up('p' + event.pointerId);
+        else pictureFingers.move('p' + event.pointerId, event.clientX, event.clientY);
+      });
+      document.addEventListener('pointerup', function (event) { pictureFingers.up('p' + event.pointerId); });
+      document.addEventListener('pointercancel', function (event) { pictureFingers.up('p' + event.pointerId); });
+    } else {
+      root.addEventListener('mousedown', function (event) { var node = turnTarget(event); if (node && pictureFingers.down('mouse', event.clientX, event.clientY, node)) event.preventDefault(); });
+      document.addEventListener('mousemove', function (event) { pictureFingers.move('mouse', event.clientX, event.clientY); });
+      document.addEventListener('mouseup', function () { pictureFingers.up('mouse'); });
+      root.addEventListener('touchstart', function (event) {
+        var node = turnTarget(event), taken = false;
+        for (i = 0; node && i < event.changedTouches.length; i++) taken = pictureFingers.down('t' + event.changedTouches[i].identifier, event.changedTouches[i].clientX, event.changedTouches[i].clientY, node) || taken;
+        if (taken) event.preventDefault();
+      });
+      root.addEventListener('touchmove', function (event) {
+        var taken = false;
+        for (i = 0; i < event.changedTouches.length; i++) taken = pictureFingers.move('t' + event.changedTouches[i].identifier, event.changedTouches[i].clientX, event.changedTouches[i].clientY) || taken;
+        if (taken) event.preventDefault();
+      });
+      var touchEnd = function (event) { for (i = 0; i < event.changedTouches.length; i++) pictureFingers.up('t' + event.changedTouches[i].identifier); };
+      root.addEventListener('touchend', touchEnd); root.addEventListener('touchcancel', touchEnd);
+    }
+    // The wheel. Some touch screens report a pinch as Ctrl + wheel: over a model that enlarges it, and anywhere it must
+    // not enlarge the whole page inside the box. A plain wheel enlarges only where the model has the box to itself;
+    // elsewhere it scrolls the board.
+    root.addEventListener('wheel', function (event) {
+      var id = modelUnder(event);
+      if (!event.ctrlKey && (!id || view.setup || panelNow() !== 'model')) return;
+      if (event.preventDefault) event.preventDefault();
+      if (!id) return;
+      var delta = event.deltaMode === 1 ? event.deltaY * 33 : event.deltaMode === 2 ? event.deltaY * 400 : event.deltaY;
+      zoomModel(id, Math.max(.8, Math.min(1.25, Math.exp(-delta * (event.ctrlKey ? .01 : .002)))));
+    });
   }
   // Only the "청자 돌려 보기" box turns by itself, until someone drags it or presses 멈추기.
   function syncAuto() {
@@ -558,7 +674,7 @@
     return '<div class="lg-center">' + turnMarkup(model, 68, false) + '<p class="lg-model-name">' + esc(model === 'beauty' ? BEAUTY_LABEL : '청자 ' + model.split('-')[1]) + '</p>' +
       '<div class="lg-turn-keys"><button type="button" data-act="turn" data-model="' + model + '" data-step="2" aria-label="왼쪽으로 돌리기">↶</button><button type="button" data-act="auto">■ 멈추기</button>' +
       '<button type="button" data-act="turn" data-model="' + model + '" data-step="-2" aria-label="오른쪽으로 돌리기">↷</button>' + zoomKeys(model) + '</div>' +
-      '<p class="lg-turn-hint">' + (threeD && threeD.shown(model) ? '청자를 끌어서 돌리고 기울여 보세요.' : '사진을 좌우로 끌어도 돌아가요.') + '</p></div>';
+      '<p class="lg-turn-hint">' + (threeD && threeD.shown(model) ? '청자를 끌어서 돌리고 기울여 보세요. 두 손가락을 벌리면 커져요.' : '사진을 좌우로 끌어도 돌아가요. 두 손가락을 벌리면 커져요.') + '</p></div>';
   }
   // The game needs a current browser engine, so it cannot run inside this box. The button opens it in a browser
   // window where this PowerPoint allows that; the address is shown too, for a hyperlink on the slide (Ctrl+K),
@@ -700,17 +816,7 @@
       if (threeD && threeD.shown(turned)) threeD.turn(turned, -steps * Math.PI / 12); else setFrame(turned, (turnFrames[turned] || 0) + steps);
       syncAuto(); return;
     }
-    if (act === 'zoom') {
-      var zoomed = node.getAttribute('data-model'), factor = Number(node.getAttribute('data-factor'));
-      if (threeD && threeD.shown(zoomed)) threeD.zoom(zoomed, factor);
-      else {
-        // Pictures cannot come closer in 3D, so the picture itself is enlarged (up to three times).
-        pictureZoom[zoomed] = Math.max(1, Math.min(3, (pictureZoom[zoomed] || 1) * factor));
-        var shown = root.querySelectorAll('.lg-turn');
-        for (var z = 0; z < shown.length; z++) if (shown[z].getAttribute('data-model') === zoomed) scalePicture(shown[z], pictureZoom[zoomed]);
-      }
-      return;
-    }
+    if (act === 'zoom') { zoomModel(node.getAttribute('data-model'), Number(node.getAttribute('data-factor'))); return; }
     if (act === 'reset-view') { view.auto = false; if (threeD) threeD.reset(node.getAttribute('data-model')); syncAuto(); return; }
     if (act === 'auto') { view.auto = !view.auto; syncAuto(); return; }
     if (act === 'object') view.object = node.getAttribute('data-id');
