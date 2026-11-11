@@ -14,6 +14,8 @@ import {designsForShape} from './example-orders.js';
 import {Craft2D} from './craft-2d.js';
 import {SculptGame} from './sculpt-game.js';
 import {KilnGame} from './kiln-game.js';
+import {GlazeDipGame} from './glaze-dip-game.js';
+import {normalizeGlazeDip} from './glaze-dip-rules.js';
 import {castForOrder,characterMarkup,randomCustomerId} from './characters.js';
 import {recognizeDrawing} from './drawing.js';
 import {vesselSVG} from './art.js';
@@ -76,8 +78,8 @@ function render(){
  if(enteredPhoneStage&&matchMedia('(max-width:600px), (max-width:1023px) and (pointer:coarse)').matches)window.scrollTo(0,0);
 }
 
-function begin(fresh=false){if(expireGameData())return;choosingVariant=false;customerArrival?.dispose();customerArrival=null;if(fresh){state.draft=null;work=null;}if(state.draft&&state.draft.step<4)work=structuredClone(state.draft);else if(!work||work.step===4){const o=drawNextOrder(state.history);state.history.push(o.id);const customerId=randomCustomerId(state.lastCustomerId);state.lastCustomerId=customerId;work={id:crypto.randomUUID(),customerId,orderId:o.id,accepted:false,clay:freshClay(),shape:null,modelId:null,technique:'inlay',pattern:'crane',placements:[],strokes:[],width:1,knead:0,sculpt:null,decorPhase:0,decorDone:false,firing:[],step:0,explanationUse:'',explanationBeauty:'',selfUse:false,selfBeauty:false};if(!save())return;customerArrival=new CustomerArrival(work.id,customerId);}work.strokes??=[];work.explanationUse??='';work.explanationBeauty??='';if(!work.clay)work.clay={...freshClay(),body:true,kneads:6,prepared:true};work.clay.body=true;if(!work.customerId){work.customerId=randomCustomerId(state.lastCustomerId);state.lastCustomerId=work.customerId;if(!save())return;}screen=work.stationView||(work.shape?(work.step===3?'counter-delivery':'game'):'counter');render();}
-function resetDecor(){delete work.inlay;delete work.inlayMode;work.assessment=null;work.placements=[];work.strokes=[];work.drawingLabel=null;work.decorPhase=0;work.decorDone=false;work.firing=[];}
+function begin(fresh=false){if(expireGameData())return;choosingVariant=false;customerArrival?.dispose();customerArrival=null;if(fresh){state.draft=null;work=null;}if(state.draft&&state.draft.step<4)work=structuredClone(state.draft);else if(!work||work.step===4){const o=drawNextOrder(state.history);state.history.push(o.id);const customerId=randomCustomerId(state.lastCustomerId);state.lastCustomerId=customerId;work={id:crypto.randomUUID(),customerId,orderId:o.id,accepted:false,clay:freshClay(),shape:null,modelId:null,technique:'inlay',pattern:'crane',placements:[],strokes:[],width:1,knead:0,sculpt:null,decorPhase:0,decorDone:false,firing:[],processVersion:2,step:0,explanationUse:'',explanationBeauty:'',selfUse:false,selfBeauty:false};if(!save())return;customerArrival=new CustomerArrival(work.id,customerId);}work.strokes??=[];work.explanationUse??='';work.explanationBeauty??='';if(!work.clay)work.clay={...freshClay(),body:true,kneads:6,prepared:true};work.clay.body=true;if(!work.customerId){work.customerId=randomCustomerId(state.lastCustomerId);state.lastCustomerId=work.customerId;if(!save())return;}screen=work.stationView||(work.shape?(work.step===3?'counter-delivery':'game'):'counter');render();}
+function resetDecor(){delete work.inlay;delete work.inlayMode;work.assessment=null;work.placements=[];work.strokes=[];work.drawingLabel=null;work.decorPhase=0;work.decorDone=false;work.firing=[];delete work.glazeDip;work.processVersion=2;}
 function defaultIllustration(shape){return designsForShape(shape).find(d=>ROTATION_IDS.includes(d.modelId))?.modelId||designsForShape(shape)[0]?.modelId;}
 function setShape(shape,modelId){choosingVariant=false;work.shape=shape;work.modelId=modelId||defaultIllustration(shape);work.knead=0;work.viewFrame=0;work.sculpt=null;resetDecor();if(!save())return;render();}
 function stampPattern(mark){if(expireGameData()||!work)return;if(work.step!==1||work.decorPhase>0||work.technique==='plain')return;if(work.placements.length>=24){toast('문양은 24개까지 놓을 수 있어요.');return;}work.placements.push(mark);if(!save())return;render();}
@@ -108,7 +110,36 @@ function gallery(){const list=state.gallery.slice(galleryPage*2,galleryPage*2+2)
 async function showModel(id=work?.modelId||'pillow'){if(!getModelArtifact(id))id='pillow';selectedCatalog=id;const token=++modelToken;if(!museum.open)museum.showModal();document.querySelector('#model-tabs').innerHTML=`<label for="catalog-select">관찰할 예시<select id="catalog-select">${MODEL_CATALOG.map(m=>`<option value="${m.id}" ${m.id===id?'selected':''}>${esc(m.shortName)}</option>`).join('')}</select></label>`;const container=document.querySelector('#model-viewer');modelModule?.disposeArtifact(container);try{modelModule??=await import('./model-viewer.js');if(token!==modelToken||!museum.open)return;await modelModule.openArtifact(container,id);readableText(museum);}catch{container.textContent='자료를 불러오지 못했어요. 다시 선택해 주세요.';}}
 function closeMuseum(){++modelToken;modelModule?.disposeArtifact(document.querySelector('#model-viewer'));museum.close();}
 museum.addEventListener('cancel',()=>{++modelToken;modelModule?.disposeArtifact(document.querySelector('#model-viewer'));});
-function fire(kind){if(busy)return;const next=FIRING[work.firing.length];if(!next)return;if(kind!==next.id){toast(`${next.name}부터 해주세요. ${next.description}`);return;}if(craft?.el.dataset.status!=='ready'){toast('청자를 불러오는 중이에요. 잠시 후 다시 눌러 주세요.');return;}const workSurface=craft.exportWorkSurface();if(!workSurface){toast('청자에 남은 흙이 없어요. 이전 작업대에서 무늬를 줄여 주세요.');return;}busy=true;document.querySelectorAll('[data-fire]').forEach(b=>b.disabled=true);mini=new KilnGame(document.querySelector('#minigame-host'),kind,{workSurface,workbench:craft.el,controlsHost:document.querySelector('.kiln-scene .station-info'),onComplete:()=>{if(expireGameData()||!work)return;busy=false;mini=null;work.firing.push(kind);if(!save())return;render();toast(`${next.name} 성공!`);},onCancel:()=>{busy=false;mini=null;render();}});if(kind==='dry'&&matchMedia('(max-width:600px), (max-width:1023px) and (pointer:coarse)').matches)mini.canvas?.scrollIntoView({block:'center',behavior:'auto'});}
+function fire(kind){
+ if(busy)return;
+ const next=FIRING[work.firing.length];if(!next)return;
+ if(kind!==next.id){toast(`${next.name}부터 해주세요. ${next.description}`);return;}
+ if(craft?.el.dataset.status!=='ready'){toast('청자를 불러오는 중이에요. 잠시 후 다시 눌러 주세요.');return;}
+ const workSurface=craft.exportWorkSurface();
+ if(!workSurface){toast('청자에 남은 흙이 없어요. 이전 작업대에서 무늬를 줄여 주세요.');return;}
+ busy=true;document.querySelectorAll('[data-fire]').forEach(b=>b.disabled=true);
+ const recordDip=result=>{
+  const glazeDip=normalizeGlazeDip(result);if(!glazeDip||!work)return false;
+  work.processVersion=2;work.glazeDip=glazeDip;work.assessment=null;
+  if(!work.firing.includes('glaze'))work.firing.push('glaze');
+  return save();
+ };
+ const options={workSurface,workbench:craft.el,controlsHost:document.querySelector('.kiln-scene .station-info'),
+  onAttempt:result=>{if(!expireGameData())recordDip(result);},
+  onComplete:result=>{
+   if(expireGameData()||!work)return;
+   busy=false;mini=null;
+   if(kind==='glaze'){
+    if(!recordDip(result)){render();toast('유약 담그기 결과를 다시 확인해 주세요.');return;}
+   }
+   if(!work.firing.includes(kind))work.firing.push(kind);if(!save())return;render();
+   toast(kind==='glaze'?`${work.glazeDip.success?'유약 담그기 성공!':'유약 담그기 완료'} · ${work.glazeDip.score}/10점`:`${next.name} 성공!`);
+  },onCancel:()=>{busy=false;mini=null;render();}};
+ const host=document.querySelector('#minigame-host');
+ mini=kind==='glaze'?new GlazeDipGame(host,options):new KilnGame(host,kind,options);
+ if(['dry','glaze'].includes(kind)&&matchMedia('(max-width:600px), (max-width:1023px) and (pointer:coarse)').matches)
+  (kind==='glaze'?mini.element:mini.canvas)?.scrollIntoView({block:'center',behavior:'auto'});
+}
 async function download(w=work){if(!w)return;const canvas=document.createElement('canvas');canvas.width=1000;canvas.height=1250;const c=canvas.getContext('2d');c.fillStyle='#fff8e8';c.fillRect(0,0,1000,1250);c.fillStyle='#245a48';c.textAlign='center';c.font='bold 42px sans-serif';c.fillText('좋은 청자 위대한 청자',500,90);c.font='26px sans-serif';c.fillText(w.title||modelName(w),500,145);const img=new Image();img.src=w.preview||(w===work?craft?.snapshot():'');try{await img.decode();c.drawImage(img,230,170,540,540);}catch{}c.textAlign='left';c.font='24px sans-serif';let y=790;for(const line of ['쓰임: '+w.explanationUse,'솜씨: '+w.explanationBeauty]){let current='';for(const char of line){if(c.measureText(current+char).width>840){c.fillText(current,80,y);y+=36;current='';}current+=char;}c.fillText(current,80,y);y+=70;}c.font='20px sans-serif';c.fillText(`학습 점검 ${evaluateWork(w).total}점 · 손끝으로 만든 고려의 아름다움`,80,1170);const a=document.createElement('a');a.href=canvas.toDataURL('image/png');a.download=`청자_${modelName(w)}.png`;a.click();}
 async function submitWork(){
  if(expireGameData()||!work||assessmentRequest||(classroomBridge&&!classroomBridge.active))return;

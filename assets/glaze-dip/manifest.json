@@ -1,0 +1,32 @@
+{
+  "vat-back": {
+    "generatedSource": "exec-130b1f91-eea1-46c8-9383-3cddca909156.png",
+    "sourceSha256": "316a76f49216f4ffd3885ea7056913e74ed15758b62b46626c9ddc03ebc4a8fb",
+    "asset": "vat-back.webp",
+    "assetSha256": "f4ad05a51e22666fe688d5b4f81e2e8c2c7507d2f47b8f3206ca43921f9f37d5"
+  },
+  "vat-front": {
+    "generatedSource": "exec-dbe4290f-d194-46da-91f2-0e4eb26f3582.png",
+    "sourceSha256": "aa89854a625c81a4522850fd127d6e416e7f6f44b978ee93fb70db171cbb4463",
+    "asset": "vat-front.webp",
+    "assetSha256": "1e887bb4b02890e0f85e21fd8dd35cea6a95d42cb6286fa477ff4a781378e9d8"
+  },
+  "ripples": {
+    "generatedSource": "exec-d5142079-3501-49a5-a71b-9a442a1d9dfa.png",
+    "sourceSha256": "84aed9a69574e5cf15fea8c052e2f4560fd298c54836f79f27e276966e6cb545",
+    "asset": "ripples.webp",
+    "assetSha256": "708f7daf080e62eb72faeea0a13901c786c636196b02ba5fc68996c9f4e384a9"
+  },
+  "thin-overlay": {
+    "generatedSource": "exec-60eeb9f6-e577-4c19-90a7-342f9d9e6753.png",
+    "sourceSha256": "2482392411c784f678acc7cd0fa48be9aa03ab7554e4314bc1764a2d7a823f23",
+    "asset": "thin-overlay.webp",
+    "assetSha256": "51c3bddc4f2c9d2a920911d595830586b33353b738590a486a13d68766cac28e"
+  },
+  "thick-overlay": {
+    "generatedSource": "exec-1f947cff-f895-48ee-8813-a11e1fee150f.png",
+    "sourceSha256": "9ccd57f28dda58cb6099dfd90c0c6c78506ffed787988e5dc3967941a665f6f7",
+    "asset": "thick-overlay.webp",
+    "assetSha256": "893c227770b105a6b503e05d95b7864c636668982bb0f27621f5b557008d45de"
+  }
+}

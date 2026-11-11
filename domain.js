@@ -1,5 +1,6 @@
 import {explanationScores} from './assessment-rules.js';
 import {EXAMPLE_ORDERS} from './example-orders.js';
+import {normalizeGlazeDip} from './glaze-dip-rules.js';
 /**
  * 수업용 고려청자 공방의 내용과 평가 규칙.
  * 주문은 학습을 위해 구성한 가상 상황이며 유물의 실제 주문 기록이 아니다.
@@ -303,7 +304,7 @@ for (const order of ORDERS) {
 export const FIRING = [
   { id: 'dry', name: '건조', description: '빚고 장식한 청자를 충분히 말립니다.' },
   { id: 'biscuit', name: '초벌구이', description: '말린 청자를 먼저 한 번 굽습니다.' },
-  { id: 'glaze', name: '유약 바르기', description: '초벌구이한 청자에 유약을 입힙니다.' },
+  { id: 'glaze', name: '유약 담그기', description: '시작을 눌러 청자를 유약에 담그고, 마음속으로 5초를 센 뒤 멈추기를 눌러 꺼냅니다.' },
   { id: 'fire', name: '재벌구이', description: '유약을 입힌 청자를 다시 구워 빛깔과 표면을 완성합니다.' },
 ];
 
@@ -347,6 +348,9 @@ export function evaluateWork(work = {}) {
   const firingCorrect = Array.isArray(input.firing)
     && input.firing.length === firingOrder.length
     && firingOrder.every((id, index) => input.firing[index] === id);
+  const glazeDip = normalizeGlazeDip(input.glazeDip);
+  const timedGlaze = (input.processVersion !== undefined && input.processVersion !== 1) || input.glazeDip !== undefined;
+  const glazeScore = timedGlaze ? (glazeDip?.score ?? 0) : (firingCorrect ? 10 : 0);
   const validTechnique = techniqueById.has(input.technique);
   const validPlacements = Array.isArray(input.placements) && input.placements.some((point) =>
     point && Number.isFinite(point.x) && Number.isFinite(point.y));
@@ -393,11 +397,13 @@ export function evaluateWork(work = {}) {
           : '주문을 선택하고 필요한 쓰임에 맞는 형태를 골라 주세요.',
     },
     {
-      key: 'process', label: '제작 과정 확인', score: (decorated ? 10 : 0) + (firingCorrect ? 20 : 0), max: 30,
-      feedback: decorated && firingCorrect
-        ? '장식을 마무리하고 건조 → 초벌구이 → 유약 바르기 → 재벌구이 순서를 확인했어요.'
+      key: 'process', label: '제작 과정 확인', score: (decorated ? 10 : 0) + (firingCorrect ? 10 : 0) + glazeScore, max: 30,
+      ...(timedGlaze ? {glazeScore, glazeMax: 10} : {}),
+      feedback: [decorated && firingCorrect
+        ? '장식을 마무리하고 건조 → 초벌구이 → 유약 담그기 → 재벌구이 순서를 확인했어요.'
         : [!decorated ? '선택한 표현 방법의 제작 단계를 마무리해 주세요.' : '',
-          !firingCorrect ? '건조 → 초벌구이 → 유약 바르기 → 재벌구이 순서로 다시 확인해 보세요.' : ''].filter(Boolean).join(' '),
+          !firingCorrect ? '건조 → 초벌구이 → 유약 담그기 → 재벌구이 순서로 다시 확인해 보세요.' : ''].filter(Boolean).join(' '),
+        timedGlaze ? (glazeDip?.feedback || '유약 담그기를 마친 뒤 결과를 확인해 주세요.') : ''].filter(Boolean).join(' '),
     },
     {
       key: 'design', label: '주문의 세부 형태·기법·무늬', score: designCorrect ? 10 : 0, max: 10,

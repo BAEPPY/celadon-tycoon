@@ -19,8 +19,10 @@ const draft=firing=>({id:'inplace-kiln-test',orderId:'royal-rest',customerId:'ki
   async function sweep(y,x1,x2){if(await page.locator('.kiln-minigame.dry').count())return require('./drying-gesture.cjs').dryingSweep(page,overlay(),y,x1,x2,12);const r=await overlay().boundingBox();await page.mouse.move(r.x+r.width*x1,r.y+r.height*y);await page.mouse.down();await page.mouse.move(r.x+r.width*x2,r.y+r.height*y,{steps:12});await page.mouse.up();}
   async function aligned(){const a=await original().boundingBox(),b=await overlay().boundingBox();for(const k of ['x','y','width','height'])assert.ok(Math.abs(a[k]-b[k])<1,`overlay ${k} remains on original workbench`);}
   async function reachable(){const controls=await page.locator('.kiln-gesture-dock button').evaluateAll(buttons=>buttons.map(b=>{const r=b.getBoundingClientRect(),hit=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);return r.top>=0&&r.bottom<=innerHeight&&r.left>=0&&r.right<=innerWidth&&(b===hit||b.contains(hit));}));if(!controls.every(Boolean)){await page.screenshot({path:'/tmp/kiln-inline-controls-fail.png'});console.log(await page.locator('.kiln-gesture-dock button').evaluateAll(buttons=>buttons.map(b=>{const r=b.getBoundingClientRect(),hit=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);return {text:b.textContent,rect:r.toJSON(),hit:hit?.outerHTML.slice(0,220)};})));}assert.ok(controls.every(Boolean),'inplace controls remain reachable');}
-  for(const kind of ['dry','glaze']){
-   await page.setViewportSize({width:1024,height:600});await mount(kind==='dry'?[]:['dry','biscuit']);
+  // The timed glaze bath is exercised in browser-glaze-dip.cjs. This test
+  // retains the full authored-surface drying and firing layout regressions.
+  for(const kind of ['dry']){
+   await page.setViewportSize({width:1024,height:600});await mount([]);
    const before=await original().evaluate(c=>c.toDataURL()),box=await original().boundingBox();
    await page.click(`[data-fire=${kind}]`);await overlay().waitFor();await aligned();await reachable();
    assert.deepEqual(await original().boundingBox(),box,'starting a tool never moves or enlarges the pottery');
@@ -48,11 +50,11 @@ const draft=firing=>({id:'inplace-kiln-test',orderId:'royal-rest',customerId:'ki
    const work=await page.evaluate(key=>JSON.parse(localStorage.getItem(key)).draft,key);
    assert.deepEqual(work.placements,draft([]).placements);assert.equal(work.width,1.1);
   }
-  await page.setViewportSize({width:1024,height:600});await page.click('[data-fire=fire]');
+  await page.setViewportSize({width:1024,height:600});await mount(['dry','biscuit','glaze']);await page.click('[data-fire=fire]');
   await page.waitForFunction(()=>{const images=[...document.querySelectorAll('.kiln-fanning-scene img')];return images.length===3&&images.every(image=>image.complete&&image.naturalWidth>0);});
   const fits=await page.locator('.kiln-minigame .minigame-card').evaluate(el=>{const r=el.getBoundingClientRect();return r.top>=0&&r.left>=0&&r.bottom<=innerHeight&&r.right<=innerWidth&&el.scrollHeight<=el.clientHeight+1;});
   assert.equal(fits,true,'20-frame kiln and heat controls fit the real game fonts on a Chromebook');
   await page.keyboard.press('Space');await page.screenshot({path:'/tmp/kiln-real-firing-1024.png'});await page.click('[data-mini=cancel]');
-  assert.deepEqual(errors,[]);console.log('Actual workbench: in-place drying/glazing, exact artwork and placement, partial coverage, keyboard pause, live resize, completion and stable layered firing layout passed.');
+  assert.deepEqual(errors,[]);console.log('Actual workbench: in-place drying, exact artwork and placement, partial coverage, keyboard pause, live resize, completion and stable layered firing layout passed.');
  }finally{await browser.close();}
 })().catch(error=>{console.error(error);process.exitCode=1;});

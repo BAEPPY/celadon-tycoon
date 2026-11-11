@@ -4,6 +4,7 @@ import {distinctAnswers, groupAnswers, groupingMap, ungroupedAnswers} from './wo
 import {assessmentInput, normalizeAssessment, rubricAssessment} from './assessment-rules.js';
 import {classroomPrefix, StoreConflict} from './classroom-store.js';
 import {sanitizeWorkDesign} from './work-design.js';
+import {normalizeGlazeDip} from './glaze-dip-rules.js';
 
 export class ClassroomError extends Error {
   constructor(status, code, message) { super(message); this.status = status; this.code = code; }
@@ -224,6 +225,11 @@ export function madeDigest(work) {
 }
 export function finishedWork(raw) {
   if (!raw || raw.step !== 4 || !ORDERS.some(order => order.id === raw.orderId) || !SHAPES.some(shape => shape.id === raw.shape) || !TECHNIQUES.some(technique => technique.id === raw.technique)) fail(400, 'unfinished-work', '완성한 작품만 선생님께 보낼 수 있어요.');
+  const glazeDip = normalizeGlazeDip(raw.glazeDip);
+  if ((raw.processVersion !== undefined && ![1, 2].includes(raw.processVersion))
+    || (raw.processVersion === 2 && !glazeDip) || (raw.glazeDip !== undefined && !glazeDip)) {
+    fail(400, 'unfinished-work', '유약 담그기를 마친 뒤 작품을 보내 주세요.');
+  }
   const input = assessmentInput(raw);
   const work = {id: validateWorkId(raw.id), step: 4, orderId: raw.orderId, shape: raw.shape, modelId: input.modelId,
     technique: raw.technique, pattern: input.pattern, drawingLabel: input.drawingLabel, title: input.title,
@@ -233,6 +239,8 @@ export function finishedWork(raw) {
     placements: (Array.isArray(raw.placements) ? raw.placements : []).slice(0, 1200).filter(point => point && Number.isFinite(point.x) && Number.isFinite(point.y)).map(point => ({x: point.x, y: point.y, pattern: clean(point.pattern || raw.pattern, 30)})),
     strokes: (Array.isArray(raw.strokes) ? raw.strokes : []).slice(0, 600).map(stroke => ({points: Array.isArray(stroke?.points) ? stroke.points.slice(0, 2).map(() => [0, 0]) : []})),
   };
+  if (raw.processVersion !== undefined) work.processVersion = raw.processVersion;
+  if (glazeDip) work.glazeDip = glazeDip;
   if (!work.decorDone || raw.firing?.length !== 4 || work.firing.join(',') !== 'dry,biscuit,glaze,fire' || !work.explanationUse || !work.explanationBeauty) fail(400, 'unfinished-work', '제작과 작품 설명을 마친 뒤 보내 주세요.');
   work.assessment = normalizeAssessment(raw.assessment, work) || rubricAssessment(work);
   if (!work.assessment.accepted) fail(400, 'unfinished-work', '작품 설명을 마무리한 뒤 보내 주세요.');
@@ -242,7 +250,8 @@ export function finishedWork(raw) {
 function submittedDesign(raw, work) {
   if (raw === undefined || raw === null) return null;
   const design = sanitizeWorkDesign(raw);
-  if (!design || design.shape !== work.shape || design.modelId !== (work.modelId || work.shape) || design.technique !== work.technique) {
+  if (!design || design.shape !== work.shape || design.modelId !== (work.modelId || work.shape) || design.technique !== work.technique
+    || design.processVersion !== work.processVersion || design.glazeDip?.elapsedMs !== work.glazeDip?.elapsedMs) {
     fail(400, 'invalid-design', '작품을 보내지 못했어요. 게임을 새로고침한 뒤 다시 보내 주세요.');
   }
   return design;
@@ -742,6 +751,8 @@ export class ClassroomService {
     const summary = {id: work.id, imageId, runId: room.runId, title: work.title, shape: work.shape, score: score.total,
       objectiveScore: score.objective, explanationScore: score.explanation, explanationUse: work.explanationUse, explanationBeauty: work.explanationBeauty, submittedAt: this.now(),
       order: orderDigest(work), made: madeDigest(work)};
+    if (work.processVersion !== undefined) summary.processVersion = work.processVersion;
+    if (work.glazeDip) summary.glazeDip = work.glazeDip;
     summary.expiresAt = Math.min(summary.submittedAt + WORK_RETENTION_MS, raw.expiresAt ?? Infinity);
     const priorArt = await this.store.read(key);
     let createdHere = false;
@@ -749,7 +760,13 @@ export class ClassroomService {
     const savedArt = priorArt || await this.store.read(key);
     if (Number.isFinite(savedArt?.data.submittedAt)) summary.submittedAt = savedArt.data.submittedAt;
     summary.expiresAt = Math.min(summary.expiresAt, summary.submittedAt + WORK_RETENTION_MS, Number.isFinite(savedArt?.data.expiresAt) ? savedArt.data.expiresAt : Infinity);
-    if (sanitizeWorkDesign(savedArt?.data.design)) summary.designVersion = 1;
+    const savedDesign = sanitizeWorkDesign(savedArt?.data.design);
+    // The first immutable artwork can be created before its student summary.
+    // A racing retry must not pair that surface with a different glaze score.
+    if (savedDesign && (savedDesign.processVersion !== work.processVersion || savedDesign.glazeDip?.elapsedMs !== work.glazeDip?.elapsedMs)) {
+      fail(400, 'invalid-design', '저장 중인 작품의 유약 결과가 달라요. 게임을 새로고침한 뒤 다시 보내 주세요.');
+    }
+    if (savedDesign) summary.designVersion = 1;
     try {
       // In particular, clean an image created after the delete-room sweep.
       try { await this.room(code); }
@@ -798,6 +815,7 @@ export class ClassroomService {
       if (work.designVersion === 1) return work;
       // Only supplement an original resend. Scores, explanations and the preview remain immutable.
       if (['title', 'shape', 'explanationUse', 'explanationBeauty'].some(key => work[key] !== submitted[key])
+        || work.processVersion !== submitted.processVersion || work.glazeDip?.elapsedMs !== submitted.glazeDip?.elapsedMs
         || work.score !== score.total || work.objectiveScore !== score.objective || work.explanationScore !== score.explanation) return work;
       const key = imageKey(code, id, work), artifact = await this.store.read(key);
       if (!artifact) return work; // Never recreate an image removed by expiry or teacher deletion.

@@ -11,6 +11,8 @@ export function restartFrom(work, station) {
   work.title = '';
   delete work.titleMotif;
   work.firing = [];
+  work.processVersion = 2;
+  delete work.glazeDip;
   if (station === 'clay' || station === 'shape' || station === 'decorate') {
     work.placements = [];
     work.strokes = [];
@@ -34,6 +36,8 @@ export function restartInlay(work) {
   work.decorDone = false;
   work.decorPhase = 1;
   work.firing = [];
+  work.processVersion = 2;
+  delete work.glazeDip;
   work.assessment = null;
   work.preview = null;
   delete work.inlay;

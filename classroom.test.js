@@ -12,6 +12,7 @@ import {assessmentFingerprint} from './assessment-rules.js';
 import {evaluateWork} from './domain.js';
 import {classroomWorkPayload} from './classroom-game-bridge.js';
 import {sanitizeWorkDesign} from './work-design.js';
+import {evaluateGlazeDip} from './glaze-dip-rules.js';
 
 // This adapter is test-only. Real requests always use durable files or private Blob.
 class MemoryStore {
@@ -706,6 +707,71 @@ test('finished work preserves multiline AI evaluation and recomputes score inste
   assert.equal((await f.service.artwork(imageQuery, student.participantToken)).preview, png);
   await rejectsCode(f.service.artwork(imageQuery, other.participantToken), 'student-auth');
   await rejectsCode(f.service.state({code: f.room.code, participantId: student.participantId}, other.participantToken), 'student-auth');
+});
+
+test('new finished works require valid measured glaze time while legacy scores remain compatible', () => {
+  assert.equal(finishedWork(rawWork()).score.total, evaluateWork(rawWork()).total);
+  for (const glazeDip of [undefined, null, {version: 2, elapsedMs: 5000}, {version: 1, elapsedMs: '5000'}, {version: 1, elapsedMs: NaN}, {version: 1, elapsedMs: 5000.5}, {version: 1, elapsedMs: 60001}]) {
+    assert.throws(() => finishedWork(rawWork({processVersion: 2, glazeDip})), error => error.code === 'unfinished-work');
+  }
+  assert.throws(() => finishedWork(rawWork({processVersion: 3, glazeDip: {version: 1, elapsedMs: 5000}})), error => error.code === 'unfinished-work');
+  const base = evaluateWork(rawWork()).total;
+  for (const [elapsedMs, deduction] of [[4500, 0], [5500, 0], [4499, 1], [5501, 1], [2500, 5], [7500, 5], [0, 10], [60000, 10]]) {
+    const original = rawWork({processVersion: 2, glazeDip: {version: 1, elapsedMs, outcome: 'balanced', score: 10, success: true, feedback: 'untrusted'}});
+    const payload = classroomWorkPayload(original), final = finishedWork(payload);
+    assert.equal(final.score.total, base - deduction, `${elapsedMs} ms`);
+    assert.equal(final.score.total, evaluateWork(original).total); assert.equal(final.score.self, 17);
+    assert.equal(final.work.processVersion, 2); assert.deepEqual(final.work.glazeDip, evaluateGlazeDip(elapsedMs));
+    assert.equal(final.work.assessment.source, 'ai', 'timing does not invalidate the explanation rubric');
+  }
+});
+
+test('teacher summaries and authorized 360 artwork retain the same measured glaze result and final score', async () => {
+  const f = await completedFixture();
+  for (const elapsedMs of [2500, 5000, 7500]) {
+    const original = rawWork({id: `glaze-${elapsedMs}`, processVersion: 2, glazeDip: {version: 1, elapsedMs, score: 10}});
+    const work = classroomWorkPayload(original), canonical = evaluateGlazeDip(elapsedMs);
+    const submitted = await f.service.submitWork({...f.payload, work}, f.student.participantToken);
+    assert.equal(submitted.work.score, evaluateWork(original).total);
+    assert.equal(submitted.work.processVersion, 2); assert.deepEqual(submitted.work.glazeDip, canonical);
+    const teacher = (await f.service.overview({code: f.room.code}, f.room.teacherToken)).works.find(value => value.id === original.id);
+    assert.equal(teacher.score, submitted.work.score); assert.deepEqual(teacher.glazeDip, canonical);
+    const artifact = await f.service.artwork({code: f.room.code, participantId: '1', workId: original.id}, f.room.teacherToken);
+    assert.equal(artifact.design.processVersion, 2); assert.deepEqual(artifact.design.glazeDip, canonical);
+  }
+});
+
+test('a renderer cannot replace a thin or thick scored glaze with a successful-looking glaze', async () => {
+  for (const mutate of [design => {design.glazeDip.elapsedMs = 5000;}, design => {delete design.glazeDip;}, design => {delete design.processVersion;}]) {
+    const f = await completedFixture(), work = classroomWorkPayload(rawWork({processVersion: 2, glazeDip: {version: 1, elapsedMs: 2500}}));
+    mutate(work.design);
+    await rejectsCode(f.service.submitWork({...f.payload, work}, f.student.participantToken), 'invalid-design');
+  }
+});
+
+test('racing first uploads cannot pair an earlier glaze surface with another measured time or process version', async () => {
+  for (const [firstVersion, firstTime, nextVersion, nextTime] of [[2, 2500, 2, 5000], [1, 5000, 2, 5000]]) {
+    const f = await completedFixture(), gate = barrier(), create = f.store.create.bind(f.store);
+    const firstWork = classroomWorkPayload(rawWork({processVersion: firstVersion, glazeDip: {version: 1, elapsedMs: firstTime}}));
+    const changedWork = classroomWorkPayload(rawWork({processVersion: nextVersion, glazeDip: {version: 1, elapsedMs: nextTime}}));
+    let held = false;
+    f.store.create = async (key, data) => {
+      const result = await create(key, data);
+      if (!held && key.includes('/artworks/')) {held = true; gate.reached(); await gate.blocked;}
+      return result;
+    };
+    const pending = f.service.submitWork({...f.payload, work: firstWork}, f.student.participantToken);
+    await gate.ready;
+    try {
+      await rejectsCode(f.service.submitWork({...f.payload, work: changedWork}, f.student.participantToken), 'invalid-design');
+      assert.equal((await f.service.overview({code: f.room.code}, f.room.teacherToken)).works.length, 0, 'the conflicting score is never published');
+    } finally {gate.release();}
+    const submitted = await pending;
+    assert.equal(submitted.work.score, evaluateWork(firstWork).total);
+    assert.equal(submitted.work.processVersion, firstVersion); assert.equal(submitted.work.glazeDip.elapsedMs, firstTime);
+    const artwork = await f.service.artwork({code: f.room.code, participantId: '1', workId: firstWork.id}, f.room.teacherToken);
+    assert.equal(artwork.design.processVersion, firstVersion); assert.deepEqual(artwork.design.glazeDip, submitted.work.glazeDip);
+  }
 });
 
 test('a finished work keeps what was ordered and what was made in words, so boards can compare similar orders', async () => {

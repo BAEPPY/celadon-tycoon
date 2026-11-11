@@ -49,6 +49,26 @@ test('굽기 순서가 빠지거나 바뀌면 제작 과정 중 20점을 얻지 
   }
 });
 
+test('새 제작 과정은 유약 담그기 10점을 포함하며 설명 20점은 그대로 유지한다', () => {
+  for (const [elapsedMs, expected] of [[4500, 100], [5000, 100], [5500, 100], [4499, 99], [5501, 99], [2500, 95], [7500, 95], [0, 90], [60000, 90]]) {
+    const work = completedWork({processVersion: 2, glazeDip: {version: 1, elapsedMs, score: 10, outcome: 'balanced'}});
+    const score = evaluateWork(work), process = score.breakdown.find(row => row.key === 'process');
+    assert.equal(score.total, expected, `${elapsedMs} ms`); assert.equal(score.self, 20);
+    assert.equal(score.objective, expected - 20); assert.equal(process.glazeScore, expected - 90);
+    assert.equal(process.glazeMax, 10); assert.equal(process.max, 30);
+  }
+});
+
+test('새 제작에서 빠진 유약 결과는 0점이고 이전 저장 작품의 점수는 유지한다', () => {
+  for (const glazeDip of [undefined, null, {version: 1, elapsedMs: '5000'}, {version: 1, elapsedMs: Infinity}]) {
+    assert.equal(evaluateWork(completedWork({processVersion: 2, glazeDip})).total, 90);
+  }
+  assert.equal(evaluateWork(completedWork()).total, 100);
+  assert.equal(evaluateWork(completedWork({processVersion: 1})).total, 100);
+  assert.equal(evaluateWork(completedWork({glazeDip: {version: 1, elapsedMs: 2500}})).total, 95);
+  assert.equal(evaluateWork(completedWork({processVersion: 2, glazeDip: {version: 1, elapsedMs: 5000}, firing: []})).total, 90);
+});
+
 test('체크 표시만으로 설명 점수를 얻지 않고 유효한 평가 결과가 필요하다', () => {
   for (const explanation of ['', '    ', '좋아요']) {
     const result = evaluateWork(completedWork({ explanationUse: explanation, explanationBeauty: explanation }));

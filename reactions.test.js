@@ -6,6 +6,15 @@ import {ORDERS} from './domain.js';
 import {CHARACTERS,reactionMarkup} from './characters.js';
 import {ORDER_QUOTES,orderQuote,reviewMood,customerReview} from './dialogue.js';
 
+test('a completed pot with a glazing timing miss receives glazing feedback, not missing-stage feedback',()=>{
+ for(const [glazeScore,feedback] of [[5,'유약이 얇으면 광택과 빛깔이 덜 나타날 수 있어요.'],[3,'유약이 너무 두꺼우면 흘러내리거나 갈라질 수 있어요.']]){
+  const score={objective:70+glazeScore,total:90+glazeScore,breakdown:[{key:'process',score:20+glazeScore,max:30,glazeScore,feedback}]};
+  const review=customerReview(ORDERS[0],score,{id:'glaze-timing'});
+  assert.match(review.quote,/제작 순서는 잘/);assert.match(review.detail,/5초/);
+  assert.doesNotMatch(review.quote+' '+review.detail,/빠진|남은|끝나지|마무리하시오/);
+ }
+});
+
 test('all playable orders have archaic dialogue and retain their motif and technique requirements',()=>{
  const words={crane:'학',cloud:'구름',lotus:'연꽃',chrysanthemum:'국화',willow:'버드나무',plum:'매화',bamboo:'대나무',grape:'포도',wildflower:'풀꽃',peony:'모란',text:'글자'};
  for(const order of ORDERS){const quote=orderQuote(order);assert.ok(ORDER_QUOTES[order.id],order.id);assert.doesNotMatch(quote,/주세요|필요해요|합니다|주실래요|맡길게요/);assert.match(quote,/하오|시오|싶소|겠소|있소/);

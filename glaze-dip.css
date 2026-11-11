@@ -1,0 +1,68 @@
+.station-info.glaze-dip-controls > :not(.glaze-dip-game) { display: none !important; }
+.shop-game .kiln-scene.glaze-dip-active > .station-heading,
+.shop-game .kiln-scene.glaze-dip-active > .station-rack,
+.shop-game .kiln-scene.glaze-dip-active > .order-summary,
+.shop-game .kiln-scene.glaze-dip-active > .station-nav { visibility: hidden; pointer-events: none; }
+.shop-game .kiln-scene.glaze-dip-active .station-info.glaze-dip-controls { top: 14px; bottom: 14px; left: 16px; width: 30%; max-width: 360px; padding: 14px; gap: 0; margin: 0; }
+.shop-game .kiln-scene.glaze-dip-active .station-workspace { left: 33%; right: 3%; top: 20px; bottom: 20px; }
+.glaze-dip-game { display: flex; flex-direction: column; width: 100%; height: 100%; min-height: 0; color: #71504c; text-align: left; }
+.glaze-dip-copy { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+.glaze-dip-game h2 { margin: 0 0 10px; font-size: 21px; line-height: 1.35; }
+.glaze-dip-game p { margin: 0; }
+.station-info.glaze-dip-controls .glaze-dip-game .glaze-dip-instruction { font-size: 15px; line-height: 1.45; word-break: keep-all; }
+.station-info.glaze-dip-controls .glaze-dip-game .glaze-dip-target { margin-top: 9px; color: #487365; font-size: 14px; line-height: 1.4; font-weight: 700; }
+.glaze-dip-feedback { min-height: 110px; margin: 12px 0; padding: 11px; border: 1px solid #d9c3a2; border-radius: 9px; background: #fff9e9; }
+.glaze-dip-status { display: block; font-size: 16px; line-height: 1.4; }
+.station-info.glaze-dip-controls .glaze-dip-game .glaze-dip-detail { margin-top: 6px; font-size: 14px; line-height: 1.45; word-break: keep-all; }
+.glaze-dip-result-time { display: block; margin-top: 8px; color: #407b69; font-size: 16px; font-weight: 700; }
+.glaze-dip-result-time[hidden] { display: none; }
+.glaze-dip-game .glaze-dip-primary { display: block; flex: 0 0 auto; width: 100%; min-height: 48px; padding: 10px 8px; border: 2px solid #9e7661; border-radius: 8px; background: #c8d3ad; box-shadow: 0 3px 0 #b99b7b; color: #4e5a46; font: inherit; font-size: 17px; font-weight: 800; line-height: 1.35; touch-action: manipulation; }
+.glaze-dip-game .glaze-dip-primary[data-glaze-action="stop"] { background: #e9bb8f; color: #694838; }
+.glaze-dip-game button:focus-visible { outline: 3px solid #238d85; outline-offset: 3px; }
+.glaze-dip-game button:disabled { cursor: default; opacity: .55; }
+.glaze-dip-secondary { display: flex; flex: 0 0 auto; gap: 8px; margin-top: 11px; }
+.glaze-dip-secondary .small-button { flex: 1; min-height: 38px; padding: 6px 7px; font-size: 14px; touch-action: manipulation; }
+.station-info.glaze-dip-controls .glaze-dip-game .glaze-dip-context { flex: 0 0 auto; margin-top: 8px; color: #8a7667; font-size: 11px; line-height: 1.4; }
+.glaze-dip-canvas { display: block; width: 100%; height: auto; pointer-events: none; z-index: 8; }
+.glaze-dip-game[data-paused="true"] .glaze-dip-feedback { background: #f5eddb; }
+.glaze-dip-game[data-state="result"] .glaze-dip-instruction,
+.glaze-dip-game[data-state="result"] .glaze-dip-target { display: none; }
+.glaze-dip-game[data-outcome="balanced"] .glaze-dip-feedback { border-color: #94b4a2; background: #f1f5e7; }
+.glaze-dip-game[data-outcome="thin"] .glaze-dip-feedback,
+.glaze-dip-game[data-outcome="thick"] .glaze-dip-feedback { border-color: #d3af87; }
+@media (max-height: 700px) and (min-width: 1024px) {
+  .shop-game .kiln-scene.glaze-dip-active .station-info.glaze-dip-controls { padding: 10px; }
+  .glaze-dip-game h2 { margin-bottom: 7px; font-size: 19px; }
+  .station-info.glaze-dip-controls .glaze-dip-game .glaze-dip-instruction { font-size: 14px; }
+  .glaze-dip-feedback { min-height: 88px; margin: 9px 0; padding: 8px; }
+  .station-info.glaze-dip-controls .glaze-dip-game .glaze-dip-detail { font-size: 13px; }
+  .glaze-dip-secondary { margin-top: 8px; }
+}
+@media (max-width: 600px), (max-width: 1023px) and (pointer: coarse) {
+  .shop-game .kiln-scene.glaze-dip-active > .station-heading,
+  .shop-game .kiln-scene.glaze-dip-active > .station-rack,
+  .shop-game .kiln-scene.glaze-dip-active > .order-summary,
+  .shop-game .kiln-scene.glaze-dip-active > .station-nav { display: none; }
+  .shop-game .kiln-scene.glaze-dip-active .station-info.glaze-dip-controls { position: relative; inset: auto; order: 2; width: 100%; max-width: none; height: auto; padding: 12px; }
+  .glaze-dip-game { height: auto; }
+  .glaze-dip-copy { overflow: visible; }
+  .shop-game .glaze-dip-game h2 { margin-bottom: 6px; font-size: 20px; }
+  .shop-game .station-info.glaze-dip-controls .glaze-dip-game .glaze-dip-instruction { font-size: 15px !important; line-height: 1.4; }
+  .shop-game .station-info.glaze-dip-controls .glaze-dip-game .glaze-dip-target { margin-top: 5px; font-size: 13px !important; }
+  .glaze-dip-feedback { min-height: 86px; margin: 8px 0; padding: 8px; }
+  .shop-game .station-info.glaze-dip-controls .glaze-dip-game .glaze-dip-detail { margin-top: 4px; font-size: 14px !important; line-height: 1.4; }
+  .shop-game .station-scene .station-info .glaze-dip-game .glaze-dip-context { font-size: 11px !important; line-height: 1.4; }
+  .glaze-dip-secondary { margin-top: 8px; }
+  .glaze-dip-secondary .small-button { min-height: 44px; }
+  .shop-game .kiln-scene.glaze-dip-active .station-workspace { position: relative; inset: auto; height: 300px; min-height: 300px; }
+}
+@media (max-width: 1023px) and (max-height: 500px) and (pointer: coarse) {
+  .shop-game .kiln-scene.glaze-dip-active { display: grid; grid-template-columns: minmax(280px, 44%) minmax(0, 1fr); align-items: stretch; gap: 12px; height: calc(100svh - 120px); min-height: 240px; padding: 10px; }
+  .shop-game .kiln-scene.glaze-dip-active .station-info.glaze-dip-controls { grid-column: 1; grid-row: 1; height: 100%; min-height: 0; padding: 8px; }
+  .shop-game .kiln-scene.glaze-dip-active .station-workspace { grid-column: 2; grid-row: 1; width: 100%; height: 100%; min-height: 0; }
+  .shop-game .glaze-dip-game { height: 100%; min-height: 0; }
+  .glaze-dip-copy { overflow-y: auto; }
+  .glaze-dip-feedback { min-height: 0; }
+  .glaze-dip-secondary { margin-top: 6px; }
+  .shop-game .station-scene .station-info .glaze-dip-game .glaze-dip-context { margin-top: 5px; }
+}
