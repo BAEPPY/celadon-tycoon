@@ -122,7 +122,14 @@ const officeStub=view=>`window.__settings=window.__settings||{};window.__goto=[]
     await page.locator('.lg-turn[data-model="observation-1"]').waitFor({timeout:15000});
     await page.waitForFunction(()=>/베개\s*2명/.test(document.querySelector('#lg-root').innerText),{},{timeout:15000});
     assert.match(await text(),/활동 2 · 진행 중\s*쓰임과 이름 짐작하기/);
-    await page.locator('[data-act=kind][data-kind=use]').click();assert.match(await text(),/어디에 썼을까요\?/);assert.match(await text(),/머리를 받쳐요/);
+    // The same word spelled another way joins it, and tapping the word shows what was actually written.
+    await api('answer',{participantId:students[2].participantId,activity:2,runId:a2.state.runId,clientRevision:1,answers:{1:{name:'베게',use:'머리 받쳐요.'}}},{auth:students[2].participantToken});
+    await page.waitForFunction(()=>/베개\s*3명/.test(document.querySelector('#lg-root').innerText),{},{timeout:15000});
+    assert.equal(await page.locator('.lg-word').count(),1,'베개 and 베게 are one word');
+    await page.locator('.lg-word').click();
+    assert.equal((await page.locator('.lg-detail-box').innerText()).replace(/\s+/g,' '),'베개3명 비슷한 뜻이라 한 낱말로 모았어요. 친구들은 이렇게 썼어요. 베개 2명 베게 1명 닫기');
+    await page.locator('.lg-detail-box button').click();assert.equal(await page.locator('.lg-detail').count(),0);
+    await page.locator('[data-act=kind][data-kind=use]').click();assert.match(await text(),/어디에 썼을까요\?/);assert.match(await text(),/머리 받쳐요\s*2명/,'머리를 받쳐요 and 머리 받쳐요. are one word');
     await page.locator('[data-act=object][data-id="2"]').click();await page.locator('.lg-turn[data-model="observation-2"]').waitFor();assert.match(await text(),/꽃을 꽂아요/);
     assert.ok(!(await text()).includes(privateName));
     await control('pause');const a3=await control('start',{activity:3});
@@ -286,7 +293,7 @@ const officeStub=view=>`window.__settings=window.__settings||{};window.__goto=[]
     assert.deepEqual(await compare.locator('.lg-chips button').evaluateAll(buttons=>buttons.map(button=>[button.innerText.replace(/\s+/g,''),button.className])),[['베개2','lg-on'],['매병1','']]);
     assert.match(await compare.locator('.lg-cmp-head').innerText(),/비슷한 주문끼리 비교하기[\s\S]*청자 베개 주문\s*2점[\s\S]*누워서 쉴 때 머리를 받칩니다[\s\S]*같은 점과 다른 점/);
     assert.deepEqual((await compare.locator('.lg-cmp-card').evaluateAll(cards=>cards.map(card=>[card.querySelector('h2').textContent,...[...card.querySelectorAll('.lg-cmp-facts div')].map(item=>item.textContent)]))).sort(),
-      [['구름이 쉬는 베개','주문왕실 · 학 3·구름 2 · 상감','만든 것학 1 · 상감'],['학이 쉬는 청자 베개','주문왕실 · 학 3·구름 2 · 상감','만든 것학 1 · 상감']]);
+      [['구름이 쉬는 베개','주문왕실 · 학·구름 무늬 · 상감','만든 것학 무늬 · 상감'],['학이 쉬는 청자 베개','주문왕실 · 학·구름 무늬 · 상감','만든 것학 무늬 · 상감']]);
     // A picture keeps its own shape (that engine has no object-fit), and the whole board fits the slide box.
     const drawn=await compare.locator('.lg-cmp-card img').first().evaluate(image=>({natural:image.naturalWidth/image.naturalHeight,shown:image.getBoundingClientRect().width/image.getBoundingClientRect().height}));
     assert.ok(Math.abs(drawn.natural-drawn.shown)<.03,`picture ratio ${drawn.natural} shown as ${drawn.shown}`);
@@ -343,6 +350,14 @@ const officeStub=view=>`window.__settings=window.__settings||{};window.__goto=[]
     await cloudBox.locator('#lg-cloud').selectOption('name-1');await cloudBox.locator('.lg-submit').click();
     await cloudBox.locator('.lg-cloud-only[data-cloud="name-1"][data-layout=ready]').waitFor({timeout:20000});
     const nameCloud=await cloudShape(cloudBox);assert.deepEqual([nameCloud.texts,nameCloud.inside,nameCloud.apart,nameCloud.other],[['베개'],true,true,0]);
+    // Tapping the word shows what was written under it; tapping anywhere closes the box again.
+    await cloudBox.locator('.lg-cw').click();
+    assert.match((await cloudBox.locator('.lg-detail-box').innerText()).replace(/\s+/g,' '),/^베개3명 비슷한 뜻이라 한 낱말로 모았어요\. 친구들은 이렇게 썼어요\. 베개 2명 베게 1명/);
+    await cloudBox.locator('.lg-detail').click({position:{x:8,y:8}});assert.equal(await cloudBox.locator('.lg-detail').count(),0);
+    // The uses: the two ways of writing 머리를 받쳐요 are one word; 낮잠 잘 때 써요 is another until a helper says otherwise.
+    await cloudBox.locator('[data-act=setup]').click();await cloudBox.locator('#lg-cloud').selectOption('use-1');await cloudBox.locator('.lg-submit').click();
+    await cloudBox.locator('.lg-cloud-only[data-cloud="use-1"][data-layout=ready]').waitFor({timeout:20000});
+    assert.deepEqual((await cloudShape(cloudBox)).texts,['낮잠 잘 때 써요','머리 받쳐요']);
     // A cloud with nothing in it yet says so.
     await cloudBox.locator('[data-act=setup]').click();await cloudBox.locator('#lg-cloud').selectOption('use-5');await cloudBox.locator('.lg-submit').click();
     await cloudBox.locator('.lg-cloud-only[data-cloud="use-5"] .lg-cloud-empty').waitFor({timeout:20000});
@@ -359,6 +374,12 @@ const officeStub=view=>`window.__settings=window.__settings||{};window.__goto=[]
     await siteCloud.goto(link.replace('#key=','&show=cloud&cloud=name-1#key='));
     await siteCloud.waitForFunction(()=>document.querySelector('.cloud-only[data-cloud="name-1"] .word-cloud')?.dataset.cloudLayout==='ready',{},{timeout:30000});
     assert.deepEqual((await cloudShape(siteCloud)).texts,['베개']);
+    // On the site's board a tap opens the same list; Esc or 닫기 closes it.
+    await siteCloud.locator('.cloud-word').click();await siteCloud.locator('.cloud-word-dialog[open]').waitFor();
+    assert.equal((await siteCloud.locator('.cloud-word-dialog').innerText()).replace(/\s+/g,' '),'베개 3명 닫기 × 비슷한 뜻이라 한 낱말로 모았어요. 친구들은 이렇게 썼어요. 베개 2명 베게 1명');
+    await siteCloud.locator('[data-close-cloud-word]').click();assert.equal(await siteCloud.locator('.cloud-word-dialog').count(),0);
+    await siteCloud.locator('.cloud-word').focus();await siteCloud.keyboard.press('Enter');await siteCloud.locator('.cloud-word-dialog[open]').waitFor();await siteCloud.keyboard.press('Escape');
+    await siteCloud.waitForFunction(()=>!document.querySelector('.cloud-word-dialog'));
     await cloudBox.context().close();
 
     // On a touch screen (an interactive whiteboard) the board's buttons are large enough for a finger and still fit.
@@ -441,7 +462,7 @@ const officeStub=view=>`window.__settings=window.__settings||{};window.__goto=[]
     assert.deepEqual(await showPlain.locator('#lg-root button').evaluateAll(nodes=>nodes.filter(node=>node.offsetParent!==null).map(node=>node.textContent)),['＋','－']);
     await showPlain.evaluate(()=>window.__viewHandler({activeView:'edit'}));await showPlain.locator('[data-act=setup]').waitFor();
     assert.deepEqual(errors,[]);
-    console.log('Old-engine add-in board: word cloud alone (old engine and site board), fitting its box (same after reloads, squat box, unannounced resize), similar-order comparison (groups, words, 크게 보기), setup, anonymous comparison counts, turning pictures, 청자 설명 보기 from the slide, following 아름다움·쓰임·완성작, real 3D (turn, tilt, zoom, kept across redraws, self-turning), falling back to pictures without WebGL, with a missing model and after an empty drawing, pictures of finished works as JPEG where WebP cannot be drawn, large buttons on a touch screen, plain model view (zoom only, whole box, no self-turning, picture zoom), waiting for a class, slide-show cover and remote keys passed.');
+    console.log('Old-engine add-in board: word cloud alone (old engine and site board), similar answers as one word with a tap showing what was written, fitting its box (same after reloads, squat box, unannounced resize), similar-order comparison (groups, words, 크게 보기), setup, anonymous comparison counts, turning pictures, 청자 설명 보기 from the slide, following 아름다움·쓰임·완성작, real 3D (turn, tilt, zoom, kept across redraws, self-turning), falling back to pictures without WebGL, with a missing model and after an empty drawing, pictures of finished works as JPEG where WebP cannot be drawn, large buttons on a touch screen, plain model view (zoom only, whole box, no self-turning, picture zoom), waiting for a class, slide-show cover and remote keys passed.');
   }finally{
     if(room&&teacher)await control('delete').catch(()=>{});
     await browser.close();

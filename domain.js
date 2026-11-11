@@ -75,7 +75,7 @@ export const ORDERS = [
   },
   {
     id: 'noble-cloud-rest', customer: '귀족의 주문', kind: 'noble', title: '구름 무늬로 꾸민 휴식',
-    quote: '머리를 받치고 누워 쉴 물건을 부탁합니다. 구름 무늬를 놓을 자리는 맡길게요.',
+    quote: '머리를 받치고 누워 쉴 물건을 부탁합니다. 구름 무늬의 위치와 개수는 맡길게요.',
     shape: 'pillow', pattern: 'cloud', technique: 'any',
     hint: '쓰임에 맞는 기본 형태를 고르고, 구름 무늬가 잘 보이도록 배치해 보세요.',
   },
@@ -227,33 +227,37 @@ export const PATTERNS = [
 export const MIN_MOTIFS = 4;
 export const MIN_MOTIF_KINDS = 2;
 
-// What each pattern order asks for: two (or three) kinds with a number each, four or five motifs in all.
-// The first kind is the order's main pattern. Orders that leave the pattern free are not listed.
+// What each pattern order asks for: two (or three) kinds of pattern. The first kind is the order's main pattern.
+// How many of each to place is left to the maker; orders that leave the pattern free are not listed.
 const ORDER_MOTIFS = {
-  'royal-rest': {crane: 3, cloud: 2}, 'lady-cloud-rest': {cloud: 3, crane: 2}, 'noble-lotus-rest': {lotus: 2, willow: 2},
-  'lady-crane-rest': {crane: 2, bamboo: 2}, 'noble-cloud-rest': {cloud: 4, crane: 1},
-  'royal-crane-pour': {crane: 2, cloud: 2}, 'lady-cloud-pour': {cloud: 2, crane: 2}, 'noble-lotus-pour': {lotus: 3, chrysanthemum: 2},
-  'royal-cloud-pour': {cloud: 3, crane: 1}, 'lady-crane-pour': {crane: 3, cloud: 1},
-  'lady-lotus-fragrance': {lotus: 3, cloud: 1}, 'noble-cloud-fragrance': {cloud: 3, lotus: 2}, 'royal-crane-fragrance': {crane: 2, cloud: 2},
-  'noble-lotus-fragrance': {lotus: 2, wildflower: 2},
-  'royal-cloud-seat': {cloud: 3, crane: 2}, 'lady-lotus-seat': {lotus: 3, willow: 1}, 'noble-crane-seat': {crane: 3, bamboo: 2},
-  'lady-cloud-seat': {cloud: 2, wildflower: 2},
-  'noble-vessel': {cloud: 3, crane: 2}, 'royal-crane-vessel': {crane: 3, cloud: 2}, 'lady-cloud-vessel': {cloud: 2, crane: 2},
-  'noble-lotus-vessel': {lotus: 3, willow: 2}, 'lady-crane-vessel': {crane: 2, plum: 2},
-  'example-pillow': {crane: 3, cloud: 2}, 'example-incense': {cloud: 3, lotus: 1}, 'example-stool': {lotus: 2, willow: 2},
-  'example-maebyeong': {crane: 2, cloud: 3}, 'example-cupStand': {lotus: 3, chrysanthemum: 1},
-  'example-chrysanthemumCup': {chrysanthemum: 3, wildflower: 1}, 'example-willowMaebyeong': {willow: 2, lotus: 2},
-  'example-plumBambooMaebyeong': {plum: 2, bamboo: 2, crane: 1}, 'example-cloudCraneMaebyeong': {cloud: 3, crane: 2},
-  'example-gourdPitcher': {grape: 3, wildflower: 1}, 'example-wildflowerPitcher': {wildflower: 3, chrysanthemum: 1},
-  'example-qilinDecoratedIncense': {cloud: 3, crane: 1}, 'example-peonyPitcher': {peony: 2, chrysanthemum: 2},
-  'example-lotusIncense': {lotus: 3, cloud: 2}, 'example-poemGourdBottle': {text: 2, lotus: 2},
+  'royal-rest': ['crane', 'cloud'], 'lady-cloud-rest': ['cloud', 'crane'], 'noble-lotus-rest': ['lotus', 'willow'],
+  'lady-crane-rest': ['crane', 'bamboo'], 'noble-cloud-rest': ['cloud', 'crane'],
+  'royal-crane-pour': ['crane', 'cloud'], 'lady-cloud-pour': ['cloud', 'crane'], 'noble-lotus-pour': ['lotus', 'chrysanthemum'],
+  'royal-cloud-pour': ['cloud', 'crane'], 'lady-crane-pour': ['crane', 'cloud'],
+  'lady-lotus-fragrance': ['lotus', 'cloud'], 'noble-cloud-fragrance': ['cloud', 'lotus'], 'royal-crane-fragrance': ['crane', 'cloud'],
+  'noble-lotus-fragrance': ['lotus', 'wildflower'],
+  'royal-cloud-seat': ['cloud', 'crane'], 'lady-lotus-seat': ['lotus', 'willow'], 'noble-crane-seat': ['crane', 'bamboo'],
+  'lady-cloud-seat': ['cloud', 'wildflower'],
+  'noble-vessel': ['cloud', 'crane'], 'royal-crane-vessel': ['crane', 'cloud'], 'lady-cloud-vessel': ['cloud', 'crane'],
+  'noble-lotus-vessel': ['lotus', 'willow'], 'lady-crane-vessel': ['crane', 'plum'],
+  'example-pillow': ['crane', 'cloud'], 'example-incense': ['cloud', 'lotus'], 'example-stool': ['lotus', 'willow'],
+  'example-maebyeong': ['crane', 'cloud'], 'example-cupStand': ['lotus', 'chrysanthemum'],
+  'example-chrysanthemumCup': ['chrysanthemum', 'wildflower'], 'example-willowMaebyeong': ['willow', 'lotus'],
+  'example-plumBambooMaebyeong': ['plum', 'bamboo', 'crane'], 'example-cloudCraneMaebyeong': ['cloud', 'crane'],
+  'example-gourdPitcher': ['grape', 'wildflower'], 'example-wildflowerPitcher': ['wildflower', 'chrysanthemum'],
+  'example-qilinDecoratedIncense': ['cloud', 'crane'], 'example-peonyPitcher': ['peony', 'chrysanthemum'],
+  'example-lotusIncense': ['lotus', 'cloud'], 'example-poemGourdBottle': ['text', 'lotus'],
 };
 const patternName = id => PATTERNS.find(pattern => pattern.id === id)?.name || '';
+// 을/를, 와/과 after a Korean word, by whether its last syllable ends in a consonant.
+const endsInConsonant = word => { const code = String(word).charCodeAt(String(word).length - 1) - 0xAC00; return code >= 0 && code < 11172 && code % 28 !== 0; };
+const withObject = word => `${word}${endsInConsonant(word) ? '을' : '를'}`;
+const withAnd = word => `${word}${endsInConsonant(word) ? '과' : '와'}`;
 
-/** The patterns an order asks for, with how many of each: [{pattern, name, count}]. Empty when the pattern is free. */
+/** The patterns an order asks for: [{pattern, name}]. Empty when the pattern is free. */
 export function orderMotifs(order) {
   const ids = order?.requiredPatterns || (!order || order.pattern === 'any' ? [] : [order.pattern]);
-  return ids.map(pattern => ({pattern, name: patternName(pattern), count: Math.max(1, Number(order.patternCounts?.[pattern]) || 1)}));
+  return ids.map(pattern => ({pattern, name: patternName(pattern)}));
 }
 /**
  * The motifs a work carries, by kind. Every stamp is one motif of its pattern; a drawing, however many lines it has,
@@ -277,24 +281,21 @@ export function decorationProgress(work = {}) {
   return {total, kinds, needed: MIN_MOTIFS, neededKinds: MIN_MOTIF_KINDS, ready: plain || (total >= MIN_MOTIFS && kinds >= MIN_MOTIF_KINDS)};
 }
 /**
- * One sentence that states the pattern part of an order: the kinds and numbers it names, or, when the pattern is left
- * to the maker, how many motifs of how many kinds a decorated work needs. `archaic` is the customers' way of speaking.
+ * One sentence that states the pattern part of an order: the kinds it names (never how many of each), or, when the
+ * pattern is left to the maker, that a decorated work mixes two kinds. `archaic` is the customers' way of speaking.
  */
 export function motifRequest(order, {archaic = false} = {}) {
   if (!order || order.technique === 'plain') return '';
-  const motifs = orderMotifs(order), end = archaic ? '주시오' : '주세요';
-  if (motifs.length > 1) {
-    const [first, ...rest] = motifs.map(motif => `${motif.name} ${motif.count}개`);
-    return `무늬는 ${first}에 ${rest.join('와 ')}를 곁들여 ${end}.`;
+  const names = orderMotifs(order).map(motif => motif.name), end = archaic ? '주시오' : '주세요';
+  if (names.length > 1) {
+    const rest = names.slice(1);
+    return `무늬는 ${names[0]}에 ${[...rest.slice(0, -1).map(withAnd), withObject(rest.at(-1))].join(' ')} 곁들여 ${end}.`;
   }
-  if (motifs.length) return '';
-  return order.technique === 'openwork'
-    ? `구멍무늬는 두 가지 모양을 섞어 ${MIN_MOTIFS}개 이상 뚫어 ${end}.`
-    : `무늬를 넣는다면 두 가지를 섞어 ${MIN_MOTIFS}개 이상 넣어 ${end}.`;
+  if (names.length) return '';
+  return order.technique === 'openwork' ? `구멍무늬는 두 가지 모양을 섞어 뚫어 ${end}.` : `무늬를 넣는다면 두 가지를 섞어 넣어 ${end}.`;
 }
 for (const order of ORDERS) {
-  const counts = ORDER_MOTIFS[order.id];
-  if (counts) { order.requiredPatterns = Object.keys(counts); order.patternCounts = counts; }
+  if (ORDER_MOTIFS[order.id]) order.requiredPatterns = [...ORDER_MOTIFS[order.id]];
   const request = motifRequest(order, {archaic: /[오소]\.$/.test(order.quote)});
   if (request) order.quote = `${order.quote} ${request}`;
 }
@@ -352,10 +353,9 @@ export function evaluateWork(work = {}) {
   const drawn = Array.isArray(input.strokes) && input.strokes.some(s => Array.isArray(s.points) && s.points.length > 1);
   const stamped = validPlacements;
   const drawingPattern = patternById.has(input.drawingLabel) ? input.drawingLabel : null;
-  // Every pattern the order names, as many times as it asks. A drawing named as that pattern stands for all of them.
+  // Every pattern the order names is on the vessel at least once, stamped or drawn (how many is the maker's choice).
   const requiredMotifs = orderMotifs(order);
-  const stampCount = pattern => stamped ? input.placements.filter(p => p && (p.pattern || input.pattern) === pattern).length : 0;
-  const patternCorrect = Boolean(order && requiredMotifs.every(({pattern, count}) => stampCount(pattern) >= count || (drawn && drawingPattern === pattern)));
+  const patternCorrect = Boolean(order && requiredMotifs.every(({pattern}) => (stamped && input.placements.some(p => p && (p.pattern || input.pattern) === pattern)) || (drawn && drawingPattern === pattern)));
   const modelCorrect = !order?.modelId || (input.modelId || input.shape) === order.modelId;
   const techniqueCorrect = Boolean(order && validTechnique
     && (order.technique === 'any' || input.technique === order.technique));
@@ -372,7 +372,7 @@ export function evaluateWork(work = {}) {
   if (!order) designFeedback.push('먼저 주문을 선택해 주세요.');
   else {
     if (!modelCorrect) designFeedback.push('같은 쓰임의 다른 형태를 골랐어요. 주문의 참고 예시와 내가 고른 세부 형태를 다시 비교해 보세요.');
-    if (!patternCorrect) designFeedback.push(`주문에 있는 ${requiredMotifs.map(({name, count}) => count > 1 ? `${name} ${count}개` : name).join('·') || '무늬'}를 다시 확인해 보세요. 무늬의 종류와 개수를 주문과 견주어 보세요.`);
+    if (!patternCorrect) designFeedback.push(`주문에 있는 ${requiredMotifs.map(motif => motif.name).join('·') || '무늬'}를 다시 확인해 보세요. 주문한 무늬가 모두 들어갔는지 견주어 보세요.`);
     if (!techniqueCorrect) designFeedback.push(order.technique === 'any'
       ? '표현할 제작 기법을 선택해 주세요.'
       : `이 주문에는 ${techniqueById.get(order.technique).name} 기법이 필요해요.`);

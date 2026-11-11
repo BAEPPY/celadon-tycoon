@@ -1,5 +1,6 @@
 import {createHash, createHmac, randomBytes, timingSafeEqual} from 'node:crypto';
 import {ORDERS, PATTERNS, SHAPES, TECHNIQUES, evaluateWork, orderMotifs, workMotifCounts} from './domain.js';
+import {distinctAnswers, groupAnswers, groupingMap, ungroupedAnswers} from './word-groups.js';
 import {assessmentInput, normalizeAssessment, rubricAssessment} from './assessment-rules.js';
 import {classroomPrefix, StoreConflict} from './classroom-store.js';
 import {sanitizeWorkDesign} from './work-design.js';
@@ -141,13 +142,19 @@ function normalizeAnswers(activity, raw) {
 function completeAnswers(activity, answers) {
   return activity === 1 ? comparisonIds.every(id => countries.includes(answers[id])) : observationIds.every(id => answers[id]?.name && answers[id]?.use);
 }
-function words(texts, limit = 80) {
-  const counts = new Map();
-  for (const value of texts) {
-    const text = clean(value, limit).replace(/[.,!?。！？]+$/g, '').trim().toLocaleLowerCase('ko');
-    if (text) counts.set(text, (counts.get(text) || 0) + 1);
-  }
-  return [...counts].map(([text, count]) => ({text, count})).sort((a, b) => b.count - a.count || a.text.localeCompare(b.text, 'ko'));
+// The words of a cloud: answers that mean the same are one word, which keeps what was actually written (word-groups.js).
+// `map` is the grouping the AI helper made for this cloud, when there is one.
+function words(texts, limit = 80, map = null) { return groupAnswers(texts.map(value => clean(value, limit)), map); }
+// The clouds of a class: 우리가 찾은 아름다움, and the names and uses guessed for each 청자 of activity 2.
+export const CLOUD_KEYS = Object.freeze(['beauty', ...observationIds.flatMap(id => [`name-${id}`, `use-${id}`])]);
+const CLOUD_QUESTIONS = {beauty: '고려청자에서는 어떤 아름다움을 찾을 수 있나요?', name: '이 청자에 어떤 이름을 붙였나요?', use: '이 청자는 어디에 썼을까요?'};
+const cloudRun = (room, key) => key === 'beauty' ? room.runs.beauty : room.runs[2];
+// The helper's grouping belongs to one run of the activity: a new run starts with the plain rules again.
+function cloudMap(room, key) { const saved = room.cloudGroups?.[key]; return saved && saved.runId && saved.runId === cloudRun(room, key) && saved.map && typeof saved.map === 'object' ? saved.map : null; }
+function cloudTexts(room, students, key) {
+  if (key === 'beauty') return students.map(student => currentBeautyAnswer(student, room).text).filter(Boolean).map(text => clean(text, 300));
+  const [kind, id] = key.split('-');
+  return students.map(student => currentAnswer(student, room, 2).answers[id]?.[kind]).filter(Boolean).map(text => clean(text, 80));
 }
 function currentBeautyAnswer(student, room) { return student.beautyAnswer?.runId && student.beautyAnswer.runId === room.runs.beauty ? structuredClone(student.beautyAnswer) : emptyBeautyAnswer(); }
 function activeBeautyRoom(room, runId, now) {
@@ -179,14 +186,16 @@ export function classroomSummary(room, students, now = Date.now()) {
   const observations = observationIds.map(id => {
     const responses = students.map(student => currentAnswer(student, room, 2).answers[id]).filter(value => value?.name || value?.use)
       .map(value => ({name: value.name, use: value.use})).sort((a, b) => a.name.localeCompare(b.name, 'ko') || a.use.localeCompare(b.use, 'ko'));
-    return {id, responses, nameWords: words(responses.map(value => value.name)), useWords: words(responses.map(value => value.use))};
+    return {id, responses, nameWords: words(responses.map(value => value.name), 80, cloudMap(room, `name-${id}`)), useWords: words(responses.map(value => value.use), 80, cloudMap(room, `use-${id}`))};
   });
   const works = students.flatMap(student => student.works.filter(work => work.runId === room.runs[3]).map(work => ({...work, participantId: student.id, number: student.number, name: student.name})))
     .sort((a, b) => b.submittedAt - a.submittedAt);
   const beautyResponses = students.map(student => currentBeautyAnswer(student, room)).filter(answer => answer.text);
   const responses = beautyResponses.map(answer => answer.text).sort((a, b) => a.localeCompare(b, 'ko'));
-  const beauty = {responses, words: words(responses, 300), respondents: responses.length, total, submitted: beautyResponses.filter(answer => answer.submitted).length};
-  return {participants, comparison, observations, beauty, works};
+  const beauty = {responses, words: words(responses, 300, cloudMap(room, 'beauty')), respondents: responses.length, total, submitted: beautyResponses.filter(answer => answer.submitted).length};
+  // The clouds with answers the helper has not grouped yet: a teacher's or a slide's screen may ask for them (groupCloud).
+  const cloudPending = CLOUD_KEYS.filter(key => ungroupedAnswers(cloudTexts(room, students, key), cloudMap(room, key)).length > 0);
+  return {participants, comparison, observations, beauty, works, cloudPending};
 }
 function previewImage(raw) {
   if (typeof raw !== 'string') fail(400, 'missing-preview', '완성한 작품의 사진을 다시 준비해 주세요.');
@@ -204,15 +213,14 @@ const named = (list, id) => list.find(item => item.id === id)?.name || '';
 export function orderDigest(work) {
   const order = ORDERS.find(item => item.id === work.orderId);
   if (!order) return null;
-  // motifs: each pattern the order names with how many it asks for; patterns: their names alone.
-  const shape = SHAPES.find(item => item.id === order.shape), motifs = orderMotifs(order).map(({name, count}) => ({name, count})).filter(motif => motif.name);
+  const shape = SHAPES.find(item => item.id === order.shape);
   return {id: order.id, shape: order.shape, shapeName: shape?.name || '', use: shape?.use || '', customer: order.customer, title: order.title, quote: order.quote,
-    techniqueId: order.technique, technique: order.technique === 'any' ? '' : named(TECHNIQUES, order.technique), patterns: motifs.map(motif => motif.name), motifs};
+    techniqueId: order.technique, technique: order.technique === 'any' ? '' : named(TECHNIQUES, order.technique), patterns: orderMotifs(order).map(motif => motif.name).filter(Boolean)};
 }
 export function madeDigest(work) {
-  // How many motifs of each pattern the work carries (a drawing named as a pattern counts once).
-  const motifs = [...workMotifCounts(work).counts].map(([id, count]) => ({name: named(PATTERNS, id), count})).filter(motif => motif.name);
-  return {shape: work.shape, shapeName: named(SHAPES, work.shape), techniqueId: work.technique, technique: named(TECHNIQUES, work.technique), patterns: motifs.map(motif => motif.name), motifs};
+  // The patterns the work carries (a drawing named as a pattern counts as that pattern), none for a plain work.
+  const patterns = [...workMotifCounts(work).counts.keys()].map(id => named(PATTERNS, id)).filter(Boolean);
+  return {shape: work.shape, shapeName: named(SHAPES, work.shape), techniqueId: work.technique, technique: named(TECHNIQUES, work.technique), patterns};
 }
 export function finishedWork(raw) {
   if (!raw || raw.step !== 4 || !ORDERS.some(order => order.id === raw.orderId) || !SHAPES.some(shape => shape.id === raw.shape) || !TECHNIQUES.some(technique => technique.id === raw.technique)) fail(400, 'unfinished-work', '완성한 작품만 선생님께 보낼 수 있어요.');
@@ -242,8 +250,10 @@ function submittedDesign(raw, work) {
 
 const TEACHER_ROOM_GONE = '이미 삭제했거나 찾을 수 없는 수업이에요. 새 수업을 열어 주세요.';
 export class ClassroomService {
-  constructor(store, {now = () => Date.now(), makeToken = token, makeCode, teacherPasscode = configuredTeacherPasscode()} = {}) {
+  constructor(store, {now = () => Date.now(), makeToken = token, makeCode, teacherPasscode = configuredTeacherPasscode(), groupWithAI = null} = {}) {
     this.store = store; this.now = now; this.makeToken = makeToken; this.teacherPasscode = configuredTeacherPasscode(teacherPasscode);
+    // ({question, answers: [{text, count}], existing: [{label, ids}]}) → [{label, ids}]; absent where no AI helper is set up.
+    this.groupWithAI = typeof groupWithAI === 'function' ? groupWithAI : null;
     this.makeCode = makeCode || (() => [...randomBytes(6)].map(value => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[value % 32]).join(''));
   }
   async room(code, options, message) {
@@ -512,7 +522,35 @@ export class ClassroomService {
       participantCount: summary.participants.length,
       completionCounts: {1: summary.participants.filter(student => student.activity1Complete).length, 2: summary.participants.filter(student => student.activity2Complete).length},
       works: summary.works.map(({name, number, participantId, ...work}) => ({...work, participantId: observerWorkReference(room, participantId, work.id)})), reveal,
-      ...(access.presenter ? {presenter: true} : {})};
+      ...(access.presenter ? {presenter: true, cloudPending: summary.cloudPending} : {})};
+  }
+  // Asks the AI helper to put the answers of one cloud that mean the same together, and keeps its grouping with the
+  // class. The teacher's screen and a slide's screen (PPT link) may ask; it is skipped when nothing is new, when it
+  // was asked a moment ago, or when no helper is set up — the plain rules of word-groups.js then stay in charge.
+  async groupCloud(raw, bearer) {
+    const key = typeof raw.cloud === 'string' && CLOUD_KEYS.includes(raw.cloud) ? raw.cloud : null;
+    if (!key) fail(400, 'invalid-cloud', '묶을 생각 모음을 다시 골라 주세요.');
+    const presenter = await this.presenterAccess(raw, bearer), code = presenter ? presenter.code : validateCode(raw.code);
+    const {data: room} = await this.room(code, undefined, TEACHER_ROOM_GONE); if (!presenter) this.teacher(room, bearer);
+    const runId = cloudRun(room, key), saved = room.cloudGroups?.[key], previous = cloudMap(room, key);
+    const answers = distinctAnswers(cloudTexts(room, await this.students(code), key)).slice(0, 80);
+    if (!runId || !ungroupedAnswers(answers.flatMap(answer => Array(answer.count).fill(answer.text)), previous).length) return {grouped: false, reason: 'current'};
+    if (saved?.runId === runId && this.now() - Math.max(Number(saved.at) || 0, Number(saved.failedAt) || 0) < 5000) return {grouped: false, reason: 'recent'};
+    if (!this.groupWithAI) return {grouped: false, reason: 'unavailable'};
+    // The groups made so far are handed back so the words on the screen stay where they are; only new answers move.
+    const labels = [...new Set(answers.map(answer => previous?.[answer.text]).filter(Boolean))];
+    const existing = labels.map(label => ({label, ids: answers.map((answer, index) => previous[answer.text] === label ? index : -1).filter(index => index >= 0)}));
+    let map = null;
+    try { map = groupingMap(answers, await this.groupWithAI({question: CLOUD_QUESTIONS[key.split('-')[0]], answers, existing}), previous); } catch { map = null; }
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const current = await this.room(code, undefined, TEACHER_ROOM_GONE), next = structuredClone(current.data);
+      if (cloudRun(next, key) !== runId) return {grouped: false, reason: 'current'};
+      delete next.joinCode;
+      next.cloudGroups = {...next.cloudGroups, [key]: map ? {runId, map: {...cloudMap(next, key), ...map}, at: this.now()} : {...(cloudMap(next, key) ? next.cloudGroups[key] : {runId}), failedAt: this.now()}};
+      try { await this.store.update(roomKey(code), next, current.etag); return map ? {grouped: true, words: Object.keys(map).length} : {grouped: false, reason: 'unavailable'}; }
+      catch (error) { if (!(error instanceof StoreConflict)) throw error; }
+    }
+    return {grouped: false, reason: 'busy'};
   }
   // A PPT link may only run PRESENTER_COMMANDS; returns the class it reaches, or null for any other bearer.
   async presenterAccess(raw, bearer) {
