@@ -22,6 +22,10 @@ label.choice:has(input:checked){border-color:var(--jade);background:#e8f7f5}
 select,input[type=url]{font:inherit;font-weight:400;font-size:14px;padding:9px 10px;border:1px solid var(--line);border-radius:8px;width:100%}
 button{font:inherit;font-size:15px;font-weight:700;border-radius:8px;border:1px solid var(--jade);background:var(--jade);color:#fff;padding:10px 14px;cursor:pointer}
 #error{color:#c35448;font-size:13px;min-height:1em}
+#error:not(:empty){color:#a3271b;background:#fdecea;border:1px solid #f0a8a0;border-radius:8px;padding:8px 10px;font-weight:700}
+#link.bad{border:2px solid #c35448;background:#fff8f7}
+@keyframes error-blink{from{opacity:0}to{opacity:1}}
+#error.blink{animation:error-blink .3s ease-out}
 .tip{font-size:12.5px;padding:8px 10px;border-radius:8px;background:#f3f7f6}
 #change{position:fixed;right:8px;top:8px;z-index:2;font-size:12px;padding:5px 9px;background:#fff;color:var(--jade-dark);border-color:var(--line);opacity:.92}
 label.check{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700}
@@ -149,7 +153,8 @@ function save(panel, link, model, cover, plain, cloud) {
   if (!office) return Promise.resolve();
   const settings = Office.context.document.settings;
   settings.set('panel', panel); settings.set('model', model); settings.set('cover', cover); settings.set('plain', plain); settings.set('cloud', cloud); if (link) settings.set('link', link);
-  return new Promise(resolve => settings.saveAsync(() => resolve()));
+  // If PowerPoint never answers the save, go on all the same: the choice is already set for this box.
+  return new Promise(resolve => { settings.saveAsync(() => resolve()); setTimeout(resolve, 2500); });
 }
 function showBoard() {
   const {panel, link, model, plain, cloud} = saved(), parsed = link && parseLink(link);
@@ -174,7 +179,7 @@ $('cover-screen').addEventListener('click', () => {
 function showSetup(message = '') {
   const {panel, link, model} = saved();
   $('model').value = model; $('cloud').value = saved().cloud; $('cover').checked = saved().cover; $('cover-screen').hidden = true;
-  $('board').hidden = true; $('change').hidden = true; $('setup').hidden = false; $('error').textContent = message;
+  $('board').hidden = true; $('change').hidden = true; $('setup').hidden = false; $('error').textContent = message; $('link').classList.remove('bad');
   // "3D 청자만 크게 보기" is the model box with only the zoom buttons; it is kept as the model panel plus `plain`.
   const choice = document.querySelector(`input[name=panel][value="${panel === 'model' && saved().plain ? 'plain' : panel || 'follow'}"]`); if (choice) choice.checked = true;
   $('link').value = link || local.read().link || '';
@@ -190,7 +195,14 @@ $('form').addEventListener('submit', async event => {
   event.preventDefault();
   const {panel, plain} = chosenPanel(), text = $('link').value.trim();
   if (!PANELS.includes(panel)) return;
-  if (needsLink(panel) && !parseLink(text)) { $('error').textContent = 'PPT용 주소를 확인해 주세요. 선생님 화면 → 수업 관리 → “PPT용 주소 복사”로 복사한 주소를 붙여 넣어 주세요.'; return; }
+  $('link').classList.remove('bad');
+  if (needsLink(panel) && !parseLink(text)) {
+    // Say what is wrong where it cannot be missed; the box blinks on every press, so pressing again is answered too.
+    $('error').textContent = text ? '이 주소는 PPT용 주소가 아니에요. 선생님 화면 → 수업 관리 → “PPT용 주소 복사”로 복사한 주소를 붙여 넣어 주세요.'
+      : 'PPT용 주소 칸이 비어 있어요. 선생님 화면 → 수업 관리 → “PPT용 주소 복사”를 누른 다음, 이 칸에 붙여 넣어 주세요(Ctrl+V).';
+    $('error').classList.remove('blink'); void $('error').offsetWidth; $('error').classList.add('blink');
+    $('link').classList.add('bad'); $('link').focus(); return;
+  }
   const model = MODELS.includes($('model').value) ? $('model').value : 'beauty';
   await save(panel, parseLink(text) ? text : saved().link, model, $('cover').checked, plain, CLOUDS.includes($('cloud').value) ? $('cloud').value : 'beauty');
   showBoard();

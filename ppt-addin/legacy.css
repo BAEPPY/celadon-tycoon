@@ -157,6 +157,8 @@ html,body{margin:0;height:100%}
 .lg-form .lg-field{font-weight:700;margin-top:.55rem}
 .lg-form p{font-size:.78rem;color:#687783;margin-top:.45rem}
 .lg-form .lg-error{color:#c35448;min-height:1em}
+.lg-form .lg-error-on{color:#a3271b;background:#fdecea;border:1px solid #f0a8a0;border-radius:.4rem;padding:.4rem .6rem;font-size:.86rem;font-weight:700}
+.lg-form input.lg-bad-field{border:2px solid #c35448;background:#fff8f7}
 #lg-root .lg-submit{background:#078e91;border-color:#078e91;color:#fff;font-size:.95rem;padding:.5rem 1rem;margin-top:.6rem}
 .lg-cover{position:absolute;top:0;left:0;right:0;bottom:0;z-index:5;background:#fff;border:2px dashed #9fc7bd;color:#2f6f5e;text-align:center;cursor:pointer}
 .lg-cover b{position:absolute;left:0;right:0;top:44%;font-size:1.3rem}

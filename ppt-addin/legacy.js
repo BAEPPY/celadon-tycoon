@@ -96,7 +96,9 @@
     try {
       var settings = window.Office.context.document.settings;
       settings.set('panel', panel); settings.set('model', model); settings.set('cover', cover); settings.set('plain', plain); settings.set('cloud', cloud); if (link) settings.set('link', link);
-      settings.saveAsync(function () { done(); });
+      // The choice is already set for this box; if PowerPoint never answers the save, go on all the same.
+      var answered = false, finish = function () { if (!answered) { answered = true; done(); } };
+      settings.saveAsync(finish); setTimeout(finish, 2500);
     } catch (e) { done(); }
   }
   function needsLink(panel) { return panel !== 'game' && panel !== 'model'; }
@@ -727,12 +729,30 @@
     else return;
     render();
   }
+  // Why the address in the form cannot be used, in the teacher's words ('' when it can).
+  function linkProblem(text) {
+    if (!text) return 'PPT용 주소 칸이 비어 있어요. 선생님 화면 → 수업 관리 → “PPT용 주소 복사”를 누른 다음, 이 칸에 붙여 넣어 주세요(Ctrl+V).';
+    if (!parseLink(text)) return '이 주소는 PPT용 주소가 아니에요. 선생님 화면 → 수업 관리 → “PPT용 주소 복사”로 복사한 주소를 붙여 넣어 주세요.';
+    return '';
+  }
+  // A problem with the form shows as a red box that blinks on every press (so pressing again is answered too), with the
+  // field it is about marked and ready to type in. The form is fitted again because the box takes room.
+  function formError(message, field) {
+    var note = document.getElementById('lg-error');
+    if (!note) return;
+    note.innerHTML = esc(message); note.className = 'lg-error lg-error-on';
+    note.style.visibility = 'hidden'; setTimeout(function () { note.style.visibility = ''; }, 140);
+    if (field) { field.className = 'lg-bad-field'; try { field.focus(); } catch (e) {} }
+    fit();
+  }
   function submit(event) {
     if (event.preventDefault) event.preventDefault(); else event.returnValue = false;
     var chosen = root.querySelector('input[name=lg-panel]:checked'), choice = choiceOf(chosen ? chosen.value : ''), panel = choice.panel, field = document.getElementById('lg-link');
     var text = field ? field.value.replace(/^\s+|\s+$/g, '') : '', select = document.getElementById('lg-model'), cover = document.getElementById('lg-cover');
     if (!has(PANELS, panel)) return;
-    if (needsLink(panel) && !parseLink(text)) { document.getElementById('lg-error').innerHTML = 'PPT용 주소를 확인해 주세요. 선생님 화면 → 수업 관리 → “PPT용 주소 복사”로 복사한 주소를 붙여 넣어 주세요.'; return; }
+    if (field) field.className = '';
+    var bad = needsLink(panel) ? linkProblem(text) : '';
+    if (bad) { formError(bad, field); return; }
     var three = document.getElementById('lg-three'), wasThree = localRead().three !== false, wantThree = !three || three.checked;
     localWrite({three: wantThree});
     var cloudSelect = document.getElementById('lg-cloud');
@@ -740,7 +760,13 @@
       // Switching 3D on or off starts the box again so the choice applies cleanly.
       if (wasThree !== wantThree) { window.location.reload(); return; }
       view.setup = false; view.auto = true; lastBody = ''; data = null; waiting = false; problem = ''; connected = false; lastRefresh = null;
-      render(); schedule(0);
+      // If this engine cannot draw the chosen screen, the form comes back and says so instead of looking untouched.
+      try { render(); } catch (e) {
+        view.setup = true; lastBody = ''; render();
+        formError('이 화면을 띄우지 못했어요. 이 글을 사진으로 찍어 알려 주세요. (' + ((e && e.message) || e) + ')', null);
+        return;
+      }
+      schedule(0);
     });
   }
 

@@ -55,8 +55,18 @@ const officeStub=view=>`window.__settings=window.__settings||{};window.__goto=[]
     assert.equal(await page.locator('#lg-model-field').isVisible(),false);assert.equal(await page.locator('#lg-link-field').isVisible(),true);
     // A wrong address is refused; the 세 나라 비교 board then shows anonymous counts.
     await page.locator('input[name=lg-panel][value=comparison]').check();
+    // Pressing with no address answers plainly: a red box says the field is empty, the field is marked and ready to type
+    // in, and the form still fits the box (the button stays in view).
+    const shownError=()=>page.waitForFunction(()=>{const note=document.querySelector('#lg-error');return note&&note.innerHTML&&getComputedStyle(note).visibility==='visible';});
+    await page.locator('.lg-submit').click();await shownError();   // the box blinks on each press
+    assert.match(await page.locator('#lg-error').innerText(),/PPT용 주소 칸이 비어 있어요[\s\S]*PPT용 주소 복사/);
+    const emptyNote=await page.evaluate(()=>{const note=document.querySelector('#lg-error'),field=document.querySelector('#lg-link'),button=document.querySelector('.lg-submit').getBoundingClientRect(),body=document.querySelector('.lg-body');
+      return{boxed:getComputedStyle(note).backgroundColor,marked:field.className,focused:document.activeElement===field,buttonBottom:button.bottom,height:innerHeight,scrolls:body.scrollHeight>body.clientHeight+1};});
+    assert.notEqual(emptyNote.boxed,'rgba(0, 0, 0, 0)','the message is a filled box');assert.equal(emptyNote.marked,'lg-bad-field');assert.equal(emptyNote.focused,true);
+    assert.ok(emptyNote.buttonBottom<=emptyNote.height+1&&!emptyNote.scrolls,`the form still fits with the message (${JSON.stringify(emptyNote)})`);
+    // A wrong address is named as such.
     await page.locator('#lg-link').fill('https://example.com/observe?code=탑텐반#key=abc');await page.locator('.lg-submit').click();
-    assert.match(await page.locator('#lg-error').innerText(),/PPT용 주소를 확인해 주세요/);
+    await page.waitForFunction(()=>/이 주소는 PPT용 주소가 아니에요/.test(document.querySelector('#lg-error').innerHTML));await shownError();
     await page.locator('#lg-link').fill(link);await page.locator('.lg-submit').click();
     await page.locator('[data-comparison="1"]').waitFor({timeout:15000});
     const text=()=>page.locator('#lg-root').innerText();
