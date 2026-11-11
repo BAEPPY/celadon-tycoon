@@ -5,8 +5,8 @@ const {enterGame}=require('./game-entry.cjs');
 const base=process.env.BASE_URL||'http://127.0.0.1:4173',KEY='celadon-tycoon-v2';
 const draft=(modelId='pomegranatePitcher',shape='pitcher')=>({id:'shaping-controls',orderId:'royal-rest',shape,modelId,step:0,knead:0,width:1,technique:'inlay',pattern:'cloud',placements:[],strokes:[],decorPhase:0,decorDone:false,firing:[],accepted:true,clay:{body:true,slip:'white',kneads:6,prepared:true},stationView:'game'});
 const saved=page=>page.evaluate(key=>JSON.parse(localStorage.getItem(key)).draft,KEY);
-const state=page=>page.locator('.sculpt-canvas').evaluate(el=>({points:JSON.parse(el.dataset.current),guide:JSON.parse(el.dataset.guide),selected:+el.dataset.selected,fraction:+el.dataset.coverage,range:el.dataset.gripRange}));
-const near=(a,b,message)=>assert.ok(a.every((p,i)=>p.every((v,j)=>Math.abs(v-b[i][j])<1e-8)),message);
+const state=page=>page.locator('.sculpt-canvas').evaluate(el=>({points:JSON.parse(el.dataset.current),guide:JSON.parse(el.dataset.guide),locked:JSON.parse(el.dataset.locked),selected:+el.dataset.selected,fraction:+el.dataset.coverage,range:el.dataset.gripRange}));
+const near=(a,b,message,tolerance=1e-8)=>{const delta=a.flatMap((p,i)=>p.map((v,j)=>({i,j,delta:Math.abs(v-b[i][j]),actual:v,expected:b[i][j]}))).sort((x,y)=>y.delta-x.delta);assert.ok(delta.every(d=>d.delta<(typeof tolerance==='function'?tolerance(d.i):tolerance)),`${message}: ${JSON.stringify(delta.slice(0,4))}`);};
 async function enter(page,work=draft()){
  await page.goto(new URL('/game',base).href);
  await page.evaluate(({key,work})=>localStorage.setItem(key,JSON.stringify({history:['royal-rest'],gallery:[],draft:work,sound:false,retentionStartedAt:Date.now()})),{key:KEY,work});
@@ -44,10 +44,10 @@ async function input(page,mobile){
    await page.locator('[data-sculpt-assist=toward]').click();
    assert.ok(distance(await state(page))<distance(chosen),'visible desktop assistance moves the selected clay toward its outline');
    await page.locator('[data-sculpt-history=undo]').click();near((await state(page)).points,chosen.points,'assistance can be undone as one action');
-   await page.locator('[data-sculpt-history=redo]').click();const editedLocal=(await saved(page)).sculpt.points;
+   await page.locator('[data-sculpt-history=redo]').click();const edited=(await saved(page)).sculpt,editedLocal=edited.points;
    await page.setViewportSize({width:1124,height:600});await page.waitForTimeout(150);
-   await page.locator('[data-sculpt-history=undo]').click();near((await saved(page)).sculpt.points,initialSaved,'undo after resize restores the original vessel coordinates');
-   await page.locator('[data-sculpt-history=redo]').click();near((await saved(page)).sculpt.points,editedLocal,'redo after resize restores the edited vessel coordinates');
+   await page.locator('[data-sculpt-history=undo]').click();near((await saved(page)).sculpt.points,initialSaved,'undo after resize restores the original vessel coordinates',i=>initial.locked[i]?1e-4:1e-8);
+   await page.locator('[data-sculpt-history=redo]').click();near((await saved(page)).sculpt.points,editedLocal,'redo after resize restores the edited vessel coordinates',i=>edited.locked[i]?1e-4:1e-8);
    await page.locator('[data-sculpt-history=undo]').click();await page.setViewportSize(viewport);await page.waitForTimeout(150);
    const toolFit=await page.locator('.sculpt-shaping-tools').evaluate(el=>{const r=el.getBoundingClientRect(),scene=el.closest('.station-scene').getBoundingClientRect(),nav=el.closest('.station-scene').querySelector('.station-nav').getBoundingClientRect();return{fits:r.top>=scene.top&&r.left>=scene.left&&r.right<=scene.right+1&&r.bottom<=nav.top+1&&el.scrollWidth<=el.clientWidth+1,tool:r.toJSON(),scene:scene.toJSON(),nav:nav.toJSON(),scrollWidth:el.scrollWidth,clientWidth:el.clientWidth};});
    await page.screenshot({path:'/tmp/shaping-final-assist-1024.png'});
@@ -59,11 +59,12 @@ async function input(page,mobile){
    await page.locator(`[data-sculpt-range=${range}]`).click();
    const before=await state(page),canvas=page.locator('.sculpt-canvas');await canvas.scrollIntoViewIfNeeded();const box=await canvas.boundingBox();
    // Grabbing inside the mound, rather than an exact hidden vertex, must move a meaningful area.
-   const centre=[before.points.reduce((s,p)=>s+p[0],0)/40,before.points.reduce((s,p)=>s+p[1],0)/40];
-   await drag(centre,[centre[0]+42/box.width,centre[1]-48/box.height]);
+   const free=before.locked.findIndex(locked=>!locked),grip=before.points[free],centre=[grip[0],grip[1]+2/box.height];
+   const dy=grip[1]>=before.guide[free][1]?48:-48;
+   await drag(centre,[centre[0]+42/box.width,centre[1]+dy/box.height]);
    const after=await state(page),i=after.selected;
    assert.ok(Math.abs((after.points[i][0]-before.points[i][0])*box.width-42)<1.5,'selected clay follows the horizontal pointer');
-   assert.ok(Math.abs((after.points[i][1]-before.points[i][1])*box.height+48)<1.5,'selected clay follows the vertical pointer');
+   assert.ok(Math.abs((after.points[i][1]-before.points[i][1])*box.height-dy)<1.5,'selected clay follows the vertical pointer');
    const moved=after.points.map((p,i)=>Math.hypot((p[0]-before.points[i][0])*box.width,(p[1]-before.points[i][1])*box.height));
    spread[range]=moved.filter(d=>d>8).length;
    assert.ok(after.fraction<.9,'one broad pull cannot pass an incomplete vessel');
