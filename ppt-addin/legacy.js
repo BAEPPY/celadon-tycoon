@@ -469,7 +469,7 @@
       if (!view.setup) { view.setup = true; lastBody = ''; }
       if (head.style.display !== 'none') { head.style.display = 'none'; body.style.top = '0'; }
       body.style.padding = '';
-      if (lastBody !== 'setup') { lastBody = 'setup'; body.innerHTML = setupMarkup(''); syncSetupFields(); }
+      if (lastBody !== 'setup') { lastBody = 'setup'; body.innerHTML = setupMarkup(''); syncSetupFields(); fit(); }
       syncAuto(); syncCover(); return;
     }
     var panel = panelNow(), html = '', plain = plainNow();
@@ -482,18 +482,40 @@
       else if (needsLink(panel) && !data) html += '<p class="lg-note">수업에 연결하고 있어요…</p>';
       html += panel === 'comparison' ? comparisonPanel() : panel === 'beauty' ? beautyPanel() : panel === 'uses' ? usesPanel() : comparing(panel) ? comparePanel() : panel === 'works' ? worksPanel() : panel === 'model' ? modelPanel() : gamePanel();
     }
-    if (html !== lastBody) { lastBody = html; body.innerHTML = html; body.setAttribute('data-panel', panel); mountTurns(); }
+    if (html !== lastBody) { lastBody = html; body.innerHTML = html; body.setAttribute('data-panel', panel); fit(); mountTurns(); }
     if (isWorks(panel)) loadPictures();
     syncAuto(); syncCover();
   }
   function tick() {
     var cell = root && root.querySelector('[data-timer]');
     if (cell) { var time = remaining(); cell.innerHTML = time ? '남은 시간 <b>' + time + '</b>' : ''; }
+    // PowerPoint can give the box another size without telling the page (zooming the slide, starting the show).
+    var box = boxSize();
+    if (box.width !== fitted.width || box.height !== fitted.height) fit();
   }
-  function resize() {
-    var width = window.innerWidth || document.documentElement.clientWidth || 960;
-    document.documentElement.style.fontSize = Math.max(10, Math.min(30, width / 64)) + 'px';
+  // ---------- size ----------
+  // Every size on the board follows the root font size. It starts from the box (1/64 of its width, and no more than
+  // 1/36 of its height, so a 16:9 box is 64 by 36 units). If what is shown is still taller than the box (large touch
+  // buttons, a notice on top, more buttons under a 3D model), everything is drawn a little smaller until it fits:
+  // the board never needs scrolling and looks the same however often it is reloaded.
+  var fitted = {width: 0, height: 0};
+  function boxSize() {
+    var page = document.documentElement;
+    return {width: (root && root.clientWidth) || page.clientWidth || window.innerWidth || 960, height: (root && root.clientHeight) || page.clientHeight || window.innerHeight || 540};
   }
+  function fit() {
+    var box = boxSize(), base = Math.max(10, Math.min(30, box.width / 64, box.height / 36)), size = base, least = base * .6, tries = 0;
+    fitted = box;
+    document.documentElement.style.fontSize = size + 'px';
+    if (!body) return;
+    while (tries++ < 6 && size > least && body.scrollHeight > body.clientHeight + 1) {
+      // The body is what is left under the bar (2.7 units); its content grows with the font size.
+      var bar = head && head.style.display !== 'none' ? 2.7 : 0, next = box.height / (body.scrollHeight / size + bar);
+      size = Math.max(least, Math.min(next, size * .97));
+      document.documentElement.style.fontSize = size + 'px';
+    }
+  }
+  function resize() { fit(); }
 
   // ---------- clicks ----------
   function reveal(activity) {
@@ -611,7 +633,7 @@
     head = root.children[0]; body = root.children[1];
     root.addEventListener('click', click);
     root.addEventListener('submit', submit);
-    root.addEventListener('change', function () { if (view.setup) syncSetupFields(); });
+    root.addEventListener('change', function () { if (view.setup) { syncSetupFields(); fit(); } });
     document.addEventListener('keydown', forwardKeys);
     window.addEventListener('resize', resize);
     watchDragging(); resize();
