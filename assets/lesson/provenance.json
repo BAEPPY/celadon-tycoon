@@ -419,7 +419,7 @@
       ],
       "triangles": 187034,
       "vertices": 106658,
-      "positionStepMetres": 1.9465097139144135e-06,
+      "positionStepMetres": 0.0000019465097139144135,
       "photographs": [
         {
           "image": 0,
@@ -567,6 +567,59 @@
       "source": "BAEPPY/celadon-tycoon/assets/models/celadon-incense.glb",
       "copiedWithoutModification": true,
       "quality": "detail"
+    },
+    {
+      "id": "observation-2",
+      "file": "detail/observation-2.glb",
+      "quality": "detail",
+      "source": "assets/models/detail/celadon-stool-wrl.glb",
+      "sourceSha256": "ead0200e0eb2d75e01ef5452ef68d8998dbdab33fefa8ba9652c1277dc7f5d2c",
+      "bytes": 4478112,
+      "sha256": "c2b1297c8a26d862e69d42d520a6beca5d2a43a2d6f0cbe7efba4eebc878692e",
+      "copiedWithoutModification": false,
+      "triangles": 160000,
+      "vertices": 79870,
+      "conversion": {
+        "script": "tools/prepare-observation-2-detail.mjs",
+        "meshoptimizer": "1.1.1",
+        "targetTriangles": 160000,
+        "maxRelativeError": 0.001,
+        "attributeWeights": [
+          0.15,
+          0.15,
+          0.15,
+          1,
+          1,
+          1,
+          1
+        ],
+        "flags": [
+          "LockBorder"
+        ],
+        "achievedRelativeError": 0.00047946948325261474,
+        "topologyPasses": 2,
+        "lockedVertices": 551,
+        "geometry": "Topology-preserving attribute-aware simplification. Source positions, normals and uint16 RGBA vertex colours are retained for every surviving vertex. No new surfaces or filled holes.",
+        "texture": "No supplied photographic texture is present. Original vertex colours remain unchanged; no synthetic atlas.",
+        "sourceTopology": {
+          "vertices": 388424,
+          "edges": 1165662,
+          "faces": 777108,
+          "components": 1,
+          "eulerCharacteristic": -130,
+          "boundaryEdges": 0,
+          "nonManifoldEdges": 0
+        },
+        "detailTopology": {
+          "vertices": 79870,
+          "edges": 240000,
+          "faces": 160000,
+          "components": 1,
+          "eulerCharacteristic": -130,
+          "boundaryEdges": 0,
+          "nonManifoldEdges": 0
+        }
+      }
     }
   ],
   "qualityUpdate": "Original high-resolution photographic atlases for cards, with detailed source geometry loaded only in enlarged views. Existing incense/photo colors are unchanged."

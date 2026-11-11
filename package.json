@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "start": "node server.mjs",
-    "test": "node --test domain.test.js models.test.js arcade.test.js illustration.test.js assessment.test.js inspection.test.js surface-warp.test.js reactions.test.js workflow.test.js classroom.test.js classroom-game-bridge.test.js classroom-access.test.js lesson-cloud.test.js classroom-entry.test.js game-retention.test.js artifact-opening.test.js sculpt-rules.test.js rotation-motion.test.js legacy-board.test.js work-picture.test.js present.test.js loading-motion.test.js loading-gait.test.js glaze-dip-rules.test.js glaze-surface.test.js",
+    "test": "node --test domain.test.js models.test.js arcade.test.js illustration.test.js assessment.test.js inspection.test.js surface-warp.test.js reactions.test.js workflow.test.js classroom.test.js classroom-game-bridge.test.js classroom-access.test.js lesson-cloud.test.js classroom-entry.test.js game-retention.test.js artifact-opening.test.js sculpt-rules.test.js rotation-motion.test.js legacy-board.test.js work-picture.test.js present.test.js loading-motion.test.js loading-gait.test.js glaze-dip-rules.test.js glaze-surface.test.js celadon-finish.test.js",
     "build": "node build.mjs",
     "test:browser": "node tests/browser-workshop.cjs",
     "test:loading": "node tests/browser-loading.cjs",
@@ -60,7 +60,8 @@
     "test:glaze-dip": "node tests/browser-glaze-dip.cjs",
     "test:glaze-surface": "node tests/browser-glaze-surface.cjs",
     "test:shaping-controls": "node tests/browser-shaping-controls.cjs",
-    "test:inspection-source": "node tests/browser-inspection-source.cjs"
+    "test:inspection-source": "node tests/browser-inspection-source.cjs",
+    "test:activity2-materials": "node tests/browser-activity2-materials.cjs"
   },
   "dependencies": {
     "@vercel/blob": "2.8.2",
