@@ -381,10 +381,10 @@ dialog.student-manager::backdrop{background:#1c2b3055}
 }
 
 /* Teacher passcode on the 새 수업 열기 form (only when the server has one configured). */
-.passcode-field{display:grid;gap:6px;margin:0 0 12px;font-size:15px}
+.passcode-field{display:grid;grid-template-columns:minmax(0,1fr);gap:6px;margin:0 0 12px;font-size:15px}
 .passcode-field[hidden]{display:none}
 .passcode-row{display:flex;gap:8px;align-items:stretch}
-.passcode-row input{flex:1;min-width:0;min-height:46px}
+.passcode-row input{flex:1 1 0;width:0;min-width:0;min-height:46px}
 .passcode-row input.masked{-webkit-text-security:disc}
 .passcode-row input.masked::placeholder{-webkit-text-security:none}
 .welcome-form .passcode-row .button{flex:none;width:auto;min-width:72px;min-height:46px;margin-top:0}

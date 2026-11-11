@@ -434,8 +434,8 @@ function openCloudWord(index){
   const dialog=document.createElement('dialog');dialog.className='cloud-word-dialog';dialog.setAttribute('aria-labelledby','cloud-word-title');
   dialog.innerHTML=`<header><h2 id="cloud-word-title">${esc(word.text)}</h2><span class="cloud-word-count">${total}명</span><button type="button" class="button secondary small" data-close-cloud-word aria-label="닫기">닫기 <span aria-hidden="true">×</span></button></header><p class="cloud-word-note">${answers.length>1?'비슷한 뜻이라 한 낱말로 모았어요. 친구들은 이렇게 썼어요.':'친구들은 이렇게 썼어요.'}</p><ul class="cloud-word-list">${answers.map(answer=>`<li><span>${esc(answer.text)}</span><b>${Number(answer.count)||1}명</b></li>`).join('')}</ul>`;
   // Tapping outside the box (the dimmed page) closes it, as 닫기 and Esc do.
-  dialog.addEventListener('click',event=>{if(event.target===dialog||event.target.closest('[data-close-cloud-word]'))dialog.close();});
-  dialog.addEventListener('close',()=>dialog.remove());
+  dialog.addEventListener('click',event=>{if(event.target===dialog||event.target.closest('[data-close-cloud-word]'))dialog.remove();});
+  dialog.addEventListener('close',()=>dialog.remove());   // Esc
   (document.fullscreenElement||document.body).append(dialog);dialog.showModal();dialog.querySelector('[data-close-cloud-word]').focus();
 }
 // The cloud this screen shows, by its name for the helper (beauty, name-1…5, use-1…5), if it shows one.
