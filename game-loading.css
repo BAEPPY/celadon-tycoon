@@ -7,8 +7,8 @@
 .loading-stage:after{content:'';position:absolute;bottom:4px;left:7%;right:7%;height:3px;border-radius:50%;background:#c9cdb0;z-index:-1}
 .loading-runner{width:204px;aspect-ratio:1;flex:0 1 204px;min-width:0;background-size:600% 400%;background-repeat:no-repeat;background-position:0 0;visibility:hidden}
 .loading-runner.is-ready{visibility:visible}
-.loading-runner[data-runner=girl]{background-image:url('./assets/loading/girl-run-24.webp')}
-.loading-runner[data-runner=boy]{background-image:url('./assets/loading/boy-run-24.webp');background-position:0 66.6666667%}
+.loading-runner[data-runner=girl]{background-image:url('./assets/loading/girl-run-24-v2.webp')}
+.loading-runner[data-runner=boy]{background-image:url('./assets/loading/boy-run-24-v2.webp');background-position:0 66.6666667%}
 .loading-dust{position:absolute;bottom:11px;width:70px;height:auto;opacity:0;visibility:hidden;z-index:-1;pointer-events:none}
 .loading-dust.is-ready{visibility:visible}.loading-dust.first{left:3%}.loading-dust.second{left:45%}
 .loading-progress-row{display:flex;align-items:center;gap:13px;margin:0 12px}

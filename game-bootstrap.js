@@ -11,7 +11,7 @@ status.textContent=captions[0];
 app.inert=true;
 const assets=[
  ['/assets/scenes/counter.webp'],['/assets/scenes/workbench.webp'],
- ['/assets/loading/girl-run-24.webp',runners[0]],['/assets/loading/boy-run-24.webp',runners[1]],['/assets/loading/dust.webp',...dust],
+ ['/assets/loading/girl-run-24-v2.webp',runners[0]],['/assets/loading/boy-run-24-v2.webp',runners[1]],['/assets/loading/dust.webp',...dust],
 ];
 const total=assets.length+2;
 function record(){
