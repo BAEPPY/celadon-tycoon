@@ -30,6 +30,8 @@ export function classroomWorkPayload(work) {
   result.knead = Number.isFinite(work.knead) ? work.knead : 0;
   result.width = Number.isFinite(work.width) ? work.width : 1;
   result.firing = Array.isArray(work.firing) ? work.firing.filter(value => typeof value === 'string').slice(0, 4) : [];
+  if (work.processVersion !== undefined) result.processVersion = work.processVersion;
+  if (work.glazeDip !== undefined) result.glazeDip = normalizeGlazeDip(work.glazeDip);
   // The current game allows 24 stamps. Preserve the backend's larger legacy
   // limit too: a motif near the end must not change a finished work's score.
   result.placements = (Array.isArray(work.placements) ? work.placements : []).slice(0, 1200).map(mark => ({
@@ -156,3 +158,4 @@ export function createClassroomGameBridge({onPause = () => {}, onResume = () => 
 }
 import {assessmentInput} from './assessment-rules.js';
 import {sanitizeWorkDesign} from './work-design.js';
+import {normalizeGlazeDip} from './glaze-dip-rules.js';

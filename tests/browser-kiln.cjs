@@ -48,32 +48,12 @@ const base=process.env.BASE_URL||'http://127.0.0.1:4173';
    await sweep(b.y+b.height/6);const zones=JSON.parse(await page.locator('.kiln-gesture-canvas').getAttribute('data-zone-progress'));assert.ok(zones[0]>0&&zones[0]>zones[1]&&zones[2]===0,'visible fan contact mainly dries the selected region of a wide vessel');
    await page.waitForFunction(()=>window.game.dryFanFrames.every(image=>image.complete&&image.naturalWidth>0));await page.evaluate(()=>{window.game.cursor=[.01,.01];window.game.drawGesture();});assert.equal(await page.locator('.kiln-gesture-canvas').evaluate(el=>{const b=JSON.parse(el.dataset.toolBounds),r=el.getBoundingClientRect();return b.x>=7.9&&b.y>=7.9&&b.x+b.width<=r.width-7.9&&b.y+b.height<=r.height-7.9;}),true,'fan artwork stays inside the workbench at its upper edge');await page.screenshot({path:'/tmp/kiln-fixture-dry-'+viewport.width+'.png'});await unchanged();
    for(let pass=0;pass<8&&!await page.evaluate(()=>game.finished);pass++)for(const fraction of [1/6,.5,5/6]){if(await page.evaluate(()=>game.finished))break;await sweep(b.y+b.height*fraction);}await page.waitForFunction(()=>window.calls.complete===1);assert.equal(await page.locator('#bench').evaluate(el=>el.inert),true,'completion restores inert workbench');assert.equal(await page.locator('.kiln-inplace-canvas').count(),0);
-   for(const shape of ['wide','tall']){
-    await mount('glaze',shape);await fit();b=await bounds();
-    assert.equal(await page.locator('.kiln-gesture-canvas').getAttribute('data-work-surface'),'authored');assert.ok(shape==='wide'?b.width>b.height:b.height>b.width);
-    const cells=JSON.parse(await page.locator('.kiln-gesture-canvas').getAttribute('data-paint-cells'));
-    assert.ok(cells.length>100);assert.equal(cells.some(([x,y])=>x>b.x+b.width*.4&&x<b.x+b.width*.6&&y>b.y+b.height*.4&&y<b.y+b.height*.6),false,'openwork hole is excluded from paint targets');
-    await sweep(.01,.01,.06);assert.equal(await coverage(),0,'empty workbench space does not count as ceramic');assert.equal(await page.locator('.kiln-gesture-canvas').evaluate(el=>{const b=JSON.parse(el.dataset.toolBounds),r=el.getBoundingClientRect();return b.x>=7.9&&b.y>=7.9&&b.x+b.width<=r.width-7.9&&b.y+b.height<=r.height-7.9;}),true,'brush artwork also stays within the workbench at its edge');
-    await sweep(b.y+b.height*.2);assert.ok(await coverage()>0&&await coverage()<.9);
-    const before=await coverage();await page.locator('[data-mini=pause]').click();await sweep(b.y+b.height*.7);assert.equal(await coverage(),before);await page.locator('[data-mini=pause]').click();
-    await unchanged();
-    // The exposed glazed image keeps the student's cream-colored decoration rather than replacing it with flat paint.
-    const motif=await page.evaluate(()=>{const p=window.currentPlacement,x=Math.floor((p.x+p.width*.5)*720),y=Math.floor((p.y+p.height*.16)*460);return [...window.game.surfaceOverlay.getContext('2d').getImageData(x,y,1,1).data];});
-    assert.ok(motif[0]>210&&motif[1]>190&&motif[2]>150&&motif[3]>0,'painted decoration remains visible');
-    await page.screenshot({path:'/tmp/kiln-fixture-glaze-'+shape+'-'+viewport.width+'.png'});
-    if(shape==='wide'){
-     await page.evaluate(()=>{window.currentPlacement={x:.2,y:.28,width:.6,height:.34};window.game.drawGesture();});
-     const moved=await bounds();assert.ok(Math.abs(moved.x-.2)<.001);assert.equal(await coverage(),before,'moving the view does not reset coverage');
-     b=moved;
-     assert.ok(await page.evaluate(()=>{const p=window.currentPlacement;return window.game.surfaceOverlay.getContext('2d').getImageData(Math.floor((p.x+p.width*.5)*720),Math.floor((p.y+p.height*.16)*460),1,1).data[3]>0;}),'resizing keeps the previously glazed stripe visible');
-    }
-    for(const f of [.15,.35,.55,.75,.95]){if(await page.locator('.mini-won').count())break;await sweep(b.y+b.height*f);}
-    await page.waitForFunction(()=>window.calls.complete===1);assert.equal(await page.evaluate(()=>window.calls.glaze.at(-1)),1);assert.equal(await page.evaluate(()=>{const p=window.currentPlacement;return window.game.surfaceOverlay.getContext('2d').getImageData(Math.floor((p.x+p.width*.5)*720),Math.floor((p.y+p.height*.5)*460),1,1).data[3];}),0,'glaze stays transparent through the authored openwork hole');await unchanged();
-   }
+   // Glazing now uses the separate timed dip game; the actual app integration,
+   // authored surface and keyboard controls live in browser-glaze-dip.cjs.
    // Keyboard operation acts on the currently shown shape and remains available without dragging.
    await mount('dry','tall');const keyboardCanvas=page.locator('.kiln-gesture-canvas');await keyboardCanvas.focus();await page.keyboard.press('ArrowLeft'); // Aim at solid clay beside the authored central cutout.
    b=await bounds();for(let zone=0;zone<3;zone++){const y=await require('./drying-gesture.cjs').dryingHandleY(keyboardCanvas,b.y+b.height*(zone+.5)/3);for(let move=0;move<14;move++){const cursor=await page.evaluate(()=>game.cursor[1]);if(Math.abs(cursor-y)<.038)break;await page.keyboard.press(cursor<y?'ArrowDown':'ArrowUp');}for(let i=0;i<8&&!await page.evaluate(zone=>game.dryZones[zone]>=1,zone);i++)await page.keyboard.press('Enter');}await page.waitForFunction(()=>window.calls.complete===1);
-   await mount('glaze','wide');await page.locator('.kiln-gesture-canvas').focus();await page.keyboard.press('ArrowUp');await page.keyboard.press('ArrowUp');await page.keyboard.press('Enter');assert.ok(await coverage()>0,'keyboard brush paints the actual vessel');await page.locator('[data-mini=cancel]').click();assert.equal(await page.evaluate(()=>window.calls.cancel),1);assert.equal(await page.locator('.kiln-inplace-canvas').count(),0);assert.equal(await page.locator('#bench').evaluate(el=>el.inert),true);
+   await mount('dry','wide');await page.locator('[data-mini=cancel]').click();assert.equal(await page.evaluate(()=>window.calls.cancel),1);assert.equal(await page.locator('.kiln-inplace-canvas').count(),0);assert.equal(await page.locator('#bench').evaluate(el=>el.inert),true);
    for(const kind of ['biscuit','fire']){
     await mount(kind);await fit();assert.equal(await page.locator('.kiln-fanning-body').count(),1);assert.equal(await page.locator('.kiln-fanning-hand').count(),1);assert.equal(await page.locator('.kiln-static-scene').count(),1);
     if(!process.env.SKIP_KILN_ART_CHECK)await page.waitForFunction(()=>[...document.querySelectorAll('.kiln-fanning-scene img')].every(image=>image.complete&&image.naturalWidth>0));

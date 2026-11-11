@@ -4,6 +4,7 @@ import {classroomContext,classroomStorageKey,classroomWorkPayload} from './class
 import {rubricAssessment,normalizeAssessment,assessmentFingerprint,assessmentInput,explanationHints} from './assessment-rules.js';
 import {evaluateWork} from './domain.js';
 import {MAX_WORK_DESIGN_BYTES, WORK_DESIGN_VERSION, sanitizeWorkDesign} from './work-design.js';
+import {evaluateGlazeDip} from './glaze-dip-rules.js';
 
 test('수업 게임은 방과 학생마다 저장 공간을 분리하고 일반 게임은 보존한다',()=>{
   const url='https://example.test/?classroom=1&room=AB3DEF&student=17';
@@ -20,6 +21,23 @@ test('교실에는 완성품만 전하고 번호·이름·인증 정보와 초�
   const payload=classroomWorkPayload({id:'complete',step:4,title:'나의 청자',studentName:'학생 이름',teacherToken:'secret',participantToken:'secret',preview:'large image',draft:{secret:true}});
   assert.equal(payload.title,'나의 청자');
   for(const key of ['studentName','teacherToken','participantToken','preview','draft'])assert.ok(!(key in payload));
+});
+
+test('유약 시간과 공정 버전은 점수와 360도 그림에 같은 정규화 결과로 전달된다',()=>{
+  for(const elapsedMs of [0,2500,4500,5500,7500,60000]) {
+    const work={id:'glazed-work',step:4,shape:'pillow',technique:'inlay',processVersion:2,
+      glazeDip:{version:1,elapsedMs,outcome:'balanced',score:10,secret:'never-transfer'}};
+    const payload=classroomWorkPayload(work),canonical=evaluateGlazeDip(elapsedMs);
+    assert.equal(payload.processVersion,2);assert.equal(payload.design.processVersion,2);
+    assert.deepEqual(payload.glazeDip,canonical);assert.deepEqual(payload.design.glazeDip,canonical);
+    assert.deepEqual(sanitizeWorkDesign(payload.design),payload.design);
+    assert.equal(evaluateWork(payload).total,evaluateWork(work).total);
+  }
+  const legacy=sanitizeWorkDesign({shape:'pillow',technique:'inlay'});
+  assert.equal(legacy.processVersion,undefined);assert.equal(legacy.glazeDip,undefined);
+  for(const raw of [{processVersion:3},{processVersion:'2'},{glazeDip:null},{glazeDip:{version:1,elapsedMs:5000.5}},{glazeDip:{version:1,elapsedMs:60001}}]) {
+    assert.equal(sanitizeWorkDesign({shape:'pillow',technique:'inlay',...raw}),null);
+  }
 });
 
 test('완성품 전달은 원래 평가 점수와 설명 지문을 보존한다',()=>{

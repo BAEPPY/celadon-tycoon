@@ -16,3 +16,7 @@ PNG files preserve the generated originals unchanged. Equivalent WebP files use 
 The inspection scene was edited with image generation from `exec-fda8d469-353c-4f4a-9d79-5a16cadc9e24.png` to add the requested blue X marks over the three defective pots and a blue circle around the intact bottom-right pot. The four original pot depictions and layout are preserved. `celadon-making-scenes.zip` contains the current six PNG originals, including this marked inspection scene.
 
 The earlier standalone six-panel overview remains at `celadon-inlay-process.png` as a separate reference image; the carousel uses the individual scenes above.
+
+## Glaze dipping update — 2026-11-11
+
+Step 5 now uses `05-fire-dip.png` / `.webp`, generated from the previous step illustration and the new white-glaze vat. Generated source: `exec-54038fd2-a5cc-4ab8-80d8-0550874e773d.png`. The brush scene is replaced with dipping horizontally in white glaze; the caption remains simply “부채로 건조 → 초벌 → 유약 담그기 → 재벌”. The PNG preserves the original generation; WebP uses quality 94.

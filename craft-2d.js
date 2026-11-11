@@ -14,8 +14,10 @@ import {
   clamp,
 } from "./illustration-rules.js";
 import { surfaceAnchor, projectCurvedSurface, inlayCell, sectionFor, sectionScale } from './surface-warp.js';
-// Raw glaze is an ochre coat (it turns celadon only in the second firing). The decoration under it shows faintly.
-export const RAW_GLAZE = Object.freeze([194, 152, 92]), GLAZE_SHOW_THROUGH = .3;
+import { GlazeSurface, glazeSurfaceTreatment } from './glaze-surface.js';
+// Raw glaze is milky white; celadon green appears only in the second firing.
+// The student's decoration remains faintly visible beneath the unfired coating.
+export const RAW_GLAZE = Object.freeze([235, 234, 227]), GLAZE_SHOW_THROUGH = .3;
 const motifSamples = new Map();
 function sampledPaths(data) {
   if (!motifSamples.has(data)) {
@@ -86,7 +88,7 @@ async function loadIllustration(id, frame = null, {prefetch = false} = {}) {
             versions = { finished: base };
           // Neighbour preloads decode only the original. Derive the current
           // clay/biscuit appearance on demand, not two full pixel loops per fetch.
-          // "glazed" is the vessel under raw glaze: an ochre coat. The celadon colour ("finished") comes out only
+          // "glazed" is the vessel under raw glaze: a milky white coat. The celadon colour ("finished") comes out only
           // in the second firing.
           for (const [name, color] of [["clay", [190, 145, 113]], ["biscuit", [224, 196, 159]], ["glazed", RAW_GLAZE]]) {
             Object.defineProperty(versions,name,{configurable:true,get(){
@@ -163,6 +165,7 @@ export class Craft2D {
     this.rotationMotion = null;
     this.rotationPending = null;
     this.rotationTransition = null;
+    this.glazeSurface = new GlazeSurface();
     const opt = { signal: this.abort.signal };
     this.canvas.addEventListener("pointerdown", (e) => this.down(e), opt);
     this.canvas.addEventListener("pointermove", (e) => this.move(e), opt);
@@ -237,6 +240,7 @@ export class Craft2D {
     this.glaze = 0;
     this.work = work;
     this.stage = stage;
+    const glazeArt = this.glazeSurface.prepare(work.glazeDip);
     if (!this.editable() || (work.tool || 'stamp') !== 'stamp') this.stampPreview = null;
     // During firing the vessel is a display; only the mini-game controls take input.
     this.interactive = work.step !== 2;
@@ -302,6 +306,8 @@ export class Craft2D {
       if (work.step > 0) this.progress = 1;
       this.paint();
     }
+    await glazeArt;
+    if (this.work === work && this.stage === stage) this.paint();
   }
   size() {
     if(this.drag)this.cancelPointer();
@@ -372,7 +378,7 @@ export class Craft2D {
     this.fitCamera();
     this.paint();
   }
-  // Under raw glaze: while it is being brushed on, and until the second firing.
+  // Under raw glaze: after immersion and until the second firing.
   coated() {
     return this.glaze > 0 || this.stage === "glazed";
   }
@@ -418,13 +424,21 @@ export class Craft2D {
       layer.clearRect(0, 0, w, h);
       for (const p of this.work.placements || []) this.mark(layer, p, open);
       for (const s of strokes) this.drawStroke(layer, s, open);
-      c.globalAlpha = 1 - (1 - GLAZE_SHOW_THROUGH) * (this.glaze > 0 ? this.glaze : 1);
+      const coating = glazeSurfaceTreatment(this.work.glazeDip, 'glazed');
+      const showThrough = coating ? (coating.outcome === 'thin' ? .52 : .20) : GLAZE_SHOW_THROUGH;
+      c.globalAlpha = 1 - (1 - showThrough) * (this.glaze > 0 ? this.glaze : 1);
       c.drawImage(veil, 0, 0);
     } else {
       for (const p of this.work.placements || []) this.mark(c, p, open);
       for (const s of strokes) this.drawStroke(c, s, open);
     }
     c.restore();
+    // Material defects belong to this student's authored surface. Applying them
+    // before removing front cutouts keeps openwork holes clear at every angle.
+    this.glazeSurface.paint(c, {
+      raw: this.work.glazeDip, stage: this.coated() ? 'glazed' : this.stage,
+      source: this.source, project: (angle, level) => this.surfacePoint(angle, level, false),
+    });
     if (open) {
       c.save();
       c.globalCompositeOperation = "destination-out";
@@ -439,7 +453,7 @@ export class Craft2D {
         this.stage === "finished"
           ? "#3d5148"
           : this.coated()
-            ? "#6b5330"
+            ? "#747771"
             : "#6e4d3e";
       back.globalAlpha = 0.72;
       back.fillRect(0, 0, w, h);
@@ -620,7 +634,7 @@ export class Craft2D {
       const shape=this.projectedPath(c,path.points,path.closed);
       if(erase){c.fillStyle='#000';c.fill(shape);}else{
         c.strokeStyle='#71554b';c.lineWidth=size*10;c.stroke(shape);
-        c.save();c.translate(size*2.5,size*2.5);c.lineWidth=size*5;c.strokeStyle=this.stage==='finished'?'#c3d0ae':this.coated()?'#e6cf9a':'#dfb78e';c.stroke(shape);c.restore();
+        c.save();c.translate(size*2.5,size*2.5);c.lineWidth=size*5;c.strokeStyle=this.stage==='finished'?'#c3d0ae':this.coated()?'#eeede5':'#dfb78e';c.stroke(shape);c.restore();
       }
     }
     c.restore();

@@ -109,10 +109,12 @@ const REPAIR_QUOTES=Object.freeze({
  noblewoman:{use:['내가 쓸 곳과 기물의 종류가 맞지 않소. 그 쓰임에 알맞은 형태로 골라 주시오.','어디에 두고 무엇을 할 물건인지 다시 살펴보시오. 그에 맞는 기물이 필요하오.'],process:['정성을 들여 마무리할 단계가 남았구려. 빠진 제작 과정을 이어 주시오.','아직 완성하지 못한 과정이 있소. 남은 손질을 마친 뒤 보여 주시오.'],design:['부탁한 기법이나 무늬, 세부 형태에 다른 점이 남았소. 짚은 조건을 다시 살펴 주시오.','주문에서 세세히 부탁한 부분을 더 맞춰 주시오. 고칠 조건을 아래에 적었소.']},
  artisan:{use:['먼저 이 기물의 쓰임을 떠올려 보시오. 주문한 일에 알맞은 형태를 다시 골라 보시오.','쓰임과 형태를 잇는 연습이 더 필요하오. 무엇을 할 물건인지부터 다시 살피시오.'],process:['제작 과정에 빠진 단계가 있구려. 순서대로 끝까지 해내는 것도 도공의 솜씨요.','마무리하지 못한 제작 단계를 살펴보시오. 남은 일을 차근히 끝내 보시오.'],design:['세부 형태와 기법, 무늬에서 주문과 다른 조건을 찾아보시오. 고칠 부분을 아래에 짚었소.','주문의 세부 조건을 다시 확인할 차례요. 짚어 준 조건부터 맞춰 보시오.']},
 });
+const glazeOnlyShortfall=shortfall=>shortfall?.key==='process'&&Number.isFinite(shortfall.glazeScore)&&shortfall.glazeScore<10&&shortfall.score===20+shortfall.glazeScore;
 function reviewDetail(shortfall){
  if(!shortfall)return '그대가 붙인 이름과 이야기를 함께 간직하겠소.';
  const feedback=String(shortfall.feedback||'');
  if(shortfall.key==='use'){const shape=feedback.match(/이 주문에는 (.+?)의 쓰임/);return shape?`이 주문에는 ${shape[1]}의 쓰임이 알맞소. 그 형태를 골라 주시오.`:'무엇에 쓸 청자인지 생각하고, 쓰임에 알맞은 형태를 고르시오.';}
+ if(glazeOnlyShortfall(shortfall))return feedback.includes('얇으면')?'유약을 조금 일찍 꺼냈구려. 다음에는 5초에 가깝게 담가 빛깔과 광택을 살려 보시오.':'유약을 오래 담갔구려. 다음에는 5초에 가깝게 꺼내 흘러내리는 유약을 줄여 보시오.';
  if(shortfall.key==='process')return feedback.includes('제작 단계를')?'선택한 표현 방법의 제작 단계를 먼저 마무리하시오.':'건조 → 초벌 → 유약 → 재벌의 과정을 순서대로 마무리하시오.';
  if(shortfall.key==='design'){
   if(feedback.includes('물이 샐'))return '몸통의 구멍으로 물이 샐 수 있소. 물 담을 기물에는 상감이나 무문을 고르시오.';
@@ -135,7 +137,7 @@ export function customerReview(order,score,work={}){
  if(explanationOnly){const variants=EXPLANATION_REVIEWS[character.id];[headline,quote]=variants[seed%variants.length];}
  else if(mood!=='happy'){
   const focus=objectiveShortfalls.length?shortfall.key:'design',variants=REPAIR_QUOTES[character.id][focus];
-  quote=variants[seed%variants.length];
+  quote=glazeOnlyShortfall(shortfall)?'제작 순서는 잘 지켰소. 유약을 담그는 시간을 조금 더 살펴보시오.':variants[seed%variants.length];
  }
  return {character:character.id,mood,headline,quote,detail:reviewDetail(shortfall),focus:shortfall?.key||'complete',learningFeedback:shortfall?.feedback||'',total:Number(score?.total)||0};
 }

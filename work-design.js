@@ -2,6 +2,7 @@ import {PATTERNS, SHAPES, TECHNIQUES} from './domain.js';
 import {MODEL_ARTIFACTS} from './models-manifest.js';
 import {FRAME_COUNT} from './rotation-rules.js';
 import {MAX_STAMP_SIZE, MIN_STAMP_SIZE} from './motif-size.js';
+import {normalizeGlazeDip} from './glaze-dip-rules.js';
 
 export const WORK_DESIGN_VERSION = 1;
 export const MAX_WORK_DESIGN_BYTES = 3300000;
@@ -55,10 +56,13 @@ function inlayCells(raw) {
 }
 
 // Rendering data is separate from assessmentInput: full drawing geometry must
-// never alter a stored rubric fingerprint or carry names, tokens, or feedback.
+// never alter a stored rubric fingerprint or carry names, tokens, or untrusted feedback.
 // Reject an unsupported design instead of silently dropping parts of its image.
 export function sanitizeWorkDesign(raw) {
   if (!object(raw) || (raw.version !== undefined && raw.version !== WORK_DESIGN_VERSION) || !shapes.has(raw.shape) || !techniques.has(raw.technique)) return null;
+  if (raw.processVersion !== undefined && ![1, 2].includes(raw.processVersion)) return null;
+  const glazeDip = raw.glazeDip === undefined ? null : normalizeGlazeDip(raw.glazeDip);
+  if (raw.glazeDip !== undefined && !glazeDip) return null;
   const modelId = raw.modelId || raw.shape;
   if (typeof modelId !== 'string' || !Object.hasOwn(MODEL_ARTIFACTS, modelId)) return null;
   const pattern = raw.pattern === undefined || raw.pattern === null || raw.pattern === '' ? 'crane' : raw.pattern;
@@ -70,6 +74,8 @@ export function sanitizeWorkDesign(raw) {
   if (!Array.isArray(placements) || placements.length > MAX_PLACEMENTS || !Array.isArray(strokes) || strokes.length > MAX_STROKES) return null;
   const design = {version: WORK_DESIGN_VERSION, shape: raw.shape, modelId, width, viewFrame, technique: raw.technique, pattern,
     step: 4, tool: 'rotate', knead: 3, decorDone: true, decorPhase, clay: {slip: claySlip}, placements: [], strokes: []};
+  if (raw.processVersion !== undefined) design.processVersion = raw.processVersion;
+  if (glazeDip) design.glazeDip = glazeDip;
   for (const mark of placements) {
     const point = coordinate(mark), markPattern = mark?.pattern || pattern, stampSize = optional(mark?.stampSize, 1, MIN_STAMP_SIZE, MAX_STAMP_SIZE);
     if (!point || !patterns.has(markPattern) || stampSize === null) return null;
