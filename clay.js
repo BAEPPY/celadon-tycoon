@@ -1,7 +1,7 @@
 export const CLAYS=Object.freeze([
  {id:'celadon',name:'태토',label:'몸통을 빚는 흙',color:'#b59a86',description:'그릇의 몸통을 빚는 바탕 흙이에요. 청자용 태토를 꼭꼭 눌러 공기를 빼고 고르게 반죽해요.'},
  {id:'white',name:'백토',label:'밝은 상감용 흙',color:'#f3e9d2',description:'흰 상감무늬를 만드는 흙이에요. 물에 개어 파인 무늬를 채워요.'},
- {id:'dark',name:'자토',label:'짙은 상감용 색흙',color:'#815958',description:'검은 상감무늬를 만드는 흙이에요. 실제 흙과 가마 조건에 따라 구운 뒤의 색은 달라져요.'},
+ {id:'dark',name:'자토',label:'붉은 상감용 흙',color:'#b0452f',description:'붉은 흙이지만 가마에서 구우면 검은 상감무늬가 돼요. 실제 흙과 가마 조건에 따라 구운 뒤의 색은 달라져요.'},
 ]);
 export function freshClay(){return {body:true,slip:'white',kneads:0,prepared:false};}
 export function chooseClay(state,id){if(!CLAYS.some(c=>c.id===id))return {...state};return id==='celadon'?{...state,body:true}:{...state,slip:id};}

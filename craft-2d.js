@@ -393,7 +393,8 @@ export class Craft2D {
     }
     this.filledCells = new Set(this.work.inlay?.fill || []);
     this.wipedCells = new Set(this.work.inlay?.wipe || []);
-    // White and dark slip can be mixed: `dark` lists the dark cells. Older works have one colour for everything.
+    // White slip (백토) and red slip (자토, kept as 'dark' in the data) can be mixed: `dark` lists the red cells.
+    // Older works have one colour for everything.
     this.darkCells = Array.isArray(this.work.inlay?.dark) ? new Set(this.work.inlay.dark) : null;
     const open = this.work.technique === "openwork",
       strokes = [
@@ -484,7 +485,10 @@ export class Craft2D {
   }
   inlayColor(point) {
     const dark = this.darkCells ? this.darkCells.has(inlayCell(point.angle,point.level)) : (this.work.inlay?.slip || this.work.clay?.slip)==='dark';
-    return dark ? '#342d30' : '#fff0d3';
+    if (!dark) return '#fff0d3';
+    // 자토 is a red clay that fires black: red while the vessel is still clay or biscuit, black once it is glazed
+    // and fired (from the moment the glaze goes on, when the body takes its celadon colour too).
+    return this.glaze > 0 || this.stage === 'glazed' || this.stage === 'finished' ? '#342d30' : '#b0452f';
   }
   inlayState(point) {
     const state=this.work.inlay;

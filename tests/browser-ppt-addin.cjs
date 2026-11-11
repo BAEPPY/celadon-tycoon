@@ -123,6 +123,11 @@ const officeStub=view=>`window.__settings=window.__settings||{};window.__saved=0
     // 비슷한 주문끼리 비교 is a choice of its own, shown by the comparison board of the site.
     await second.locator('#change').click();await second.locator('input[name=panel][value=compare]').check();await second.locator('#form button[type=submit]').click();
     assert.match(await second.locator('#board').getAttribute('src'),/show=compare/);assert.equal(await second.evaluate(()=>window.__settings.panel),'compare');
+    // 워드 클라우드만 크게 보기: the cloud to show is chosen in the form and kept in the presentation.
+    await second.locator('#change').click();assert.equal(await second.locator('#cloud-field').isHidden(),true);
+    await second.locator('input[name=panel][value=cloud]').check();assert.equal(await second.locator('#cloud-field').isVisible(),true);assert.equal(await second.locator('#cloud option').count(),11);
+    await second.locator('#cloud').selectOption('use-3');await second.locator('#form button[type=submit]').click();
+    assert.match(await second.locator('#board').getAttribute('src'),/show=cloud&cloud=use-3#key=/);assert.deepEqual(await second.evaluate(()=>[window.__settings.panel,window.__settings.cloud]),['cloud','use-3']);
     // A presentation opened in slide show with a saved panel goes straight to the board.
     const showContext=await browser.newContext({viewport:{width:900,height:560}});
     await showContext.route(OFFICE_JS,route=>route.fulfill({contentType:'text/javascript',body:`window.__settings=${JSON.stringify({panel:'comparison',link})};`+officeStub('read')}));

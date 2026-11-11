@@ -56,6 +56,7 @@ label.check{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:7
       <label class="choice"><input type="radio" name="panel" value="uses"> 이름·쓰임 짐작</label>
       <label class="choice"><input type="radio" name="panel" value="works"> 완성작 모음</label>
       <label class="choice"><input type="radio" name="panel" value="compare"> 비슷한 주문끼리 비교</label>
+      <label class="choice"><input type="radio" name="panel" value="cloud"> 워드 클라우드만 크게 보기</label>
       <label class="choice"><input type="radio" name="panel" value="game"> 청자 만들기 게임</label>
       <label class="choice"><input type="radio" name="panel" value="model"> 3D 청자 돌려 보기</label>
       <label class="choice"><input type="radio" name="panel" value="plain"> 3D 청자만 크게 보기</label>
@@ -71,6 +72,21 @@ label.check{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:7
         <option value="observation-3">쓰임 짐작 · 청자 3</option>
         <option value="observation-4">쓰임 짐작 · 청자 4</option>
         <option value="observation-5">쓰임 짐작 · 청자 5</option>
+      </select>
+    </label>
+    <label class="field" id="cloud-field" hidden>보여 줄 워드 클라우드
+      <select id="cloud">
+        <option value="beauty">아름다움 찾기 · 우리가 찾은 아름다움</option>
+        <option value="name-1">쓰임 짐작 · 청자 1 · 예상한 이름</option>
+        <option value="use-1">쓰임 짐작 · 청자 1 · 예상한 쓰임</option>
+        <option value="name-2">쓰임 짐작 · 청자 2 · 예상한 이름</option>
+        <option value="use-2">쓰임 짐작 · 청자 2 · 예상한 쓰임</option>
+        <option value="name-3">쓰임 짐작 · 청자 3 · 예상한 이름</option>
+        <option value="use-3">쓰임 짐작 · 청자 3 · 예상한 쓰임</option>
+        <option value="name-4">쓰임 짐작 · 청자 4 · 예상한 이름</option>
+        <option value="use-4">쓰임 짐작 · 청자 4 · 예상한 쓰임</option>
+        <option value="name-5">쓰임 짐작 · 청자 5 · 예상한 이름</option>
+        <option value="use-5">쓰임 짐작 · 청자 5 · 예상한 쓰임</option>
       </select>
     </label>
     <label class="check"><input type="checkbox" id="cover"> 슬라이드 쇼에서는 가려 두었다가 클릭하면 나타나기</label>
@@ -90,9 +106,11 @@ label.check{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:7
 'use strict';
 // Each inserted add-in keeps its own choice in the presentation (Office settings); the observer link is also kept
 // on this computer so the next slide's add-in fills it in. Outside PowerPoint the page works with local storage only.
-const LOCAL_KEY = 'celadon-ppt-addin-v1', PANELS = ['follow', 'comparison', 'beauty', 'uses', 'works', 'compare', 'game', 'model'];
+const LOCAL_KEY = 'celadon-ppt-addin-v1', PANELS = ['follow', 'comparison', 'beauty', 'uses', 'works', 'compare', 'cloud', 'game', 'model'];
 // 3D models need no class link: they are the lesson's public models, activity 2 ones under their blind labels.
 const MODELS = ['beauty', 'comparison-1', 'comparison-2', 'comparison-3', 'observation-1', 'observation-2', 'observation-3', 'observation-4', 'observation-5'];
+// 워드 클라우드만 크게 보기: which cloud fills the box (우리가 찾은 아름다움, or the names or uses guessed for 청자 1–5).
+const CLOUDS = ['beauty', ...[1, 2, 3, 4, 5].flatMap(n => [`name-${n}`, `use-${n}`])];
 const needsLink = panel => panel !== 'game' && panel !== 'model';
 const $ = id => document.getElementById(id);
 let office = null, editing = true, revealed = false;
@@ -108,32 +126,34 @@ function parseLink(text) {
     return {code, key};
   } catch { return null; }
 }
-function boardUrl(panel, link, model, plain) {
+function boardUrl(panel, link, model, plain, cloud) {
   if (panel === 'game') return '/game';
   // "청자만 크게 보기": only the model and the two zoom buttons.
   if (panel === 'model') return `/model?${new URLSearchParams({id: model, ...(plain ? {plain: '1'} : {})})}`;
   const params = new URLSearchParams({code: link.code});
   if (panel === 'follow') params.set('board', '1'); else params.set('show', panel);
+  if (panel === 'cloud') params.set('cloud', cloud);
   return `/observe?${params}#${new URLSearchParams({key: link.key})}`;
 }
 function saved() {
   const doc = office ? Office.context.document.settings : null, mine = local.read();
   const panel = (doc ? doc.get('panel') : mine.panel) || null, link = (doc && doc.get('link')) || mine.link || null, model = (doc ? doc.get('model') : mine.model) || 'beauty';
   return {panel: PANELS.includes(panel) ? panel : null, link: parseLink(link) ? link : null, model: MODELS.includes(model) ? model : 'beauty',
-    cover: Boolean(doc ? doc.get('cover') : mine.cover), plain: Boolean(doc ? doc.get('plain') : mine.plain), panelSaved: Boolean(doc ? doc.get('panel') : mine.panel)};
+    cover: Boolean(doc ? doc.get('cover') : mine.cover), plain: Boolean(doc ? doc.get('plain') : mine.plain),
+    cloud: CLOUDS.includes(doc ? doc.get('cloud') : mine.cloud) ? (doc ? doc.get('cloud') : mine.cloud) : 'beauty', panelSaved: Boolean(doc ? doc.get('panel') : mine.panel)};
 }
-function save(panel, link, model, cover, plain) {
-  local.write({...(link ? {link} : {}), ...(office ? {} : {panel, model, cover, plain})});
+function save(panel, link, model, cover, plain, cloud) {
+  local.write({...(link ? {link} : {}), ...(office ? {} : {panel, model, cover, plain, cloud})});
   if (!office) return Promise.resolve();
   const settings = Office.context.document.settings;
-  settings.set('panel', panel); settings.set('model', model); settings.set('cover', cover); settings.set('plain', plain); if (link) settings.set('link', link);
+  settings.set('panel', panel); settings.set('model', model); settings.set('cover', cover); settings.set('plain', plain); settings.set('cloud', cloud); if (link) settings.set('link', link);
   return new Promise(resolve => settings.saveAsync(() => resolve()));
 }
 function showBoard() {
-  const {panel, link, model, plain} = saved(), parsed = link && parseLink(link);
+  const {panel, link, model, plain, cloud} = saved(), parsed = link && parseLink(link);
   if (!panel || (needsLink(panel) && !parsed)) return showSetup();
   $('setup').hidden = true;
-  const src = boardUrl(panel, parsed || {}, model, plain);
+  const src = boardUrl(panel, parsed || {}, model, plain, cloud);
   if ($('board').getAttribute('src') !== src) $('board').setAttribute('src', src);
   $('board').hidden = false; $('change').hidden = !editing;
   $('change').textContent = saved().cover ? '화면 바꾸기 · 클릭하면 나타나기' : '화면 바꾸기';
@@ -151,7 +171,7 @@ $('cover-screen').addEventListener('click', () => {
 });
 function showSetup(message = '') {
   const {panel, link, model} = saved();
-  $('model').value = model; $('cover').checked = saved().cover; $('cover-screen').hidden = true;
+  $('model').value = model; $('cloud').value = saved().cloud; $('cover').checked = saved().cover; $('cover-screen').hidden = true;
   $('board').hidden = true; $('change').hidden = true; $('setup').hidden = false; $('error').textContent = message;
   // "3D 청자만 크게 보기" is the model box with only the zoom buttons; it is kept as the model panel plus `plain`.
   const choice = document.querySelector(`input[name=panel][value="${panel === 'model' && saved().plain ? 'plain' : panel || 'follow'}"]`); if (choice) choice.checked = true;
@@ -161,7 +181,7 @@ function showSetup(message = '') {
 function chosenPanel() { const value = document.querySelector('input[name=panel]:checked')?.value; return value === 'plain' ? {panel: 'model', plain: true} : {panel: value, plain: false}; }
 function syncLinkField() {
   const panel = chosenPanel().panel;
-  $('link-field').hidden = !needsLink(panel); $('model-field').hidden = panel !== 'model';
+  $('link-field').hidden = !needsLink(panel); $('model-field').hidden = panel !== 'model'; $('cloud-field').hidden = panel !== 'cloud';
 }
 $('form').addEventListener('change', syncLinkField);
 $('form').addEventListener('submit', async event => {
@@ -170,7 +190,7 @@ $('form').addEventListener('submit', async event => {
   if (!PANELS.includes(panel)) return;
   if (needsLink(panel) && !parseLink(text)) { $('error').textContent = 'PPT용 주소를 확인해 주세요. 선생님 화면 → 수업 관리 → “PPT용 주소 복사”로 복사한 주소를 붙여 넣어 주세요.'; return; }
   const model = MODELS.includes($('model').value) ? $('model').value : 'beauty';
-  await save(panel, parseLink(text) ? text : saved().link, model, $('cover').checked, plain);
+  await save(panel, parseLink(text) ? text : saved().link, model, $('cover').checked, plain, CLOUDS.includes($('cloud').value) ? $('cloud').value : 'beauty');
   showBoard();
 });
 $('change').addEventListener('click', () => showSetup());

@@ -319,6 +319,48 @@ const officeStub=view=>`window.__settings=window.__settings||{};window.__goto=[]
     assert.equal(await cards.locator('[data-work] img').count(),0);assert.match(await cards.locator('[data-work="legacy-webp"]').innerText(),/구름이 쉬는 베개/);
     await cards.context().close();
 
+    // 워드 클라우드만 크게 보기: one word cloud alone fills the box — no bar, no model, no notice. The most common
+    // answer is the largest and sits in the middle; the words are close together, inside the box, and never overlap.
+    const cloudShape=target=>target.evaluate(()=>{const box=document.querySelector('.lg-cloud-only, .word-cloud').getBoundingClientRect();
+      const words=[...document.querySelectorAll('.lg-cw, .cloud-word')].map(node=>{const r=node.getBoundingClientRect();return {text:node.textContent,size:parseFloat(getComputedStyle(node).fontSize),left:r.left,top:r.top,right:r.right,bottom:r.bottom};});
+      const gap=(a,b)=>Math.max(0,Math.max(b.left-a.right,a.left-b.right),Math.max(b.top-a.bottom,a.top-b.bottom)),largest=[...words].sort((a,b)=>b.size-a.size)[0];
+      return {texts:words.map(word=>word.text).sort(),largest:largest.text,share:largest.size/box.height,centred:Math.abs((largest.left+largest.right)/2-(box.left+box.right)/2)<box.width*.12&&Math.abs((largest.top+largest.bottom)/2-(box.top+box.bottom)/2)<box.height*.2,
+        inside:words.every(word=>word.left>=box.left-1&&word.top>=box.top-1&&word.right<=box.right+1&&word.bottom<=box.bottom+1),
+        apart:words.every((a,i)=>words.every((b,j)=>i===j||gap(a,b)>=1)),near:Math.max(...words.map((a,i)=>Math.min(...words.filter((b,j)=>i!==j).map(b=>gap(a,b))))),
+        other:document.querySelectorAll('.lg-head:not([style*="none"]), .lg-note, .lg-turn, .lg-bar, .board-status, .viewer-host').length};});
+    const cloudBox=await boardPage({label:'cloud alone',panel:'cloud',settings:{cloud:'beauty',three:false}});
+    await cloudBox.locator('.lg-cloud-only[data-layout=ready]').waitFor({timeout:20000});
+    const beautyCloud=await cloudShape(cloudBox);
+    assert.deepEqual({texts:beautyCloud.texts,largest:beautyCloud.largest,centred:beautyCloud.centred,inside:beautyCloud.inside,apart:beautyCloud.apart,other:beautyCloud.other},
+      {texts:['비색이 맑아요','학 무늬가 날아요'],largest:'비색이 맑아요',centred:true,inside:true,apart:true,other:0},JSON.stringify(beautyCloud));
+    assert.ok(beautyCloud.near<=6,`the words sit close together: ${beautyCloud.near}px`);assert.ok(beautyCloud.share>=.2,`the cloud fills the box: ${beautyCloud.share}`);
+    assert.equal(await cloudBox.locator('#lg-root button').count(),1,'only 화면 바꾸기, and only while editing');
+    assert.ok(!(await cloudBox.locator('#lg-root').innerText()).includes(privateName));
+    // Another cloud is chosen in the form: the names guessed for 청자 1.
+    await cloudBox.locator('[data-act=setup]').click();
+    assert.equal(await cloudBox.locator('input[name=lg-panel][value=cloud]').isChecked(),true);assert.equal(await cloudBox.locator('#lg-cloud-field').isVisible(),true);assert.equal(await cloudBox.locator('#lg-model-field').isVisible(),false);
+    assert.equal(await cloudBox.locator('#lg-cloud option').count(),11);assert.equal(await cloudBox.locator('#lg-cloud').inputValue(),'beauty');
+    await cloudBox.locator('#lg-cloud').selectOption('name-1');await cloudBox.locator('.lg-submit').click();
+    await cloudBox.locator('.lg-cloud-only[data-cloud="name-1"][data-layout=ready]').waitFor({timeout:20000});
+    const nameCloud=await cloudShape(cloudBox);assert.deepEqual([nameCloud.texts,nameCloud.inside,nameCloud.apart,nameCloud.other],[['베개'],true,true,0]);
+    // A cloud with nothing in it yet says so.
+    await cloudBox.locator('[data-act=setup]').click();await cloudBox.locator('#lg-cloud').selectOption('use-5');await cloudBox.locator('.lg-submit').click();
+    await cloudBox.locator('.lg-cloud-only[data-cloud="use-5"] .lg-cloud-empty').waitFor({timeout:20000});
+    assert.match(await cloudBox.locator('.lg-cloud-empty').innerText(),/아직 도착한 생각이 없어요/);
+    // The same cloud alone on the site's board (the current engine): /observe?…&show=cloud&cloud=…
+    const siteCloud=await cloudBox.context().newPage();watch(siteCloud,'site cloud');
+    await siteCloud.goto(link.replace('#key=','&show=cloud&cloud=beauty#key='));
+    await siteCloud.waitForFunction(()=>document.querySelector('.cloud-only .word-cloud')?.dataset.cloudLayout==='ready',{},{timeout:30000});
+    const siteShape=await cloudShape(siteCloud);
+    assert.deepEqual({texts:siteShape.texts,largest:siteShape.largest,centred:siteShape.centred,inside:siteShape.inside,apart:siteShape.apart,other:siteShape.other},
+      {texts:['비색이 맑아요','학 무늬가 날아요'],largest:'비색이 맑아요',centred:true,inside:true,apart:true,other:0},JSON.stringify(siteShape));
+    assert.ok(siteShape.near<=6&&siteShape.share>=.15,JSON.stringify(siteShape));
+    assert.equal(await siteCloud.evaluate(()=>document.documentElement.scrollHeight<=innerHeight&&document.querySelectorAll('button').length===0),true,'nothing but the cloud');
+    await siteCloud.goto(link.replace('#key=','&show=cloud&cloud=name-1#key='));
+    await siteCloud.waitForFunction(()=>document.querySelector('.cloud-only[data-cloud="name-1"] .word-cloud')?.dataset.cloudLayout==='ready',{},{timeout:30000});
+    assert.deepEqual((await cloudShape(siteCloud)).texts,['베개']);
+    await cloudBox.context().close();
+
     // On a touch screen (an interactive whiteboard) the board's buttons are large enough for a finger and still fit.
     const fingerContext=await browser.newContext({viewport:{width:1500,height:844},hasTouch:true});await fingerContext.route(OFFICE_JS,route=>route.abort());
     const finger=await fingerContext.newPage();watch(finger,'touch board');
@@ -399,7 +441,7 @@ const officeStub=view=>`window.__settings=window.__settings||{};window.__goto=[]
     assert.deepEqual(await showPlain.locator('#lg-root button').evaluateAll(nodes=>nodes.filter(node=>node.offsetParent!==null).map(node=>node.textContent)),['＋','－']);
     await showPlain.evaluate(()=>window.__viewHandler({activeView:'edit'}));await showPlain.locator('[data-act=setup]').waitFor();
     assert.deepEqual(errors,[]);
-    console.log('Old-engine add-in board: fitting its box (same after reloads, squat box, unannounced resize), similar-order comparison (groups, words, 크게 보기), setup, anonymous comparison counts, turning pictures, 청자 설명 보기 from the slide, following 아름다움·쓰임·완성작, real 3D (turn, tilt, zoom, kept across redraws, self-turning), falling back to pictures without WebGL, with a missing model and after an empty drawing, pictures of finished works as JPEG where WebP cannot be drawn, large buttons on a touch screen, plain model view (zoom only, whole box, no self-turning, picture zoom), waiting for a class, slide-show cover and remote keys passed.');
+    console.log('Old-engine add-in board: word cloud alone (old engine and site board), fitting its box (same after reloads, squat box, unannounced resize), similar-order comparison (groups, words, 크게 보기), setup, anonymous comparison counts, turning pictures, 청자 설명 보기 from the slide, following 아름다움·쓰임·완성작, real 3D (turn, tilt, zoom, kept across redraws, self-turning), falling back to pictures without WebGL, with a missing model and after an empty drawing, pictures of finished works as JPEG where WebP cannot be drawn, large buttons on a touch screen, plain model view (zoom only, whole box, no self-turning, picture zoom), waiting for a class, slide-show cover and remote keys passed.');
   }finally{
     if(room&&teacher)await control('delete').catch(()=>{});
     await browser.close();

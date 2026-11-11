@@ -6,8 +6,8 @@
 (function () {
   'use strict';
   var LOCAL_KEY = 'celadon-ppt-addin-v1';
-  var PANELS = ['follow', 'comparison', 'beauty', 'uses', 'works', 'compare', 'game', 'model'];
-  var PANEL_LABELS = {follow: '지금 활동 따라가기', comparison: '세 나라 비교 결과', beauty: '매병·아름다움', uses: '이름·쓰임 짐작', works: '완성작 모음', compare: '비슷한 주문끼리 비교', game: '청자 만들기 게임', model: '청자 돌려 보기',
+  var PANELS = ['follow', 'comparison', 'beauty', 'uses', 'works', 'compare', 'cloud', 'game', 'model'];
+  var PANEL_LABELS = {follow: '지금 활동 따라가기', comparison: '세 나라 비교 결과', beauty: '매병·아름다움', uses: '이름·쓰임 짐작', works: '완성작 모음', compare: '비슷한 주문끼리 비교', cloud: '워드 클라우드만 크게 보기', game: '청자 만들기 게임', model: '청자 돌려 보기',
     plain: '청자만 크게 보기'};
   // What the form offers: every panel, plus "청자만 크게 보기", which is the model panel with only the zoom buttons.
   var CHOICES = PANELS.concat(['plain']);
@@ -15,6 +15,14 @@
   var MODELS = ['beauty', 'comparison-1', 'comparison-2', 'comparison-3', 'observation-1', 'observation-2', 'observation-3', 'observation-4', 'observation-5'];
   var MODEL_LABELS = {'beauty': '청자 상감 운학문 매병 (아름다움 찾기)', 'comparison-1': '세 나라 비교 · 청자 1', 'comparison-2': '세 나라 비교 · 청자 2', 'comparison-3': '세 나라 비교 · 청자 3',
     'observation-1': '쓰임 짐작 · 청자 1', 'observation-2': '쓰임 짐작 · 청자 2', 'observation-3': '쓰임 짐작 · 청자 3', 'observation-4': '쓰임 짐작 · 청자 4', 'observation-5': '쓰임 짐작 · 청자 5'};
+  // 워드 클라우드만 크게 보기: which cloud fills the box (우리가 찾은 아름다움, or the names or uses guessed for 청자 1–5).
+  var CLOUDS = ['beauty'], CLOUD_LABELS = {beauty: '아름다움 찾기 · 우리가 찾은 아름다움'};
+  (function () {
+    for (var n = 1; n <= 5; n++) {
+      CLOUDS.push('name-' + n, 'use-' + n);
+      CLOUD_LABELS['name-' + n] = '쓰임 짐작 · 청자 ' + n + ' · 예상한 이름'; CLOUD_LABELS['use-' + n] = '쓰임 짐작 · 청자 ' + n + ' · 예상한 쓰임';
+    }
+  })();
   var COUNTRIES = [{id: 'yuan', label: '원'}, {id: 'goryeo', label: '고려'}, {id: 'japan', label: '일본'}];
   var ACTIVITY_NAMES = {1: '세 나라 도자기 비교', 2: '쓰임과 이름 짐작하기', 3: '좋은 청자 위대한 청자'};
   var BEAUTY_NAME = '고려청자의 아름다움 찾기', BEAUTY_LABEL = '청자 상감 운학문 매병';
@@ -29,6 +37,8 @@
   // "청자만 크게 보기": only the model and two zoom buttons. Where 3D does not work the pictures are enlarged instead.
   var pictureZoom = {};
   function plainNow() { var now = saved(); return now.panel === 'model' && now.plain; }
+  // The views that take the whole box, with no bar at the top: the model alone and the word cloud alone.
+  function bareNow() { return plainNow() || saved().panel === 'cloud'; }
   function scalePicture(node, zoom) { node.style.msTransform = 'scale(' + zoom + ')'; node.style.transform = 'scale(' + zoom + ')'; }
   var canWebp = null, pictures = {}, picturePending = {};
   // Real 3D (legacy-3d.js) when this engine's WebGL works; the turning pictures otherwise.
@@ -74,17 +84,18 @@
     var mine = localRead(), doc = null;
     if (office) { try { doc = window.Office.context.document.settings; } catch (e) { doc = null; } }
     var panel = (doc ? doc.get('panel') : mine.panel) || null, link = (doc && doc.get('link')) || mine.link || null, model = (doc ? doc.get('model') : mine.model) || 'beauty';
+    var cloud = doc ? doc.get('cloud') : mine.cloud;
     return {panel: has(PANELS, panel) ? panel : null, link: parseLink(link) ? link : null, model: has(MODELS, model) ? model : 'beauty', cover: !!(doc ? doc.get('cover') : mine.cover),
-      plain: !!(doc ? doc.get('plain') : mine.plain)};
+      plain: !!(doc ? doc.get('plain') : mine.plain), cloud: has(CLOUDS, cloud) ? cloud : 'beauty'};
   }
-  function save(panel, link, model, cover, plain, done) {
-    var values = office ? {} : {panel: panel, model: model, cover: cover, plain: plain};
+  function save(panel, link, model, cover, plain, cloud, done) {
+    var values = office ? {} : {panel: panel, model: model, cover: cover, plain: plain, cloud: cloud};
     if (link) values.link = link;
     localWrite(values);
     if (!office) return done();
     try {
       var settings = window.Office.context.document.settings;
-      settings.set('panel', panel); settings.set('model', model); settings.set('cover', cover); settings.set('plain', plain); if (link) settings.set('link', link);
+      settings.set('panel', panel); settings.set('model', model); settings.set('cover', cover); settings.set('plain', plain); settings.set('cloud', cloud); if (link) settings.set('link', link);
       settings.saveAsync(function () { done(); });
     } catch (e) { done(); }
   }
@@ -405,6 +416,91 @@
       '<button type="button" data-act="compare-page" data-step="1"' + (page === pages - 1 ? ' disabled' : '') + '>다음 →</button></p>';
     return html;
   }
+  // ---------- 워드 클라우드만 크게 보기 ----------
+  // One word cloud alone, as large as the box. The words are placed like the site's cloud: the most common in the
+  // middle, the others around it along a spiral, close together and never turned on their side.
+  var CLOUD_COLORS = ['#e87854', '#21948f', '#507fa6', '#9c73ad', '#759651', '#c09a45'], CLOUD_GAP = 2;
+  function cloudWords() {
+    var which = saved().cloud, match = /^(name|use)-([1-5])$/.exec(which), words;
+    if (!match) words = data && data.beauty && data.beauty.words;
+    else { var item = find(data && data.observations, function (entry) { return String(entry.id) === match[2]; }); words = item && (match[1] === 'name' ? item.nameWords : item.useWords); }
+    var kept = [];
+    for (var i = 0; i < (words ? words.length : 0) && kept.length < 45; i++) if (words[i] && typeof words[i].text === 'string' && words[i].text.replace(/\s+/g, '')) kept.push(words[i]);
+    return kept;
+  }
+  function cloudOnlyPanel() {
+    var words = cloudWords(), most = 1, least = Infinity, html = '', i, count;
+    for (i = 0; i < words.length; i++) { count = Math.max(1, number(words[i].count)); most = Math.max(most, count); least = Math.min(least, count); }
+    for (i = 0; i < words.length; i++) {
+      count = Math.max(1, number(words[i].count));
+      // weight 0…1: how common the word is among those shown (the sizes are set from it when the cloud is laid out).
+      var weight = most === least ? 0 : Math.pow((count - least) / (most - least), 1.4);
+      html += '<span class="lg-cw" data-weight="' + weight.toFixed(3) + '" style="color:' + CLOUD_COLORS[i % CLOUD_COLORS.length] + '" title="' + count + '명이 쓴 말">' + esc(words[i].text) + '</span>';
+    }
+    return '<div class="lg-cloud-only" data-cloud="' + esc(saved().cloud) + '">' +
+      (words.length ? html : '<p class="lg-cloud-empty">' + (waiting ? '지금은 열린 수업이 없어요.<br>수업이 열리면 생각이 이곳에 모여요.' : '아직 도착한 생각이 없어요.<br>학생들의 답변이 여기에 모입니다.') + '</p>') +
+      (editing ? '<button type="button" class="lg-plain-setup" data-act="setup">화면 바꾸기</button>' : '') + '</div>';
+  }
+  function placeCloud(boxes, width, height) {
+    // Largest first, each at the first free place along an elliptical spiral from the middle, then drawn in toward
+    // the middle as far as it goes so the words sit close together (as lesson-cloud.js does).
+    var order = boxes.slice(0).sort(function (a, b) { return b.size - a.size || a.index - b.index; }), placed = [];
+    var limit = Math.ceil(Math.sqrt(width * width / 4 + height * height / 1.7424) / .28) + 1;
+    function free(x, y, box) {
+      if (x < 0 || y < 0 || x + box.width > width || y + box.height > height) return false;
+      for (var p = 0; p < placed.length; p++) {
+        var other = placed[p];
+        if (x < other.x + other.width + CLOUD_GAP && x + box.width + CLOUD_GAP > other.x && y < other.y + other.height + CLOUD_GAP && y + box.height + CLOUD_GAP > other.y) return false;
+      }
+      return true;
+    }
+    function toward(from, to) { return to > from ? 1 : to < from ? -1 : 0; }
+    for (var i = 0; i < order.length; i++) {
+      var box = order[i], centerX = Math.round(width / 2 - box.width / 2), centerY = Math.round(height / 2 - box.height / 2), found = null;
+      for (var step = 0; step < limit && !found; step++) {
+        var angle = step * .1, radius = angle * 2.8, x = Math.round(centerX + Math.cos(angle) * radius), y = Math.round(centerY + Math.sin(angle) * radius * .66);
+        if (free(x, y, box)) found = {index: box.index, x: x, y: y, width: box.width, height: box.height};
+      }
+      if (!found) return null;
+      for (var moved = true, guard = width + height; moved && guard > 0; guard--) {
+        moved = false;
+        var dx = toward(found.x, centerX), dy = toward(found.y, centerY);
+        if (dx && free(found.x + dx, found.y, box)) { found.x += dx; moved = true; }
+        if (dy && free(found.x, found.y + dy, box)) { found.y += dy; moved = true; }
+      }
+      placed.push(found);
+    }
+    return placed;
+  }
+  function layoutCloud() {
+    var box = root && root.querySelector('.lg-cloud-only');
+    if (!box) return;
+    var words = box.querySelectorAll('.lg-cw'), i;
+    // A little room is left at the edges of the box.
+    var left = Math.round(box.clientWidth * .025), top = Math.round(box.clientHeight * .025), width = box.clientWidth - left * 2, height = box.clientHeight - top * 2;
+    if (!words.length || width <= 0 || height <= 0) return;
+    // The largest sizes that fit: from words half the box tall down to small ones, never below 12px.
+    var scales = [1, .88, .77, .67, .58, .5, .43, .37, .31, .26, .22, .18, .15, .12, .1, .08], positions = null, boxes;
+    for (var s = 0; s < scales.length && !positions; s++) {
+      var smallest = Math.max(12, height * .125 * scales[s]), largest = Math.max(smallest * 2, height * .5 * scales[s]);
+      boxes = [];
+      for (i = 0; i < words.length; i++) {
+        var size = Math.round(smallest + number(words[i].getAttribute('data-weight')) * (largest - smallest));
+        words[i].style.fontSize = size + 'px'; words[i].style.left = '0'; words[i].style.top = '0';
+        boxes.push({index: i, size: size, width: Math.ceil(words[i].offsetWidth), height: Math.ceil(words[i].offsetHeight)});
+      }
+      positions = placeCloud(boxes, width, height);
+    }
+    if (!positions) {
+      // Too many words even at the smallest size: they flow from the top instead of being left out.
+      box.className = 'lg-cloud-only lg-cloud-flow';
+      for (i = 0; i < words.length; i++) { words[i].style.left = ''; words[i].style.top = ''; words[i].style.visibility = 'visible'; }
+      return;
+    }
+    box.className = 'lg-cloud-only';
+    for (i = 0; i < positions.length; i++) { var word = words[positions[i].index]; word.style.left = left + positions[i].x + 'px'; word.style.top = top + positions[i].y + 'px'; word.style.visibility = 'visible'; }
+    box.setAttribute('data-layout', 'ready');
+  }
   function modelPanel() {
     var model = saved().model;
     // Only the celadon, as large as the box, with 확대 and 축소. It is still turned by dragging; nothing else shows.
@@ -448,8 +544,11 @@
     var now = saved(), panel = now.panel === 'model' && now.plain ? 'plain' : now.panel || 'follow', choices = '', options = '', i;
     for (i = 0; i < CHOICES.length; i++) choices += '<label class="lg-choice"><input type="radio" name="lg-panel" value="' + CHOICES[i] + '"' + (CHOICES[i] === panel ? ' checked' : '') + '> ' + PANEL_LABELS[CHOICES[i]] + '</label>';
     for (i = 0; i < MODELS.length; i++) options += '<option value="' + MODELS[i] + '"' + (MODELS[i] === now.model ? ' selected' : '') + '>' + MODEL_LABELS[MODELS[i]] + '</option>';
+    var clouds = '';
+    for (i = 0; i < CLOUDS.length; i++) clouds += '<option value="' + CLOUDS[i] + '"' + (CLOUDS[i] === now.cloud ? ' selected' : '') + '>' + CLOUD_LABELS[CLOUDS[i]] + '</option>';
     return '<form class="lg-form" id="lg-form"><h1>이 자리에 띄울 실시간 화면</h1>' + choices +
       '<label class="lg-field" id="lg-model-field">돌려 볼 청자<select id="lg-model">' + options + '</select></label>' +
+      '<label class="lg-field" id="lg-cloud-field">보여 줄 워드 클라우드<select id="lg-cloud">' + clouds + '</select></label>' +
       (office ? '<label class="lg-field"><input type="checkbox" id="lg-cover"' + (now.cover ? ' checked' : '') + '> 슬라이드 쇼에서는 가려 두었다가 클릭하면 나타나기</label>' : '') +
       '<label class="lg-field" id="lg-link-field">PPT용 주소<input type="text" id="lg-link" autocomplete="off" spellcheck="false" value="' + esc(now.link || localRead().link || '') + '" placeholder="선생님 화면 → 수업 관리 → PPT용 주소 복사"></label>' +
       '<label class="lg-field"><input type="checkbox" id="lg-three"' + (localRead().three === false ? '' : ' checked') + '> 청자를 3D로 보기 (안 보이거나 느리면 꺼 주세요)</label>' +
@@ -461,6 +560,8 @@
     var link = document.getElementById('lg-link-field'), model = document.getElementById('lg-model-field');
     if (link) link.style.display = needsLink(panel) ? '' : 'none';
     if (model) model.style.display = panel === 'model' ? '' : 'none';
+    var cloud = document.getElementById('lg-cloud-field');
+    if (cloud) cloud.style.display = panel === 'cloud' ? '' : 'none';
   }
   function render() {
     if (!root) return;
@@ -472,15 +573,16 @@
       if (lastBody !== 'setup') { lastBody = 'setup'; body.innerHTML = setupMarkup(''); syncSetupFields(); fit(); }
       syncAuto(); syncCover(); return;
     }
-    var panel = panelNow(), html = '', plain = plainNow();
-    // The plain view has no bar at the top: the model takes the whole box.
+    var panel = panelNow(), html = '', plain = bareNow();
+    // The plain views have no bar at the top: the model, or the word cloud, takes the whole box.
     head.style.display = plain ? 'none' : ''; body.style.top = plain ? '0' : ''; body.style.padding = plain ? '0' : '';
-    head.innerHTML = plain ? '' : headMarkup(panel);   // the plain view has its own 화면 바꾸기 button
+    head.innerHTML = plain ? '' : headMarkup(panel);   // the plain views have their own 화면 바꾸기 button
     if (problem) html = '<p class="lg-empty"><b>실시간 화면을 열지 못했어요.</b><br>' + esc(problem) + '</p>';
     else {
-      if (needsLink(panel) && waiting) html += '<p class="lg-note" data-waiting><b>지금은 열린 수업이 없어요.</b> 수업이 열리면 이 화면에 실시간 결과가 나타나요.</p>';
+      if (panel === 'cloud') html = '';
+      else if (needsLink(panel) && waiting) html += '<p class="lg-note" data-waiting><b>지금은 열린 수업이 없어요.</b> 수업이 열리면 이 화면에 실시간 결과가 나타나요.</p>';
       else if (needsLink(panel) && !data) html += '<p class="lg-note">수업에 연결하고 있어요…</p>';
-      html += panel === 'comparison' ? comparisonPanel() : panel === 'beauty' ? beautyPanel() : panel === 'uses' ? usesPanel() : comparing(panel) ? comparePanel() : panel === 'works' ? worksPanel() : panel === 'model' ? modelPanel() : gamePanel();
+      html += panel === 'cloud' ? cloudOnlyPanel() : panel === 'comparison' ? comparisonPanel() : panel === 'beauty' ? beautyPanel() : panel === 'uses' ? usesPanel() : comparing(panel) ? comparePanel() : panel === 'works' ? worksPanel() : panel === 'model' ? modelPanel() : gamePanel();
     }
     if (html !== lastBody) { lastBody = html; body.innerHTML = html; body.setAttribute('data-panel', panel); fit(); mountTurns(); }
     if (isWorks(panel)) loadPictures();
@@ -508,6 +610,7 @@
     fitted = box;
     document.documentElement.style.fontSize = size + 'px';
     if (!body) return;
+    if (root.querySelector('.lg-cloud-only')) { layoutCloud(); return; }
     while (tries++ < 6 && size > least && body.scrollHeight > body.clientHeight + 1) {
       // The body is what is left under the bar (2.7 units); its content grows with the font size.
       var bar = head && head.style.display !== 'none' ? 2.7 : 0, next = box.height / (body.scrollHeight / size + bar);
@@ -584,7 +687,8 @@
     if (needsLink(panel) && !parseLink(text)) { document.getElementById('lg-error').innerHTML = 'PPT용 주소를 확인해 주세요. 선생님 화면 → 수업 관리 → “PPT용 주소 복사”로 복사한 주소를 붙여 넣어 주세요.'; return; }
     var three = document.getElementById('lg-three'), wasThree = localRead().three !== false, wantThree = !three || three.checked;
     localWrite({three: wantThree});
-    save(panel, parseLink(text) ? text : saved().link, select && has(MODELS, select.value) ? select.value : 'beauty', !!(cover && cover.checked), choice.plain, function () {
+    var cloudSelect = document.getElementById('lg-cloud');
+    save(panel, parseLink(text) ? text : saved().link, select && has(MODELS, select.value) ? select.value : 'beauty', !!(cover && cover.checked), choice.plain, cloudSelect && has(CLOUDS, cloudSelect.value) ? cloudSelect.value : 'beauty', function () {
       // Switching 3D on or off starts the box again so the choice applies cleanly.
       if (wasThree !== wantThree) { window.location.reload(); return; }
       view.setup = false; view.auto = true; lastBody = ''; data = null; waiting = false; problem = ''; connected = false; lastRefresh = null;
