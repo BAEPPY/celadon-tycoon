@@ -9,6 +9,10 @@ const VAT_SURFACE_Y = .31;
 const ACTIVE_STATES = new Set(['lowering', 'immersed', 'lifting']);
 const clamp = (value, low = 0, high = 1) => Math.min(high, Math.max(low, value));
 const ease = value => value * value * (3 - 2 * value);
+const rotatedSize = (width, height, angle) => ({
+  width: Math.abs(width * Math.cos(angle)) + Math.abs(height * Math.sin(angle)),
+  height: Math.abs(width * Math.sin(angle)) + Math.abs(height * Math.cos(angle))
+});
 const outcomeLabels = {thin: '유약이 얇게 입혀졌어요', balanced: '유약이 알맞게 입혀졌어요!', thick: '유약이 두껍게 입혀졌어요'};
 
 /** Dip the actual authored work into a glaze bath on its existing workbench. */
@@ -67,7 +71,7 @@ export class GlazeDipGame {
     this.canvas.width = 960;
     this.canvas.height = 640;
     this.canvas.setAttribute('role', 'img');
-    this.canvas.setAttribute('aria-label', '내가 만든 도자기를 유약 통에 담갔다 꺼내는 모습');
+    this.canvas.setAttribute('aria-label', '내가 만든 도자기를 가로로 놓아 유약 통에 담갔다 꺼내는 모습');
     this.ctx = this.canvas.getContext('2d');
     this.originalCanvas = workbench?.querySelector('canvas');
     if (workbench && this.originalCanvas) {
@@ -319,24 +323,47 @@ export class GlazeDipGame {
     c.clearRect(0, 0, w, h);
     if (!this.validSurface) return;
     const source = this.workSurface.image;
-    const placement = typeof this.workSurface.placement === 'function' ? this.workSurface.placement() : this.workSurface.placement;
-    // Keep the source's actual ratio; the bath is sized around this workpiece.
-    const maxWidth = Math.min(w * .58, h * .71, placement?.width > 0 ? placement.width * w : w * .58);
-    const maxHeight = h * .53;
-    const scale = Math.min(maxWidth / source.width, maxHeight / source.height);
-    const potW = source.width * scale, potH = source.height * scale;
-    const vatW = Math.min(Math.max(w * .57, potW * 1.26), h * .47 / VAT_RATIO, w * .88);
-    const vatH = vatW * VAT_RATIO;
-    const vatX = (w - vatW) / 2, surfaceY = h * .66;
-    const vatY = surfaceY - vatH * VAT_SURFACE_Y;
-    const startY = surfaceY - potH - h * .045;
-    const endY = surfaceY + vatH * .07;
     const elapsed = this.phaseElapsed(now);
     let immersion = this.state === 'immersed' ? 1 : 0;
     if (this.state === 'lowering') immersion = ease(clamp(elapsed / LOWER_MS));
     if (this.state === 'lifting') immersion = 1 - ease(clamp(elapsed / LIFT_MS));
-    const potY = startY + (endY - startY) * immersion, potX = (w - potW) / 2;
-    this.canvas.dataset.surfaceBounds = JSON.stringify({x: potX / w, y: potY / h, width: potW / w, height: potH / h});
+    // Rotate the entire authored sprite, never its individual parts. Tall
+    // vessels lie with their mouth to the left; pillows and wide droppers keep
+    // their natural long axis. One uniform scale preserves motifs and holes.
+    const baseAngle = source.height > source.width ? -Math.PI / 2 : 0;
+    const tilt = this.state === 'lowering'
+      ? Math.sin(clamp(elapsed / LOWER_MS) * Math.PI) * .10
+      : this.state === 'lifting' ? -Math.sin(clamp(elapsed / LIFT_MS) * Math.PI) * .08 : 0;
+    const angle = baseAngle + tilt;
+    const envelopeSizes = [-.10, 0, .10].map(offset => rotatedSize(source.width, source.height, baseAngle + offset));
+    const envelopeWidth = Math.max(...envelopeSizes.map(size => size.width));
+    const envelopeHeight = Math.max(...envelopeSizes.map(size => size.height));
+    const availableVatWidth = Math.min(w * .86, h * .47 / VAT_RATIO);
+    // Allow room both across the mouth and below the glaze surface. This also
+    // fits round animal droppers and thick pillows inside the actual basin.
+    const scale = Math.min(availableVatWidth * .78 / envelopeWidth, availableVatWidth * VAT_RATIO * .57 / envelopeHeight);
+    const potW = source.width * scale, potH = source.height * scale;
+    const envelopeW = envelopeWidth * scale, envelopeH = envelopeHeight * scale;
+    const vatW = Math.max(envelopeW / .78, envelopeH / (VAT_RATIO * .57));
+    const vatH = vatW * VAT_RATIO;
+    const vatX = (w - vatW) / 2, surfaceY = h * .62;
+    const vatY = surfaceY - vatH * VAT_SURFACE_Y;
+    const liquidPlane = surfaceY + vatH * .08;
+    const startCenterY = surfaceY - h * .055 - envelopeH / 2;
+    const endCenterY = surfaceY + vatH * .10 + envelopeH / 2;
+    const centerX = w / 2, centerY = startCenterY + (endCenterY - startCenterY) * immersion;
+    const rotated = rotatedSize(potW, potH, angle);
+    const potX = centerX - rotated.width / 2, potY = centerY - rotated.height / 2;
+    this.canvas.dataset.sourceWidth = String(source.width);
+    this.canvas.dataset.sourceHeight = String(source.height);
+    this.canvas.dataset.sourceAspect = String(source.width / source.height);
+    this.canvas.dataset.baseAngleDeg = String(Math.round(baseAngle * 180 / Math.PI));
+    this.canvas.dataset.angleDeg = (angle * 180 / Math.PI).toFixed(3);
+    this.canvas.dataset.surfaceBounds = JSON.stringify({x: potX / w, y: potY / h, width: rotated.width / w, height: rotated.height / h});
+    this.canvas.dataset.vatBounds = JSON.stringify({x: vatX / w, y: vatY / h, width: vatW / w, height: vatH / h});
+    this.canvas.dataset.surfaceY = String(surfaceY / h);
+    this.canvas.dataset.liquidPlane = String(liquidPlane / h);
+    this.canvas.dataset.fullySubmerged = String(potY >= liquidPlane);
     this.canvas.dataset.immersion = immersion.toFixed(3);
 
     c.fillStyle = '#58463616';
@@ -349,14 +376,11 @@ export class GlazeDipGame {
     // a transparent rim. No duplicate student pot remains behind this layer.
     c.save();
     c.beginPath();
-    c.rect(0, 0, w, surfaceY + vatH * .08);
+    c.rect(0, 0, w, liquidPlane);
     c.clip();
-    const tilt = this.state === 'lowering'
-      ? Math.sin(clamp(elapsed / LOWER_MS) * Math.PI) * .10
-      : this.state === 'lifting' ? -Math.sin(clamp(elapsed / LIFT_MS) * Math.PI) * .08 : 0;
-    c.translate(potX + potW / 2, potY + potH * .52);
-    c.rotate(tilt);
-    c.drawImage(coated ? this.coatings[this.result.outcome] : source, -potW / 2, -potH * .52, potW, potH);
+    c.translate(centerX, centerY);
+    c.rotate(angle);
+    c.drawImage(coated ? this.coatings[this.result.outcome] : source, -potW / 2, -potH / 2, potW, potH);
     c.restore();
     if (this.state === 'lifting' && immersion < .62 && this.result.outcome !== 'thin') {
       const drift = clamp((.62 - immersion) / .62);
@@ -366,8 +390,8 @@ export class GlazeDipGame {
       c.lineCap = 'round';
       c.globalAlpha = 1 - drift;
       for (const offset of [-.19, .17]) {
-        const dripX = w / 2 + potW * offset;
-        const dripY = Math.min(surfaceY, potY + potH + drift * h * .06);
+        const dripX = centerX + rotated.width * offset;
+        const dripY = Math.min(surfaceY, potY + rotated.height + drift * h * .06);
         c.beginPath(); c.moveTo(dripX, dripY); c.lineTo(dripX, Math.min(surfaceY, dripY + h * .022)); c.stroke();
       }
       c.restore();

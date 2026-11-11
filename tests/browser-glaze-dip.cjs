@@ -44,6 +44,36 @@ const draft=(id='glaze-dip-pillow',tall=false)=>({
   assert.match(await game(page).innerText(),/5초|다섯/);
   assert.equal(await surface(page).getAttribute('data-work-surface'),'authored');
   await desktopFit(page);
+  await geometry(page);
+ }
+ async function geometry(page,{capture=true}={}){
+  const state=(await read(page)).state,modelId=(await saved(page)).draft.modelId;
+  const value=await surface(page).evaluate(canvas=>{
+   const data=canvas.dataset,b=JSON.parse(data.surfaceBounds),v=JSON.parse(data.vatBounds);
+   const top=Math.max(0,Math.floor(v.y*canvas.height)-2),pixels=top?canvas.getContext('2d').getImageData(0,0,canvas.width,top).data:[];
+   let aboveVat=0;for(let i=3;i<pixels.length;i+=4)if(pixels[i]>64)aboveVat++;
+   return {sourceWidth:Number(data.sourceWidth),sourceHeight:Number(data.sourceHeight),sourceAspect:Number(data.sourceAspect),baseAngle:Number(data.baseAngleDeg),angle:Number(data.angleDeg),bounds:b,vat:v,plane:Number(data.liquidPlane),submerged:data.fullySubmerged==='true',canvasWidth:canvas.width,canvasHeight:canvas.height,aboveVat};
+  });
+  const {bounds:b,vat:v}=value,expectedBase=value.sourceHeight>value.sourceWidth?-90:0;
+  assert.ok(value.sourceWidth>0&&value.sourceHeight>0,`${modelId} exposes its authored source size`);
+  assert.ok(Math.abs(value.sourceAspect-value.sourceWidth/value.sourceHeight)<.001,'source aspect retains the made pottery proportions');
+  assert.equal(value.baseAngle,expectedBase,`${modelId} lays its longer axis horizontally`);
+  assert.ok(Math.abs(value.angle-expectedBase)<=5.8,'dipping adds only a gentle tilt to the horizontal pose');
+  const radians=value.angle*Math.PI/180,c=Math.abs(Math.cos(radians)),s=Math.abs(Math.sin(radians));
+  const expectedAspect=(value.sourceWidth*c+value.sourceHeight*s)/(value.sourceWidth*s+value.sourceHeight*c);
+  assert.ok(Math.abs((b.width*value.canvasWidth)/(b.height*value.canvasHeight)-expectedAspect)<.025,'rotating never stretches the authored vessel');
+  const within=rect=>rect.x>=-.001&&rect.y>=-.001&&rect.width>0&&rect.height>0&&rect.x+rect.width<=1.001&&rect.y+rect.height<=1.001;
+  assert.ok(within(b)&&within(v),`${modelId} pottery and vat remain inside the canvas in ${state}`);
+  assert.ok(b.x>=v.x-.001&&b.x+b.width<=v.x+v.width+.001,'the complete horizontal silhouette fits across the vat');
+  if(state==='immersed'){
+   assert.equal(value.submerged,true,`${modelId} reaches full immersion before timing starts`);
+   assert.ok(b.y>=value.plane-.001&&b.y+b.height<=v.y+v.height+.001,'the whole rotated vessel fits below the liquid plane and inside the vat');
+   assert.equal(value.aboveVat,0,'no pottery pixels remain above the vat while fully immersed');
+  }else if(state==='ready'||state==='result'){
+   assert.equal(value.submerged,false);assert.ok(Math.abs(value.angle-expectedBase)<.01,'resting and result poses remain horizontal');
+  }
+  if(capture)await page.screenshot({path:`/tmp/glaze-horizontal-${modelId}-${state}-${page.viewportSize().width}.png`,fullPage:page.viewportSize().width<600});
+  return value;
  }
  async function desktopFit(page){
   if(page.viewportSize().width<1024)return;
@@ -52,7 +82,7 @@ const draft=(id='glaze-dip-pillow',tall=false)=>({
   assert.ok(layout.contained&&layout.artContained&&layout.scrollTop===0,`desktop instructions, buttons and pottery fit without scrolling a clipped scene: ${JSON.stringify(layout)}`);
  }
  async function until(page,state,max=2000){
-  for(let elapsed=0;elapsed<=max;elapsed+=20){if((await read(page)).state===state)return;await page.clock.runFor(20);}
+  for(let elapsed=0;elapsed<=max;elapsed+=20){if((await read(page)).state===state){await geometry(page);return;}await page.clock.runFor(20);}
   assert.equal((await read(page)).state,state,`reaches ${state}`);
  }
  async function press(page,name,key){
@@ -95,7 +125,7 @@ const draft=(id='glaze-dip-pillow',tall=false)=>({
   // The active bath has a larger workbench, so its backing canvas resizes.
   // Compare after that layout settles and separately retain the authored data.
   const before=await original(early).evaluate(c=>c.toDataURL());unchangedDesign((await saved(early)).draft,earlySeed);
-  const wide=await surface(early).evaluate(c=>{const b=JSON.parse(c.dataset.surfaceBounds);return b.width*c.width/(b.height*c.height);});
+  const wide=await geometry(early,{capture:false});
   await early.clock.runFor(6000);assert.equal((await read(early)).state,'ready','reading instructions never starts the bath');assert.equal((await read(early)).elapsed,0);
   assert.ok(await original(early).evaluate(c=>c.toDataURL())===before,'reading bath instructions does not alter the authored base picture');
   await press(early,'cancel');await game(early).waitFor({state:'detached'});assert.equal((await saved(early)).draft.glazeDip,undefined);
@@ -106,8 +136,9 @@ const draft=(id='glaze-dip-pillow',tall=false)=>({
 
   const balancedSeed=draft('glaze-dip-vase',true),balanced=await seed(balancedSeed);
   await open(balanced);
-  const tall=await surface(balanced).evaluate(c=>{const b=JSON.parse(c.dataset.surfaceBounds);return b.width*c.width/(b.height*c.height);});
-  assert.ok(wide>tall+.4,'the authored pillow and tall vase keep different proportions in the bath');
+  const tall=await geometry(balanced,{capture:false});
+  assert.ok(wide.sourceAspect>1&&tall.sourceAspect<1,'pillow and vase retain their different authored source proportions');
+  assert.equal(wide.baseAngle,0);assert.equal(tall.baseAngle,-90,'the tall vase turns onto its side while the wide pillow stays natural');
   await balanced.screenshot({path:'/tmp/glaze-dip-vase-ready.png'});
   await press(balanced,'start','Enter');await until(balanced,'immersed');
   await balanced.clock.runFor(1500);await press(balanced,'pause','Space');const paused=await read(balanced);assert.equal(paused.paused,true);
@@ -129,6 +160,17 @@ const draft=(id='glaze-dip-pillow',tall=false)=>({
   await mobile.screenshot({path:'/tmp/glaze-dip-mobile-landscape.png'});await action(mobile,'cancel').tap();await game(mobile).waitFor({state:'detached'});
   assert.deepEqual((await saved(mobile)).draft.firing,['dry','biscuit']);assert.equal((await saved(mobile)).draft.glazeDip,undefined);
   await mobile.setViewportSize({width:390,height:844});await open(mobile);assert.equal((await read(mobile)).elapsed,0,'cancelled immersion restarts from the instructions');await reachable(mobile);await mobile.screenshot({path:'/tmp/glaze-dip-mobile-portrait.png'});await mobile.close();
+
+  // The catalog includes sculptural droppers, spouts/handles and open cups.
+  // All use the player's complete made surface, not a generic vase template.
+  for(const [modelId,shape] of [['pomegranateDropper','duckDropper'],['duckDropper','duckDropper'],['pitcher','pitcher'],['chrysanthemumCup','chrysanthemumCup']]){
+   const made={...draft(`glaze-horizontal-${modelId}`),modelId,shape,orderId:`example-${modelId}`,width:modelId==='duckDropper'?.94:1.12};
+   const page=await seed(made,{mobile:modelId==='duckDropper'});await open(page);await press(page,'start');
+   for(let frame=0;frame<2;frame++){await page.clock.runFor(120);await geometry(page,{capture:false});}
+   await until(page,'immersed');await page.clock.runFor(5000);await press(page,'stop');
+   const finished=await complete(page,'balanced');unchangedDesign(finished,made);assert.ok(Math.abs(finished.glazeDip.elapsedMs-5000)<80);
+   await page.close();
+  }
 
   // Carry the actual early result through the normal explanation/score flow.
   // Unrelated firing and inspection are seeded complete to keep this focused.
@@ -162,7 +204,7 @@ const draft=(id='glaze-dip-pillow',tall=false)=>({
   await teacher.goto(`${base}/teacher`);await teacher.evaluate(value=>localStorage.setItem('celadon-classroom-teacher-v1',JSON.stringify(value)),{code:room.code,teacherToken:room.teacherToken});await teacher.reload();await teacher.locator(`[data-work-id="${finalWork.id}"] [data-action=view-work]`).click();
   await teacher.locator('dialog.work-dialog .student-work-viewer [data-status=ready] canvas').waitFor();await teacher.screenshot({path:'/tmp/glaze-dip-teacher-result.png'});
   assert.deepEqual(errors,[]);
-  console.log('Glaze dip: authored shapes/motifs, intentional start, early/balanced/late timing, pause/blur, native keys, duplicate guards, cancel/reopen, phone controls, final score and real classroom teacher design passed.');
+  console.log('Glaze dip: six authored shapes laid horizontally, full immersion and bounds, preserved motifs, intentional start, early/balanced/late timing, pause/blur, native keys, duplicate guards, cancel/reopen, phone controls, final score and real classroom teacher design passed.');
  }finally{
   if(room&&teacher)await teacher.request.post(`${base}/api/classroom`,{headers:{Authorization:`Bearer ${room.teacherToken}`},data:{action:'control',code:room.code,command:'delete'}}).catch(()=>{});
   await browser.close();

@@ -19,4 +19,4 @@ The earlier standalone six-panel overview remains at `celadon-inlay-process.png`
 
 ## Glaze dipping update — 2026-11-11
 
-Step 5 now uses `05-fire-dip.png` / `.webp`, generated from the previous step illustration and the new white-glaze vat. Generated source: `exec-a761666b-befb-4e73-822f-2d0f2c3133b3.png`. The brush scene is replaced with dipping in white glaze; the caption remains simply “부채로 건조 → 초벌 → 유약 담그기 → 재벌”. The PNG preserves the original generation; WebP uses quality 94.
+Step 5 now uses `05-fire-dip.png` / `.webp`, generated from the previous step illustration and the new white-glaze vat. Generated source: `exec-54038fd2-a5cc-4ab8-80d8-0550874e773d.png`. The brush scene is replaced with dipping horizontally in white glaze; the caption remains simply “부채로 건조 → 초벌 → 유약 담그기 → 재벌”. The PNG preserves the original generation; WebP uses quality 94.
