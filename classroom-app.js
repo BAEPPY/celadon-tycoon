@@ -55,6 +55,8 @@ const BOARD_PANELS={comparison:{activity:1,view:'comparison'},beauty:{activity:1
   cloud:{activity:cloudPin.kind==='beauty'?1:2,...(cloudPin.kind==='beauty'?{view:'beauty'}:{}),cloud:cloudPin}};
 const boardPin=observerMode?BOARD_PANELS[boardQuery.get('show')]||null:null;
 if(boardPin?.cloud)document.body.classList.add('cloud-plain');
+// A celadon's cloud alone can be switched between its two questions (예상한 이름 / 예상한 쓰임) on the board itself.
+let cloudPinKind=cloudPin.kind;
 const boardMode=observerMode&&(Boolean(boardPin)||boardQuery.get('board')==='1'||framedPage());
 let session=observerMode?observerSession():teacherMode?stored(SESSION_KEY):loadStudentEntryState(),room=null,teacherData=null,student=null,answers={},offset=0,offsetSamples=[];
 let currentObject='1',teacherActivity=1,teacherObject='1',teacherA1View='comparison',selectedCountry=null,cloudKind='name';
@@ -440,7 +442,7 @@ function openCloudWord(index){
 }
 // The cloud this screen shows, by its name for the helper (beauty, name-1…5, use-1…5), if it shows one.
 function shownCloudKey(){
-  if(boardPin?.cloud)return boardPin.cloud.kind==='beauty'?'beauty':`${boardPin.cloud.kind}-${boardPin.cloud.object}`;
+  if(boardPin?.cloud)return cloudPinKind==='beauty'?'beauty':`${cloudPinKind}-${boardPin.cloud.object}`;
   if(!teacherMode||!room)return null;
   if(teacherBeautyView())return 'beauty';
   return teacherActivity===2&&teacherResultViews[2]!=='exhibit'?`${cloudKind}-${teacherObject}`:null;
@@ -746,8 +748,10 @@ function renderTeacher(){
   const completed=teacherBeautyView()?Number(teacherData?.beauty?.respondents)||0:teacherActivity===3?(teacherData?.works||[]).length:observerMode?Number(teacherData?.completionCounts?.[teacherActivity])||0:(teacherData?.participants||[]).filter(p=>p[`activity${teacherActivity}Complete`]).length;
   if(boardPin?.cloud){
     // Only the cloud, as large as the box: no bar, no model, no buttons.
-    const {kind,object}=boardPin.cloud,words=kind==='beauty'?teacherData?.beauty?.words:(teacherData?.observations||[]).find(item=>String(item.id)===object)?.[kind==='name'?'nameWords':'useWords'];
-    app.innerHTML=`<div class="board-shell cloud-only" data-testid="live-board" data-cloud="${kind==='beauty'?'beauty':`${kind}-${object}`}">${cloudMarkup(words,kind)}</div>`;
+    const kind=cloudPinKind,{object}=boardPin.cloud,words=kind==='beauty'?teacherData?.beauty?.words:(teacherData?.observations||[]).find(item=>String(item.id)===object)?.[kind==='name'?'nameWords':'useWords'];
+    // A celadon's cloud has a small switch above it for the other question; the cloud keeps the rest of the box.
+    const kinds=kind==='beauty'?'':`<div class="board-view-switch cloud-only-switch" aria-label="모아 볼 답변">${[['name','예상한 이름'],['use','예상한 쓰임']].map(([value,label])=>`<button data-action="cloud-pin-kind" data-kind="${value}" aria-pressed="${kind===value}" class="${kind===value?'active':''}">${label}</button>`).join('')}</div>`;
+    app.innerHTML=`<div class="board-shell cloud-only${kinds?' has-switch':''}" data-testid="live-board" data-cloud="${kind==='beauty'?'beauty':`${kind}-${object}`}">${kinds}${cloudMarkup(words,kind)}</div>`;
     const cloud=app.querySelector('.word-cloud');if(cloud)cloudView=mountWordCloud(cloud,{fill:true});
     return;
   }
@@ -990,6 +994,7 @@ async function handleClick(event){
       if(artifacts.some(a=>a.id===id)){exhibitObjects[teacherActivity]=id;teacherResultViews[teacherActivity]='exhibit';renderTeacher();app.querySelector(`[data-action=exhibit-object][data-id="${id}"]`)?.focus({preventScroll:true});}return;
     }
     if(action==='cloud-kind'){cloudKind=button.dataset.kind==='use'?'use':'name';renderTeacher();return;}
+    if(action==='cloud-pin-kind'){if(cloudPinKind!=='beauty'){cloudPinKind=button.dataset.kind==='use'?'use':'name';closeCloudWord();teacherSignature='';renderTeacher();}return;}
     if(action==='claim-join-code'){await control('claim-join-code');return;}
     if(action==='refresh-boards'){await control('refresh-boards');toast('PPT와 실시간 화면을 몇 초 안에 새로고침해요.');return;}
     if(action==='board-reload'){location.reload();return;}

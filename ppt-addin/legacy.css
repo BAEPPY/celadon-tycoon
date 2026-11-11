@@ -138,6 +138,11 @@ html,body{margin:0;height:100%;-ms-content-zooming:none;-ms-touch-action:pan-x p
 .lg-cw{position:absolute;left:0;top:0;visibility:hidden;white-space:nowrap;padding:0 2px;line-height:1.04;font-weight:700;letter-spacing:-.04em}
 .lg-cloud-flow{overflow-y:auto;text-align:center;padding:.4rem}
 .lg-cloud-flow .lg-cw{position:static;display:inline-block;margin:0 .15rem}
+/* 예상한 이름 | 예상한 쓰임: the switch of a celadon's cloud, in the top left corner; the words are laid out under it. */
+.lg-cloud-kinds{position:absolute;left:.6rem;top:.45rem;z-index:2;padding:.18rem;border-radius:.6rem;background:#e9eff1;white-space:nowrap}
+#lg-root .lg-cloud-kinds button{border:0;background:none;color:#5d6b75;font-size:.9rem;padding:.35rem .8rem;border-radius:.45rem}
+#lg-root .lg-cloud-kinds button.lg-on{background:#fff;color:#067477;box-shadow:0 1px 3px rgba(0,0,0,.14)}
+#lg-root.lg-touch .lg-cloud-kinds button{font-size:1rem;padding:.5rem 1rem}
 .lg-cloud-empty{position:absolute;left:0;right:0;top:38%;text-align:center;font-size:1.5rem;line-height:1.7;color:#94a4ac}
 /* A word of a cloud can be tapped: a box over the board shows what was actually written under it. */
 .lg-word,.lg-cw{cursor:pointer}

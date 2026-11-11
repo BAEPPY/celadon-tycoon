@@ -522,6 +522,12 @@ body.cloud-plain{border-top:0}
 .cloud-only .word-cloud{flex:1;min-height:100dvh;padding:1.5vh 1.5vw;border-radius:0;background:radial-gradient(ellipse,#f4fcfb 0%,#fff 72%)}
 .cloud-only .word-cloud.cloud-positioned{padding:2.5vh 2.5vw}
 .cloud-only .word-cloud .cloud-word{background:none}
+/* The 예상한 이름 | 예상한 쓰임 switch of a celadon's cloud sits in the top left corner. The cloud still takes the whole
+   box (its layout reads the full height), with room kept at the top so no word goes behind the switch. */
+.cloud-only.has-switch{position:relative;--cloud-switch-size:clamp(13px,2.4vh,22px);--cloud-switch-room:calc(var(--cloud-switch-size)*2.2 + 6px + 2.4vh)}
+.cloud-only .cloud-only-switch{position:absolute;left:1.2vw;top:1.2vh;z-index:2;font-size:var(--cloud-switch-size)}
+.cloud-only .cloud-only-switch button{font-size:inherit;padding:.35em .9em}
+.cloud-only.has-switch .word-cloud,.cloud-only.has-switch .word-cloud.cloud-positioned{padding-top:var(--cloud-switch-room)}
 .cloud-only .word-cloud .empty{max-width:none;font-size:clamp(18px,3.4vh,40px)}
 
 /* A word of a cloud can be tapped: a small box shows what was actually written under it. */
