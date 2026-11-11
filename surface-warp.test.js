@@ -56,3 +56,22 @@ test('베개는 상자 모양이라 찍은 무늬가 그 면에 붙어 돌고 �
   // Half a turn later the front face is the back wall.
   assert.equal(projectCurvedSurface(marks[1].angle,marks[1].level,12,wide,false,box),null);assert.ok(projectCurvedSurface(marks[1].angle,marks[1].level,12,wide,true,box));
 });
+test('베개를 돌려도 가까운 모서리는 바닥선에 머물러 무늬가 아래로 처지지 않는다',()=>{
+  const box=sectionFor('pillow');
+  // Rows as wide as the box's outline in each view, as its pictures are (all of them stand on one floor line).
+  const rowFor=view=>{const phi=view*Math.PI/12,radius=.35*(Math.abs(Math.cos(phi))+box.depth*Math.abs(Math.sin(phi)));return ()=>[.5-radius,.5+radius];};
+  // The right end of the front face becomes the nearest corner as the pillow turns: it keeps its height.
+  const corner=surfaceAnchor([.5+.35*.995,.9],undefined,rowFor(0)(),0,box);
+  for(const view of [1,2,3,4,5]){
+    const seen=projectCurvedSurface(corner.angle,corner.level,view,rowFor(view),false,box);
+    assert.ok(seen&&Math.abs(seen.uv[1]-.9)<.004,`view ${view}: the corner is at ${seen&&seen.uv[1]}`);
+  }
+  // The far end of that face rises steadily as the face turns away, so the face's lower edge slopes like the picture's.
+  const far=surfaceAnchor([.5-.35*.9,.9],undefined,rowFor(0)(),0,box);
+  let last=.9;
+  for(const view of [1,2,3,4,5]){
+    const seen=projectCurvedSurface(far.angle,far.level,view,rowFor(view),false,box);
+    assert.ok(seen&&seen.uv[1]<last,`view ${view}`);last=seen.uv[1];
+  }
+  assert.ok(last>.68&&last<.76,`at 75 degrees the far end is about where the picture has it (${last})`);
+});

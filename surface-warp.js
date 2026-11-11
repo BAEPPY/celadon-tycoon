@@ -8,7 +8,9 @@ export const SURFACE_ELEVATION = .24;
 // as deep as it is wide. Its surface is measured along the outline seen from above (front face, right end, back face,
 // left end) and scaled so that one turn is still 2π — a motif then stays on the face it was pressed into, and passes
 // around a corner as the pillow turns, instead of sliding over the faces as it would on a cylinder.
-export const SECTIONS = Object.freeze({ pillow: Object.freeze({ depth: .567 }) });
+// `elevation` is how much nearer points sit lower in the pillow's pictures (measured from the slope of its long face
+// in each of them: about 0.29, a little more than the round vessels' 0.24).
+export const SECTIONS = Object.freeze({ pillow: Object.freeze({ depth: .567, elevation: .29 }) });
 export const sectionFor = id => SECTIONS[id] || null;
 const TAU = Math.PI * 2;
 // How far along the outline one unit of width is, as an angle (1 for a round body).
@@ -41,11 +43,16 @@ function boxAngle(section, view, t) {
   }
   return (best ? best.at : 0) / length * TAU;
 }
-// Where a box point lands in a view: across the outline (-1 … 1), toward the viewer (in half widths, scaled like
-// `across`) and how squarely its face looks at the viewer.
-function boxView(section, angle, view) {
-  const phi = frameAngle(view), c = Math.cos(phi), s = Math.sin(phi), p = boxPoint(section, angle), half = Math.abs(c) + section.depth * Math.abs(s);
-  return { across: (p.x * c - p.z * s) / half, toward: (p.x * s + p.z * c) / half, facing: p.nx * s + p.nz * c, half };
+// Where a box point lands in a view: across the outline (-1 … 1), how far it sits below its own level (`drop`, scaled
+// like `across`) and how squarely its face looks at the viewer.
+// The pictures of every view stand on the same floor line, so the nearest corner of the box is always the lowest
+// point, at the height the front face has in the front view. A point drops by how near it is, less what the nearest
+// corner is nearer than the front face was — otherwise a turned pillow's motifs would hang below the pillow.
+// `back` is the far wall seen through the vessel; it mirrors the near one.
+function boxView(section, angle, view, back = false) {
+  const phi = frameAngle(view), c = Math.cos(phi), s = Math.sin(phi), p = boxPoint(section, angle), d = section.depth;
+  const half = Math.abs(c) + d * Math.abs(s), nearest = Math.abs(s) + d * Math.abs(c), toward = p.x * s + p.z * c;
+  return { across: (p.x * c - p.z * s) / half, drop: ((back ? -toward : toward) - nearest + d) / half, facing: p.nx * s + p.nz * c, half };
 }
 
 export function surfaceAnchor(uv, angle, row, view = 0, section = null) {
@@ -54,20 +61,19 @@ export function surfaceAnchor(uv, angle, row, view = 0, section = null) {
   if (section) {
     const pressed = boxAngle(section, view, t), seen = boxView(section, pressed, view);
     // `radius` is half the width of the front face on screen, so a motif keeps its size on every face.
-    return { angle: angle ?? pressed, radius: Math.max(.035, radius / seen.half), level: uv[1] - radius * SURFACE_ELEVATION * seen.toward };
+    return { angle: angle ?? pressed, radius: Math.max(.035, radius / seen.half), level: uv[1] - radius * (section.elevation ?? SURFACE_ELEVATION) * seen.drop };
   }
   return { angle: angle ?? frameAngle(view) + Math.asin(t), radius,
     level: uv[1] - radius * SURFACE_ELEVATION * Math.sqrt(1 - t*t) };
 }
 export function projectCurvedSurface(angle, level, view, rowAt, back = false, section = null) {
   if (section) {
-    const seen = boxView(section, angle, view);
+    const seen = boxView(section, angle, view, back), elevation = section.elevation ?? SURFACE_ELEVATION;
     if (back ? seen.facing > -.035 : seen.facing < .035) return null;
-    const toward = back ? -seen.toward : seen.toward;
     let row = rowAt(level), radius, v = level;
     for (let i = 0; i < 3; i++) {
       radius = Math.max(.035, (row[1] - row[0]) / 2);
-      v = level + radius * SURFACE_ELEVATION * toward;
+      v = level + radius * elevation * seen.drop;
       row = rowAt(v);
     }
     radius = Math.max(.035, (row[1] - row[0]) / 2);
