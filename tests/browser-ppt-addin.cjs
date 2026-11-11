@@ -158,8 +158,14 @@ const officeStub=view=>`window.__settings=window.__settings||{};window.__saved=0
     await covered.locator('#cover-screen').click();
     // The board inside shares this page's thread; while it is still drawing its 3D models the cover can take a few seconds to go.
     await covered.locator('#cover-screen').waitFor({state:'hidden',timeout:20000});
+    // Once open it has a ✕ in the corner that closes it again, like a pop-up; a click opens it once more.
+    assert.equal(await covered.locator('#close').isVisible(),true);
+    await covered.locator('#close').click();
+    assert.equal(await covered.locator('#cover-screen').isVisible(),true,'✕ closes it: the cover is back');assert.equal(await covered.locator('#close').isVisible(),false);
+    await covered.locator('#cover-screen').click();await covered.locator('#cover-screen').waitFor({state:'hidden',timeout:20000});assert.equal(await covered.locator('#close').isVisible(),true);
     await covered.evaluate(()=>window.__viewHandler({activeView:'edit'}));
     assert.equal(await covered.locator('#cover-screen').isHidden(),true,'no cover in the editor');
+    assert.equal(await covered.locator('#close').isVisible(),false,'no ✕ in the editor');
     assert.match(await covered.locator('#change').innerText(),/클릭하면 나타나기/);
     await covered.evaluate(()=>window.__viewHandler({activeView:'read'}));
     assert.equal(await covered.locator('#cover-screen').isVisible(),true,'the next slide show starts covered again');
@@ -181,7 +187,7 @@ const officeStub=view=>`window.__settings=window.__settings||{};window.__saved=0
     await old.locator('#lg-root #lg-form').waitFor({timeout:15000});
     assert.match(await old.locator('#lg-root').innerText(),/옛 웹 엔진/);assert.equal(await old.locator('#setup').isVisible(),false);
     assert.deepEqual(errors,[]);
-    console.log('PowerPoint add-in: manifest and icons served, link validation, remembered choice outside Office, draggable 3D model page, plain model view with zoom only, per-instance Office settings, shared link on the next slide, slide-show view without controls, remote keys moving slides, click-to-reveal cover, hand-over to the old-engine board and direct board on open passed.');
+    console.log('PowerPoint add-in: manifest and icons served, link validation, remembered choice outside Office, draggable 3D model page, plain model view with zoom only, per-instance Office settings, shared link on the next slide, slide-show view without controls, remote keys moving slides, click-to-reveal cover with a ✕ that closes it again, hand-over to the old-engine board and direct board on open passed.');
   }finally{
     if(room&&teacher)await control('delete').catch(()=>{});
     await browser.close();

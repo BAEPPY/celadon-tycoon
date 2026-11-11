@@ -409,7 +409,7 @@ const officeStub=view=>`window.__settings=window.__settings||{};window.__goto=[]
     assert.deepEqual({texts:beautyCloud.texts,largest:beautyCloud.largest,centred:beautyCloud.centred,inside:beautyCloud.inside,apart:beautyCloud.apart,other:beautyCloud.other},
       {texts:['비색이 맑아요','학 무늬가 날아요'],largest:'비색이 맑아요',centred:true,inside:true,apart:true,other:0},JSON.stringify(beautyCloud));
     assert.ok(beautyCloud.near<=6,`the words sit close together: ${beautyCloud.near}px`);assert.ok(beautyCloud.share>=.2,`the cloud fills the box: ${beautyCloud.share}`);
-    assert.equal(await cloudBox.locator('#lg-root button').count(),1,'only 화면 바꾸기, and only while editing');
+    assert.equal(await cloudBox.locator('#lg-root button:visible').count(),1,'only 화면 바꾸기, and only while editing');
     assert.ok(!(await cloudBox.locator('#lg-root').innerText()).includes(privateName));
     // Another cloud is chosen in the form: the names guessed for 청자 1.
     await cloudBox.locator('[data-act=setup]').click();
@@ -455,7 +455,7 @@ const officeStub=view=>`window.__settings=window.__settings||{};window.__goto=[]
     const finger=await fingerContext.newPage();watch(finger,'touch board');
     await finger.addInitScript(([key,value])=>{if(!localStorage.getItem(key))localStorage.setItem(key,value);},['celadon-ppt-addin-v1',JSON.stringify({panel:'comparison',link,model:'beauty',three:false})]);
     await finger.goto(`${base}/ppt-addin/index.html?legacy=1`);await finger.locator('[data-comparison="1"]').waitFor({timeout:15000});
-    const fit=await finger.evaluate(()=>{const heights=[...document.querySelectorAll('#lg-root button')].map(node=>node.getBoundingClientRect().height),body=document.querySelector('.lg-body');
+    const fit=await finger.evaluate(()=>{const heights=[...document.querySelectorAll('#lg-root button')].filter(node=>node.offsetParent!==null).map(node=>node.getBoundingClientRect().height),body=document.querySelector('.lg-body');
       return {touch:document.querySelector('#lg-root').className,least:Math.min(...heights),sideways:body.scrollWidth>body.clientWidth+1};});
     assert.equal(fit.touch,'lg-touch');assert.ok(fit.least>=40,`the smallest button is ${fit.least}px tall`);assert.equal(fit.sideways,false);
     await finger.locator('[data-act=turn][data-model="comparison-1"][data-step="2"]').tap();
@@ -515,13 +515,23 @@ const officeStub=view=>`window.__settings=window.__settings||{};window.__goto=[]
     await show.goto(`${base}/ppt-addin/index.html?legacy=1`);
     await show.locator('#lg-cover-screen').waitFor({state:'visible',timeout:15000});
     assert.equal(await show.locator('[data-act=setup]').count(),0);
+    assert.equal(await show.locator('#lg-close').isVisible(),false,'nothing to close while it is covered');
     await show.locator('#lg-cover-screen').click();await show.locator('#lg-cover-screen').waitFor({state:'hidden'});
     await show.locator('[data-comparison="1"]').waitFor({timeout:15000});
+    // Once open the box has a ✕ in its corner that closes it again, like a pop-up; a click opens it once more.
+    const closing=await show.evaluate(()=>{const box=node=>{const r=node.getBoundingClientRect();return{left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:r.width};};
+      return{close:box(document.querySelector('#lg-close')),keys:box(document.querySelector('.lg-head-right')),width:innerWidth};});
+    assert.equal(await show.locator('#lg-close').isVisible(),true);assert.ok(closing.close.width>=20&&closing.close.right<=closing.width,'the ✕ is in the corner');
+    assert.ok(closing.keys.right<=closing.close.left+1,`the bar's buttons leave room for the ✕ (${JSON.stringify(closing)})`);
+    await show.locator('#lg-close').click();
+    assert.equal(await show.locator('#lg-cover-screen').isVisible(),true,'✕ closes it: the cover is back');assert.equal(await show.locator('#lg-close').isVisible(),false);
+    await show.locator('#lg-cover-screen').click();await show.locator('#lg-cover-screen').waitFor({state:'hidden'});assert.equal(await show.locator('#lg-close').isVisible(),true);
     await show.keyboard.press('PageDown');await show.keyboard.press('PageUp');
     assert.deepEqual(await show.evaluate(()=>window.__goto),['next','previous']);
     // Back in the editor the box can be changed again.
     await show.evaluate(()=>window.__viewHandler({activeView:'edit'}));
     await show.locator('[data-act=setup]').waitFor();
+    assert.equal(await show.locator('#lg-close').isVisible(),false,'no ✕ in the editor');
     // 청자만 크게 보기 in a slide show: only the model and the two zoom buttons.
     const showPlain=await showContext.newPage();watch(showPlain,'plain slide show');
     await showPlain.addInitScript(()=>{window.__settings={panel:'model',model:'beauty',plain:true};});
@@ -529,8 +539,31 @@ const officeStub=view=>`window.__settings=window.__settings||{};window.__goto=[]
     await showPlain.locator('.lg-turn[data-model=beauty][data-3d=ready]').waitFor({timeout:60000});
     assert.deepEqual(await showPlain.locator('#lg-root button').evaluateAll(nodes=>nodes.filter(node=>node.offsetParent!==null).map(node=>node.textContent)),['＋','－']);
     await showPlain.evaluate(()=>window.__viewHandler({activeView:'edit'}));await showPlain.locator('[data-act=setup]').waitFor();
+    // With 가려 두었다가 나타나기 the celadon alone opens and closes the same way; the ✕ keeps clear of ＋ and －.
+    const popPlain=await showContext.newPage();watch(popPlain,'plain slide show that opens and closes');
+    await popPlain.addInitScript(()=>{window.__settings={panel:'model',model:'beauty',plain:true,cover:true};});
+    await popPlain.goto(`${base}/ppt-addin/index.html?legacy=1`);
+    await popPlain.locator('#lg-cover-screen').waitFor({state:'visible',timeout:15000});await popPlain.locator('#lg-cover-screen').click();
+    await popPlain.locator('.lg-turn[data-model=beauty][data-3d=ready]').waitFor({timeout:60000});
+    assert.deepEqual(await popPlain.locator('#lg-root button').evaluateAll(nodes=>nodes.filter(node=>node.offsetParent!==null).map(node=>node.textContent)),['＋','－','✕']);
+    assert.equal(await popPlain.evaluate(()=>{const a=document.querySelector('#lg-close').getBoundingClientRect(),b=document.querySelector('.lg-plain-keys').getBoundingClientRect();return a.bottom<=b.top;}),true);
+    await popPlain.locator('#lg-close').click();assert.equal(await popPlain.locator('#lg-cover-screen').isVisible(),true);
+    // On a touch screen (an interactive whiteboard) the ✕ is large enough for a finger and stays inside the bar.
+    const popTouchContext=await browser.newContext({viewport:{width:1500,height:844},hasTouch:true});
+    await popTouchContext.route(OFFICE_JS,route=>route.fulfill({contentType:'text/javascript',body:officeStub('read')}));
+    const popTouch=await popTouchContext.newPage();watch(popTouch,'touch slide show that opens and closes');
+    await popTouch.addInitScript(([link])=>{window.__settings={panel:'comparison',link,model:'beauty',cover:true};},[link]);
+    await popTouch.goto(`${base}/ppt-addin/index.html?legacy=1`);
+    await popTouch.locator('#lg-cover-screen').waitFor({state:'visible',timeout:15000});await popTouch.locator('#lg-cover-screen').tap();
+    await popTouch.locator('[data-comparison="1"]').waitFor({timeout:15000});
+    const touchClose=await popTouch.evaluate(()=>{const box=node=>{const r=node.getBoundingClientRect();return{left:r.left,right:r.right,top:r.top,bottom:r.bottom,height:r.height};};
+      return{close:box(document.querySelector('#lg-close')),bar:box(document.querySelector('.lg-head')),keys:box(document.querySelector('.lg-head-right')),name:document.querySelector('#lg-root').className};});
+    assert.equal(touchClose.name,'lg-touch lg-closable');assert.ok(touchClose.close.height>=44,`the ✕ is ${touchClose.close.height}px tall`);
+    assert.ok(touchClose.close.top>=0&&touchClose.close.bottom<=touchClose.bar.bottom+1&&touchClose.keys.right<=touchClose.close.left+1,JSON.stringify(touchClose));
+    await popTouch.locator('#lg-close').tap();assert.equal(await popTouch.locator('#lg-cover-screen').isVisible(),true,'a tap on ✕ closes it');
+    await popTouchContext.close();
     assert.deepEqual(errors,[]);
-    console.log('Old-engine add-in board: word cloud alone (old engine and site board), similar answers as one word with a tap showing what was written, fitting its box (same after reloads, squat box, unannounced resize), similar-order comparison (groups, words, 크게 보기), setup, anonymous comparison counts, turning pictures, 청자 설명 보기 from the slide, following 아름다움·쓰임·완성작, real 3D (turn, tilt, zoom, kept across redraws, self-turning), two-finger pinch, double tap and wheel zoom on the model and on its pictures, falling back to pictures without WebGL, with a missing model and after an empty drawing, pictures of finished works as JPEG where WebP cannot be drawn, large buttons on a touch screen, plain model view (zoom only, whole box, no self-turning, picture zoom), waiting for a class, slide-show cover and remote keys passed.');
+    console.log('Old-engine add-in board: word cloud alone (old engine and site board), similar answers as one word with a tap showing what was written, fitting its box (same after reloads, squat box, unannounced resize), similar-order comparison (groups, words, 크게 보기), setup, anonymous comparison counts, turning pictures, 청자 설명 보기 from the slide, following 아름다움·쓰임·완성작, a ✕ that closes an opened box in a slide show, real 3D (turn, tilt, zoom, kept across redraws, self-turning), two-finger pinch, double tap and wheel zoom on the model and on its pictures, falling back to pictures without WebGL, with a missing model and after an empty drawing, pictures of finished works as JPEG where WebP cannot be drawn, large buttons on a touch screen, plain model view (zoom only, whole box, no self-turning, picture zoom), waiting for a class, slide-show cover and remote keys passed.');
   }finally{
     if(room&&teacher)await control('delete').catch(()=>{});
     await browser.close();

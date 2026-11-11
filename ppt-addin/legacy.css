@@ -164,3 +164,8 @@ html,body{margin:0;height:100%;-ms-content-zooming:none;-ms-touch-action:pan-x p
 #lg-root .lg-submit{background:#078e91;border-color:#078e91;color:#fff;font-size:.95rem;padding:.5rem 1rem;margin-top:.6rem}
 .lg-cover{position:absolute;top:0;left:0;right:0;bottom:0;z-index:5;background:#fff;border:2px dashed #9fc7bd;color:#2f6f5e;text-align:center;cursor:pointer}
 .lg-cover b{position:absolute;left:0;right:0;top:44%;font-size:1.3rem}
+/* The ✕ that closes an opened box in a slide show (the cover comes back). The bar's buttons move aside for it. */
+#lg-root .lg-close{position:absolute;right:.45rem;top:.3rem;z-index:3;width:2.1rem;height:2.1rem;padding:0;border-radius:1.05rem;font-size:1.05rem;line-height:1;background:#fff;color:#25313b;border:1px solid #c9d8dc;box-shadow:0 2px 8px rgba(0,0,0,.18)}
+#lg-root.lg-touch .lg-close{top:.15rem;width:2.4rem;height:2.4rem;padding:0;border-radius:1.2rem;font-size:1.15rem}
+.lg-closable .lg-head-right{right:3rem}
+.lg-touch.lg-closable .lg-head-right{right:3.3rem}

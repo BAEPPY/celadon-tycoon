@@ -30,7 +30,7 @@
   var FRAMES = 24, COLUMNS = 6, ROWS = 4, POLL_MS = 3000;
   var WEBP_PROBE = 'data:image/webp;base64,UklGRiIAAABXRUJQVlA4IBYAAAAwAQCdASoBAAEADsD+JaQAA3AAAAAA';
 
-  var office = false, editing = true, coverLifted = false, root = null, head = null, body = null;
+  var office = false, editing = true, coverLifted = false, root = null, head = null, body = null, rootClass = '';
   var data = null, receivedAt = 0, waiting = false, problem = '', connected = false, pollTimer = null, polling = false, lastRefresh = null, lastCode = '';
   var view = {object: '1', kind: 'name', exhibit: {1: false, 2: false}, exhibitObject: {1: '1', 2: '1'}, auto: true, setup: false, worksView: 'all', compareGroup: '', comparePage: 0, compareOpen: ''};
   var turnFrames = {}, turnTimer = null, autoModel = 'beauty', lastBody = '', revealBusy = false;
@@ -712,7 +712,7 @@
     return '<form class="lg-form" id="lg-form"><h1>이 자리에 띄울 실시간 화면</h1>' + choices +
       '<label class="lg-field" id="lg-model-field">돌려 볼 청자<select id="lg-model">' + options + '</select></label>' +
       '<label class="lg-field" id="lg-cloud-field">보여 줄 워드 클라우드<select id="lg-cloud">' + clouds + '</select></label>' +
-      (office ? '<label class="lg-field"><input type="checkbox" id="lg-cover"' + (now.cover ? ' checked' : '') + '> 슬라이드 쇼에서는 가려 두었다가 클릭하면 나타나기</label>' : '') +
+      (office ? '<label class="lg-field"><input type="checkbox" id="lg-cover"' + (now.cover ? ' checked' : '') + '> 슬라이드 쇼에서는 가려 두었다가 클릭하면 나타나기 (✕로 다시 닫기)</label>' : '') +
       '<label class="lg-field" id="lg-link-field">PPT용 주소<input type="text" id="lg-link" autocomplete="off" spellcheck="false" value="' + esc(now.link || localRead().link || '') + '" placeholder="선생님 화면 → 수업 관리 → PPT용 주소 복사"></label>' +
       '<label class="lg-field"><input type="checkbox" id="lg-three"' + (localRead().three === false ? '' : ' checked') + '> 청자를 3D로 보기 (안 보이거나 느리면 꺼 주세요)</label>' +
       '<p>이 PowerPoint는 추가 기능을 옛 웹 엔진으로 열어요. 청자는 3D로 보여 주고, 3D가 안 되는 컴퓨터에서는 좌우로 끌어 돌려 보는 사진으로 바꿔 보여 줘요. 학생 이름은 보이지 않아요.</p>' +
@@ -832,6 +832,7 @@
     else if (act === 'compare-open') view.compareOpen = node.getAttribute('data-id') || '';
     else if (act === 'compare-close') view.compareOpen = '';
     else if (act === 'cover') { coverLifted = true; syncCover(); return; }
+    else if (act === 'uncover') { coverLifted = false; hideWord(); syncCover(); return; }
     else return;
     render();
   }
@@ -877,10 +878,15 @@
   }
 
   // ---------- inside PowerPoint ----------
-  // "클릭하면 나타나기": in a slide show the board waits behind a cover until it is clicked.
+  // "클릭하면 나타나기": in a slide show the board waits behind a cover until it is clicked, like a pop-up. Once open it
+  // has a ✕ in its corner that closes it again (the cover comes back), so it can be opened and closed as often as wanted.
   function syncCover() {
-    var cover = document.getElementById('lg-cover-screen'), show = office && !editing && !coverLifted && !view.setup && saved().cover;
-    if (cover) cover.style.display = show ? '' : 'none';
+    var cover = document.getElementById('lg-cover-screen'), close = document.getElementById('lg-close'), can = office && !editing && !view.setup && saved().cover;
+    if (cover) cover.style.display = can && !coverLifted ? '' : 'none';
+    if (close) close.style.display = can && coverLifted ? '' : 'none';
+    // The bar's own buttons make room for the ✕.
+    var name = rootClass + (can && coverLifted ? ' lg-closable' : '');
+    if (root && root.className !== name) root.className = name;
   }
   function watchView() {
     function apply(mode) {
@@ -911,8 +917,10 @@
     node = document.getElementById('lg-loading'); if (node && node.parentNode) node.parentNode.removeChild(node);
     root = document.createElement('div'); root.id = 'lg-root';
     // A touch screen (an interactive whiteboard) gets larger buttons.
-    if (window.navigator.maxTouchPoints > 0 || window.navigator.msMaxTouchPoints > 0 || 'ontouchstart' in window) root.className = 'lg-touch';
-    root.innerHTML = '<div class="lg-head"></div><div class="lg-body"></div><div class="lg-cover" id="lg-cover-screen" data-act="cover" style="display:none"><b>▶ 클릭하면 실시간 화면이 나타나요</b></div>';
+    if (window.navigator.maxTouchPoints > 0 || window.navigator.msMaxTouchPoints > 0 || 'ontouchstart' in window) rootClass = 'lg-touch';
+    root.className = rootClass;
+    root.innerHTML = '<div class="lg-head"></div><div class="lg-body"></div><div class="lg-cover" id="lg-cover-screen" data-act="cover" style="display:none"><b>▶ 클릭하면 실시간 화면이 나타나요</b></div>' +
+      '<button type="button" class="lg-close" id="lg-close" data-act="uncover" aria-label="닫기" title="닫기" style="display:none">✕</button>';
     document.body.appendChild(root);
     head = root.children[0]; body = root.children[1];
     root.addEventListener('click', click);

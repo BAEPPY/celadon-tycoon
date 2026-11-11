@@ -28,6 +28,8 @@ button{font:inherit;font-size:15px;font-weight:700;border-radius:8px;border:1px 
 #error.blink{animation:error-blink .3s ease-out}
 .tip{font-size:12.5px;padding:8px 10px;border-radius:8px;background:#f3f7f6}
 #change{position:fixed;right:8px;top:8px;z-index:2;font-size:12px;padding:5px 9px;background:#fff;color:var(--jade-dark);border-color:var(--line);opacity:.92}
+/* The ✕ that closes an opened box in a slide show (the cover comes back). */
+#close{position:fixed;right:8px;top:8px;z-index:2;width:36px;height:36px;padding:0;border-radius:18px;font-size:17px;line-height:1;background:#fff;color:#25313b;border-color:var(--line);box-shadow:0 2px 8px rgba(0,0,0,.18)}
 label.check{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700}
 #cover-screen{position:fixed;inset:0;z-index:3;display:grid;place-content:center;justify-items:center;gap:10px;margin:0;padding:16px;background:#fff;color:#2f6f5e;border:2px dashed #9fc7bd;border-radius:10px;font-size:20px;cursor:pointer;transition:opacity .6s ease}
 #cover-screen.leaving{opacity:0;pointer-events:none}#cover-screen .cover-mark{display:grid;place-items:center;width:52px;height:52px;border-radius:50%;background:#e8f7f5;font-size:22px}
@@ -95,7 +97,7 @@ label.check{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:7
         <option value="use-5">쓰임 짐작 · 청자 5 · 예상한 쓰임</option>
       </select>
     </label>
-    <label class="check"><input type="checkbox" id="cover"> 슬라이드 쇼에서는 가려 두었다가 클릭하면 나타나기</label>
+    <label class="check"><input type="checkbox" id="cover"> 슬라이드 쇼에서는 가려 두었다가 클릭하면 나타나기 (✕로 다시 닫기)</label>
     <label class="field" id="link-field">PPT용 주소
       <input type="url" id="link" autocomplete="off" spellcheck="false" placeholder="선생님 화면 → 수업 관리 → PPT용 주소 복사">
     </label>
@@ -107,6 +109,7 @@ label.check{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:7
 </main>
 <iframe id="board" title="실시간 수업 화면" hidden allow="fullscreen"></iframe>
 <button id="change" type="button" hidden>화면 바꾸기</button>
+<button id="close" type="button" hidden aria-label="닫기" title="닫기">✕</button>
 <button id="cover-screen" type="button" hidden><span class="cover-mark" aria-hidden="true">▶</span><strong>클릭하면 실시간 화면이 나타나요</strong></button>
 <script>
 'use strict';
@@ -169,17 +172,20 @@ function showBoard() {
 // "클릭하면 나타나기": in a slide show the board waits (already loading) behind a cover until it is clicked; each new
 // slide show starts covered again. The editor never shows the cover.
 function applyCover() {
-  const cover = $('cover-screen'), show = Boolean(office) && !editing && !revealed && saved().cover && !$('board').hidden;
-  cover.classList.remove('leaving'); cover.hidden = !show;
+  const cover = $('cover-screen'), can = Boolean(office) && !editing && saved().cover && !$('board').hidden;
+  cover.classList.remove('leaving'); cover.hidden = !(can && !revealed);
+  // Once open, a ✕ in the corner closes it again (the cover comes back), like a pop-up.
+  $('close').hidden = !(can && revealed);
 }
+$('close').addEventListener('click', () => { revealed = false; applyCover(); });
 $('cover-screen').addEventListener('click', () => {
-  revealed = true; const cover = $('cover-screen'); cover.classList.add('leaving');
+  revealed = true; const cover = $('cover-screen'); cover.classList.add('leaving'); $('close').hidden = false;
   setTimeout(() => { if (revealed) { cover.hidden = true; cover.classList.remove('leaving'); } }, 650);
 });
 function showSetup(message = '') {
   const {panel, link, model} = saved();
   $('model').value = model; $('cloud').value = saved().cloud; $('cover').checked = saved().cover; $('cover-screen').hidden = true;
-  $('board').hidden = true; $('change').hidden = true; $('setup').hidden = false; $('error').textContent = message; $('link').classList.remove('bad');
+  $('board').hidden = true; $('change').hidden = true; $('close').hidden = true; $('setup').hidden = false; $('error').textContent = message; $('link').classList.remove('bad');
   // "3D 청자만 크게 보기" is the model box with only the zoom buttons; it is kept as the model panel plus `plain`.
   const choice = document.querySelector(`input[name=panel][value="${panel === 'model' && saved().plain ? 'plain' : panel || 'follow'}"]`); if (choice) choice.checked = true;
   $('link').value = link || local.read().link || '';
