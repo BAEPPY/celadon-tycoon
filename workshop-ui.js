@@ -1,4 +1,5 @@
 import {SHAPES,ORDERS,TECHNIQUES,PATTERNS,FIRING,evaluateWork,orderMotifs,decorationProgress} from './domain.js';
+import {SCULPT_PASS} from './sculpt-rules.js';
 import {getModelArtifact} from './models-manifest.js';
 import {designsForShape} from './example-orders.js';
 import {ROTATION_IDS} from './rotation-rules.js';
@@ -39,7 +40,7 @@ export function stationMarkup(work,{choosingVariant=false,zoomed=false}={}) {
  if(work.step===0){
   title='모양 빚는 작업대';classes='shaping-scene';next='next-shape';label='무늬 작업대로 →';enabled=complete&&!choosingVariant;backLabel='흙 준비';
   rack=`<div class="shape-trays">${SHAPES.map(s=>`<button class="tray-bin shape-bin${sel(work.shape,s.id)}" data-shape="${s.id}" aria-pressed="${work.shape===s.id}"><img src="./assets/vessels/${defaultModel(s.id)||s.id}.webp" alt=""><span>${s.name.replace('청자 ','')}</span></button>`).join('')}</div><div class="shape-family"><span>${esc(work.shape?modelName(work):'큰 분류부터 골라요')}</span><button class="small-button" data-action="variants" ${work.shape?'':'disabled'}>모양 다시 고르기</button></div>`;
-  info=`<h2>${choosingVariant?'세부 모양을 골라요':'목표 모양을 빚어요'}</h2><p>${esc(work.shape?modelName(work):'위에서 만들 물건을 골라요.')}</p><p>${choosingVariant?'펼쳐진 그림 중 만들고 싶은 모양을 눌러요.':'흙을 점선에 맞추면 초록 점으로 고정돼요. 남은 부분을 빚고, 실수하면 되돌려요.'}</p><p class="sculpt-goal">목표 모양과 <b>90%</b> 이상<br>맞추면 통과!</p><div class="sculpt-progress"><i style="width:${complete?100:(work.sculpt?.fraction||0)*100}%"></i></div><p id="sculpt-status" role="status">${complete?'통과! 목표 모양 완성':`모양 일치 ${Math.floor((work.sculpt?.fraction||0)*100)}% · 목표 90%`}</p><label class="width-control">너비<input id="width" type="range" min="85" max="115" value="${Math.round((work.width||1)*100)}" ${work.shape?'':'disabled'}></label>`;
+  info=`<h2>${choosingVariant?'세부 모양을 골라요':'목표 모양을 빚어요'}</h2><p>${esc(work.shape?modelName(work):'위에서 만들 물건을 골라요.')}</p><p>${choosingVariant?'펼쳐진 그림 중 만들고 싶은 모양을 눌러요.':'흙을 점선에 맞추면 초록 점으로 고정돼요. 남은 부분을 빚고, 실수하면 되돌려요.'}</p><p class="sculpt-goal">목표 모양과 <b>${Math.round(SCULPT_PASS*100)}%</b> 이상<br>맞추면 통과!</p><div class="sculpt-progress"><i style="width:${complete?100:(work.sculpt?.fraction||0)*100}%"></i></div><p id="sculpt-status" role="status">${complete?'통과! 목표 모양 완성':`모양 일치 ${Math.floor((work.sculpt?.fraction||0)*100)}% · 목표 ${Math.round(SCULPT_PASS*100)}%`}</p><label class="width-control">너비<input id="width" type="range" min="85" max="115" value="${Math.round((work.width||1)*100)}" ${work.shape?'':'disabled'}></label>`;
  }else if(work.step===1){
   const finishing=t==='inlay'&&mode;
   classes=finishing?'inlay-scene':'decoration-scene';

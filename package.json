@@ -62,7 +62,8 @@
     "test:shaping-controls": "node tests/browser-shaping-controls.cjs",
     "test:inspection-source": "node tests/browser-inspection-source.cjs",
     "test:activity2-materials": "node tests/browser-activity2-materials.cjs",
-    "test:sculpt-locks": "node tests/browser-sculpt-locks.cjs"
+    "test:sculpt-locks": "node tests/browser-sculpt-locks.cjs",
+    "test:sculpt-help": "node tests/browser-sculpt-help.cjs"
   },
   "dependencies": {
     "@vercel/blob": "2.8.2",

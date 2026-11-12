@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {sampleSculptOutline, sculptMatch} from './sculpt-rules.js';
+import {sampleSculptOutline, sculptMatch, SCULPT_PASS} from './sculpt-rules.js';
 
 const vase = sampleSculptOutline([[.4,0],[.6,0],[.6,.16],[.82,.28],[1,.48],[.91,.75],[.72,1],[.28,1],[.09,.75],[0,.48],[.18,.28],[.4,.16]], 40);
 const pillow = sampleSculptOutline([[0,.1],[.25,.16],[.5,.18],[.75,.16],[1,.1],[1,.55],[.75,.62],[.25,.62],[0,.55]], 40);
@@ -61,4 +61,14 @@ test('invalid or collapsed input never produces NaN or a passing score', () => {
     assert.ok(Number.isFinite(result.fraction) && result.fraction>=0 && result.fraction<.9);
   }
   assert.equal(sculptMatch(vase,[[0,0],[0,0],[0,0]]).fraction,0);
+});
+
+test('the 85% target lets small mistakes through but not a wrong shape', () => {
+  assert.equal(SCULPT_PASS, .85);
+  for (const guide of [vase, pillow]) {
+    assert.ok(score(resize(guide, .95), guide) >= SCULPT_PASS, '5% size error passes');
+    for (const factor of [.9, 1.1]) assert.ok(score(resize(guide, factor), guide) < SCULPT_PASS, `scale ${factor} does not pass`);
+    assert.ok(score(guide.map(([x, y]) => [x + .05, y + .05]), guide) < SCULPT_PASS, 'a 5% shift does not pass');
+  }
+  assert.ok(score(vase.map(([x, y]) => [x, Math.max(y, .2)])) < SCULPT_PASS, 'a vase without its neck does not pass');
 });
