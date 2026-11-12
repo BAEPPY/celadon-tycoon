@@ -691,7 +691,7 @@ export class ClassroomService {
       try { await this.store.update(roomKey(code), room, current.etag); return {state: classroomState(room, this.now()), ...(observerToken ? {observerToken} : {})}; }
       catch (error) { if (!(error instanceof StoreConflict)) throw error; }
     }
-    fail(409, 'try-again', '다른 화면에서 수업이 바뀌었어요. 다시 눌러 주세요.');
+    fail(409, 'try-again', '수업 진행 상태를 저장하지 못했어요. 잠시 후 다시 눌러 주세요.');
   }
   async answer(raw, bearer) {
     const code = validateCode(raw.code), id = validateNumber(raw.participantId), activity = Number(raw.activity);

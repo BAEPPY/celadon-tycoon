@@ -1096,6 +1096,53 @@ test('Blob adapter bypasses cached reads, uses private conditional writes, and m
   assert.equal(calls[2].options.ifMatch, 'read-etag'); assert.equal(calls[2].options.allowOverwrite, true);
 });
 
+test('large classroom documents keep strong ETags through activity transitions without losing saved answers', async () => {
+  const {BlobPreconditionFailedError} = await import('@vercel/blob');
+  const adapter = new BlobClassroomStore({headers: new Headers({'x-classroom-test': 'preserved', 'accept-encoding': 'gzip, br'})});
+  const records = new Map(), reads = []; let sequence = 0;
+  adapter.sdk = async () => ({BlobPreconditionFailedError,
+    get: async (key, options) => {
+      const record = records.get(key); if (!record) return null;
+      const headers = new Headers(options.headers), large = Buffer.byteLength(record.body) > 1024;
+      const compressed = large && headers.get('accept-encoding') !== 'identity';
+      reads.push({large, compressed, custom: headers.get('x-classroom-test')});
+      // The live Blob download path weakens its ETag when Brotli transforms a
+      // large JSON response. That download validator cannot authorize a write.
+      return {statusCode: 200, stream: new Response(record.body).body,
+        headers: new Headers(compressed ? {'content-encoding': 'br'} : {}),
+        blob: {etag: compressed ? `W/${record.etag}` : record.etag}};
+    },
+    put: async (key, body, options) => {
+      const current = records.get(key);
+      if (current && (!options.allowOverwrite || options.ifMatch !== current.etag)) throw new BlobPreconditionFailedError();
+      const etag = `"version-${++sequence}"`; records.set(key, {body, etag}); return {etag};
+    },
+  });
+  const service = new ClassroomService(adapter, {now: () => 1700000000000, teacherPasscode: ''});
+  const lesson = await service.create(), key = `${classroomPrefix()}/${lesson.code}/room.json`;
+  const control = (command, activity) => service.control({code: lesson.code, command, activity}, lesson.teacherToken);
+  const first = await control('start', 1), small = await adapter.read(key);
+  const cloudGroups = {beauty: {runId: first.state.runId, at: 1700000000000,
+    map: Object.fromEntries(Array.from({length: 90}, (_, i) => [
+      `${i + 1}번 생각: 맑고 은은한 푸른빛과 정교한 학과 구름 무늬가 아름답습니다. 모양의 곡선도 부드럽습니다.`, '은은한 푸른빛과 정교한 무늬',
+    ]))}};
+  const enriched = {...small.data, cloudGroups};
+  assert.ok(Buffer.byteLength(JSON.stringify(enriched)) > 8000, 'saved class thoughts cross the observed compression size');
+  await adapter.update(key, enriched, small.etag);
+  const staleTag = records.get(key).etag;
+  for (const [command, activity, expected] of [['pause', undefined, 1], ['start', 2, 2], ['pause', undefined, 2], ['start', 3, 3]]) {
+    const {state} = await control(command, activity);
+    assert.equal(state.activity, expected);
+    assert.equal(state.status, command === 'start' ? 'active' : 'paused');
+  }
+  const final = await adapter.read(key);
+  assert.deepEqual(final.data.cloudGroups, cloudGroups, 'moving to activities 2 and 3 preserves existing class thoughts');
+  assert.ok(reads.some(read => read.large), 'the transitions actually read the large document');
+  assert.ok(reads.every(read => !read.compressed && read.custom === 'preserved'), 'identity encoding is enforced while custom read headers survive');
+  await assert.rejects(adapter.update(key, {...final.data, status: 'ended'}, staleTag), StoreConflict);
+  assert.equal(JSON.parse(records.get(key).body).status, 'active', 'a genuinely stale writer still cannot overwrite the latest activity');
+});
+
 test('API enforces bearer authorization on every student write and teacher read/control; malformed payloads stay friendly', async () => {
   const f = await fixture(), student = await f.join(1), other = await f.join(2), {state} = await f.control('start', 1);
   const handler = createClassroomHandler({store: f.store});

@@ -106,7 +106,13 @@ export class BlobClassroomStore {
     const generation = this.generation;
     const reading = (async () => {
       const {get} = await this.sdk();
-      const result = await get(key, {access: 'private', useCache: false, ...this.options});
+      // Compressed JSON downloads receive a weak W/ ETag. It cannot authorize
+      // ifMatch writes, so growing classroom data otherwise looks like an
+      // endless concurrent edit. Read the original representation and keep its
+      // strong validator intact; never remove W/ from an unverified response.
+      const headers = new Headers(this.options.headers);
+      headers.set('accept-encoding', 'identity');
+      const result = await get(key, {access: 'private', useCache: false, ...this.options, headers: Object.fromEntries(headers)});
       if (!result) return null;
       if (result.statusCode !== 200) throw new StoreUnavailable();
       const value = {data: await new Response(result.stream).json(), etag: result.blob.etag};
