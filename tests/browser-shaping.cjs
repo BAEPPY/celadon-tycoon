@@ -66,7 +66,7 @@ async function pull(page, canvas, index) {
         assert.notDeepEqual(await points(canvas, 'current'), before, 'dragging physically stretches the rendered clay');
         const partial = await saved(page);
         if (model === 'pomegranatePitcher') await page.screenshot({path:`/tmp/free-shape-final-${viewport.width}.png`});
-        assert.ok(partial.sculpt.fraction > 0 && partial.sculpt.fraction < .9);
+        assert.ok(partial.sculpt.fraction > 0 && partial.sculpt.fraction < .85);
         assert.ok((await points(canvas, 'matches'))[top] >= .99, 'the upper outline can be matched');
         // Matched green grips are fixed, even if grabbed directly.
         const matched = (await points(canvas, 'current'))[top], lockedBefore = await points(canvas,'locked'), fixedBefore=await points(canvas,'current');
@@ -85,7 +85,7 @@ async function pull(page, canvas, index) {
         const freeMoved=await points(canvas,'current');
         assert.ok(Math.hypot((freeMoved[free][0]-from[0])*box.width,(freeMoved[free][1]-from[1])*box.height)>12,'unmatched clay can still move away from the guide');
         lockedBefore.forEach((locked,i)=>{if(locked)assert.deepEqual(freeMoved[i],fixedBefore[i],'a neighbouring pull keeps green clay fixed');});
-        assert.ok((await saved(page)).sculpt.fraction<.9,'pulling one unfinished region cannot pass the partly shaped clay');
+        assert.ok((await saved(page)).sculpt.fraction<.85,'pulling one unfinished region cannot pass the partly shaped clay');
         const afterFreeDrag = await saved(page);
         assert.equal(await page.locator('[data-action=next-shape]').isDisabled(), true);
         await page.reload();
@@ -118,7 +118,7 @@ async function pull(page, canvas, index) {
           assert.fail(`${model} remains at ${(await saved(page)).sculpt.fraction} after shaping`);
         }
         await page.waitForSelector('.sculpt-success');
-        assert.ok((await saved(page)).sculpt.fraction >= .9);
+        assert.ok((await saved(page)).sculpt.fraction >= .85);
         assert.equal(await page.locator('[data-action=next-shape]').isDisabled(), false);
         // Every student is asked the same neutral question about the order's use before decorating.
         await page.click('[data-action=next-shape]');
@@ -154,7 +154,7 @@ async function pull(page, canvas, index) {
         if (await page.locator('.sculpt-success').count()) break;
       }
       await page.waitForSelector('.sculpt-success');
-      assert.ok((await saved(page)).sculpt.fraction >= .9, 'keyboard shaping uses the same distance threshold');
+      assert.ok((await saved(page)).sculpt.fraction >= .85, 'keyboard shaping uses the same distance threshold');
       await page.waitForSelector('.sculpt-success', {state: 'hidden'});
       assert.equal(await page.locator('[data-action=next-shape]').isDisabled(), false, 'completion remains after the success effect fades');
       // Going back starts the earlier activity again, rather than carrying completed clay forward.
@@ -177,7 +177,7 @@ async function pull(page, canvas, index) {
       const restartedLocked=await points(restartedCanvas,'locked'),restartedGuide=await points(restartedCanvas,'guide');
       assert.ok(restartedPoints.every((p,i)=>p.every((v,j)=>Math.abs(v-(restartedLocked[i]?restartedGuide[i][j]:starts[i][j]))<1e-10)), 'back to shape restores the untouched mound, with already aligned starting grips fixed');
       assert.deepEqual(errors, []);
-      console.log(`Shaping ${viewport.width}×${viewport.height}: undersize/local-mismatch rejection, stable score, drag, reload, 90%, keyboard passed`);
+      console.log(`Shaping ${viewport.width}×${viewport.height}: undersize/local-mismatch rejection, stable score, drag, reload, 85%, keyboard passed`);
       await page.close();
     }
   } finally { await browser.close(); }

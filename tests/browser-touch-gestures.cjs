@@ -55,8 +55,9 @@ async function onCanvas(page,selector,point){const b=await page.locator(selector
    await page.evaluate(()=>fixture.sculpt());await page.waitForFunction(()=>game.points.length===40);
    const start=await page.evaluate(()=>game.points[0]),goal=await page.evaluate(()=>game.guide[0]);
    await touch.drag(await onCanvas(page,'.sculpt-canvas',start),await onCanvas(page,'.sculpt-canvas',goal));
-   assert.ok(await page.evaluate(()=>work.sculpt.fraction>0&&work.sculpt.fraction<.9),'one finger pull changes actual geometry without completing it');
-   const grip=await onCanvas(page,'.sculpt-canvas',await page.evaluate(()=>game.points[0]));
+   assert.ok(await page.evaluate(()=>work.sculpt.fraction>0&&!work.sculpt.complete),'one finger pull changes actual geometry without completing it');
+   // A grip that is not green yet (the one just pulled may have landed on its spot and turned green).
+   const grip=await onCanvas(page,'.sculpt-canvas',await page.evaluate(()=>game.points[game.locked.findIndex(locked=>!locked)]));
    await touch.send('touchStart',[grip]);const sculptPointer=await page.evaluate(()=>game.drag.id);
    await touch.send('touchStart',[grip,{x:grip.x+22,y:grip.y+22,id:2}]);
    assert.equal(await page.evaluate(()=>game.drag.id),sculptPointer);
@@ -68,7 +69,7 @@ async function onCanvas(page,selector,point){const b=await page.locator(selector
     for(let j=0;j<6&&!await page.evaluate(()=>work.sculpt.complete);j++)await touch.tap(toward);
     if(!await page.evaluate(()=>work.sculpt.complete))await touch.tap(next);
    }
-   assert.ok(await page.evaluate(()=>work.sculpt.complete&&work.sculpt.fraction>=.9),'touch controls move each grip to pass the same strict 90% score');
+   assert.ok(await page.evaluate(()=>work.sculpt.complete&&work.sculpt.fraction>=.85),'touch controls move each grip to pass the 85% score');
    await page.screenshot({path:`/tmp/touch-shaping-${viewport.width}.png`});
 
    await page.evaluate(()=>fixture.craft());

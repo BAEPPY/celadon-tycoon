@@ -32,7 +32,7 @@ async function seed(page){await page.goto(`${base}/game`);await page.evaluate(({
   const landed=await state(page),landedSaved=(await saved(page)).sculpt;
   assert.equal(landed.locked[top],true,'reaching the guide fixes the grip');
   assert.deepEqual(landed.points[top],landed.guide[top],'the fixed grip lands exactly on its guide');
-  assert.ok(landed.fraction<.9,'locking one grip does not bypass the real shape score');
+  assert.ok(landed.fraction<.85,'locking one grip does not bypass the real shape score');
   assert.equal(landedSaved.lockVersion,1);assert.deepEqual(landedSaved.locked,landed.locked);
   // The continued movement above leaves the reached point locked within the same gesture.
   await page.locator('[data-sculpt-history=undo]').click();
@@ -64,10 +64,10 @@ async function seed(page){await page.goto(`${base}/game`);await page.evaluate(({
   await page.screenshot({path:`/tmp/sculpt-locks-${mobile?'phone':'desktop'}.png`,fullPage:mobile});
   // Complete only unfinished regions. Locks must never strand an otherwise reachable outline.
   await page.locator('[data-sculpt-range=fine]').click();let gestures=0;
-  for(let pass=0;pass<3&&(await state(page)).fraction<.9;pass++)for(let i=0;i<40;i++){const current=await state(page);if(current.fraction>=.9)break;if(current.locked[i])continue;await drag(current.points[i],current.guide[i]);gestures++;}
-  assert.ok((await saved(page)).sculpt.fraction>=.9,`locked outline still reaches the unchanged 90% score (${mobile?'touch':'mouse'})`);
+  for(let pass=0;pass<3&&(await state(page)).fraction<.85;pass++)for(let i=0;i<40;i++){const current=await state(page);if(current.fraction>=.85)break;if(current.locked[i])continue;await drag(current.points[i],current.guide[i]);gestures++;}
+  assert.ok((await saved(page)).sculpt.fraction>=.85,`locked outline still reaches the 85% score (${mobile?'touch':'mouse'})`);
   assert.equal(await page.locator('[data-action=next-shape]').isEnabled(),true);assert.deepEqual(errors,[]);
-  console.log(`${mobile?'Touch':'Mouse'} green locks: neighbour/direct protection, undo/redo, save/reload, resize and 90% completion (${gestures} remaining drags) passed.`);
+  console.log(`${mobile?'Touch':'Mouse'} green locks: neighbour/direct protection, undo/redo, save/reload, resize and 85% completion (${gestures} remaining drags) passed.`);
   await page.close();
  }}finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exit(1)});

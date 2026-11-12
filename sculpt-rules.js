@@ -1,4 +1,12 @@
 const clamp = value => Math.max(0, Math.min(1, value));
+// How the clay shaping is judged and helped (sculpt-game.js, sculpt-locks.js). The numbers were tuned with simulated
+// players who shape by eye on a classroom touch screen: with the earlier ones (90% target, green within 1.9%, wide
+// grip 4.2) most of them stalled at 86-90% on pitchers, incense burners, gourd bottles and the cup stand.
+export const SCULPT_PASS = .85;          // shape score that passes
+export const SCULPT_LOCK = .03;          // a grip this close to its own spot (share of the target's diagonal) turns green
+export const SCULPT_SNAP = .05;          // a grip let go this close to its own spot lands on it
+export const SCULPT_SPREAD = Object.freeze({wide: 3, part: 2.2, fine: .75});   // how far a pull spreads to neighbours
+export const SCULPT_HELP_AFTER = 10;     // pulls without passing before "남은 부분 다듬기" is offered
 const validOutline = points => Array.isArray(points) && points.length >= 3 && points.every(p => Array.isArray(p) && p.length === 2 && p.every(Number.isFinite));
 
 // Use physical proportions, not fractions of a possibly wide/narrow viewport.
@@ -54,11 +62,12 @@ function areaOverlap(clay, target) {
 
 /**
  * Shape match, in [0, 1]. Both directions matter: missing and excess clay count.
- * A 1.2%-of-target-diagonal hand-control allowance is followed by a 7% falloff.
+ * A 1.6%-of-target-diagonal hand-control allowance is followed by a 7.5% falloff.
  * 45% whole contour + 30% filled-area overlap + 25% poorest contour fifth keeps
- * a broad correct body from hiding an unfinished neck, rim or base. The 90%
- * completion target is unchanged. This is a similarity score, not a count of
- * successful grips or how much the player has dragged.
+ * a broad correct body from hiding an unfinished neck, rim or base: a vessel with
+ * a flat neck, a 10% size error or a 5% shift stays below the 85% target
+ * (SCULPT_PASS). This is a similarity score, not a count of successful grips or
+ * how much the player has dragged.
  */
 export function sculptMatch(points, guide, width = 1, height = 1) {
   const empty = {matches: Array.isArray(guide) ? guide.map(() => 0) : [], fraction: 0, contour: 0, overlap: 0, local: 0};
@@ -67,7 +76,7 @@ export function sculptMatch(points, guide, width = 1, height = 1) {
   const diagonal = Math.hypot(Math.max(...xs) - left, Math.max(...ys) - top);
   if (!Number.isFinite(diagonal) || diagonal < 1e-10) return empty;
   const normalize = outline => outline.map(p => [(p[0] * width - left) / diagonal, (p[1] * height - top) / diagonal]);
-  const clay = normalize(points), target = normalize(guide), similarity = d => clamp(1 - Math.max(0, d - .012) / .07);
+  const clay = normalize(points), target = normalize(guide), similarity = d => clamp(1 - Math.max(0, d - .016) / .075);
   const targetSamples = sampleSculptOutline(target, 128), claySamples = sampleSculptOutline(clay, 128);
   const scores = [...targetSamples.map(p => similarity(nearestDistance(p, clay))), ...claySamples.map(p => similarity(nearestDistance(p, target)))];
   const contour = scores.reduce((a, b) => a + b, 0) / scores.length;

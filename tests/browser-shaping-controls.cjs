@@ -67,7 +67,7 @@ async function input(page,mobile){
    assert.ok(Math.abs((after.points[i][1]-before.points[i][1])*box.height-dy)<1.5,'selected clay follows the vertical pointer');
    const moved=after.points.map((p,i)=>Math.hypot((p[0]-before.points[i][0])*box.width,(p[1]-before.points[i][1])*box.height));
    spread[range]=moved.filter(d=>d>8).length;
-   assert.ok(after.fraction<.9,'one broad pull cannot pass an incomplete vessel');
+   assert.ok(after.fraction<.85,'one broad pull cannot pass an incomplete vessel');
    await page.locator('[data-sculpt-history=undo]').click();near((await state(page)).points,before.points,'one undo reverses the entire drag');
    assert.equal(await page.locator('[data-sculpt-history=undo]').isDisabled(),true,'a drag creates one history entry, not one per event');
    await page.locator('[data-sculpt-history=redo]').click();near((await state(page)).points,after.points,'redo restores the exact edited clay');
@@ -89,13 +89,13 @@ async function input(page,mobile){
   // Build a vessel by first moving broad regions, then polishing its contour.
   for(const [model,shape]of mobile?[['pomegranatePitcher','pitcher']]:[['pomegranatePitcher','pitcher'],['pillow','pillow'],['stool','stool']]){
    await enter(page,draft(model,shape));let count=0;
-   for(let i=0;i<40;i+=5){const s=await state(page);if(s.fraction>=.9)break;await drag(s.points[i],s.guide[i]);count++;}
-   if((await state(page)).fraction<.9)await page.locator('[data-sculpt-range=fine]').click();
+   for(let i=0;i<40;i+=5){const s=await state(page);if(s.fraction>=.85)break;await drag(s.points[i],s.guide[i]);count++;}
+   if((await state(page)).fraction<.85)await page.locator('[data-sculpt-range=fine]').click();
    let prior;
-   for(let pass=0;pass<3&&(await state(page)).fraction<.9;pass++)for(let i=0;i<40;i++){
-    const s=await state(page);if(s.fraction>=.9)break;prior=s;await drag(s.points[i],s.guide[i]);count++;
+   for(let pass=0;pass<3&&(await state(page)).fraction<.85;pass++)for(let i=0;i<40;i++){
+    const s=await state(page);if(s.fraction>=.85)break;prior=s;await drag(s.points[i],s.guide[i]);count++;
    }
-   assert.ok((await saved(page)).sculpt.fraction>=.9,`${model}: normal broad-then-fine shaping can meet the unchanged 90% match`);
+   assert.ok((await saved(page)).sculpt.fraction>=.85,`${model}: normal broad-then-fine shaping can meet the 85% match`);
    assert.equal(await page.locator('[data-action=next-shape]').isEnabled(),true);
    await page.screenshot({path:`/tmp/shaping-complete-${model}-${mobile?'phone':'desktop'}.png`,fullPage:mobile});
    if(prior){await page.locator('[data-sculpt-history=undo]').click();near((await state(page)).points,prior.points,'undo remains available after completing a vessel');assert.equal(await page.locator('[data-action=next-shape]').isDisabled(),true,'undo completion requires matching the shape again');await page.locator('[data-sculpt-history=redo]').click();assert.equal(await page.locator('[data-action=next-shape]').isEnabled(),true);}

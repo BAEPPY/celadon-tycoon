@@ -13,6 +13,7 @@ import {MODEL_CATALOG,getModelArtifact} from './models-manifest.js';
 import {designsForShape} from './example-orders.js';
 import {Craft2D} from './craft-2d.js';
 import {SculptGame} from './sculpt-game.js';
+import {SCULPT_PASS} from './sculpt-rules.js';
 import {KilnGame} from './kiln-game.js';
 import {GlazeDipGame} from './glaze-dip-game.js';
 import {normalizeGlazeDip} from './glaze-dip-rules.js';
@@ -67,7 +68,7 @@ function render(){
  const piece=document.querySelector('#workpiece');
  if(piece&&work?.shape){
   craft??=new Craft2D(stampPattern,addStroke,()=>toast('도자기 그림을 불러오지 못했어요. 다시 형태를 골라 주세요.'),()=>save());craft.mount(piece,work,stage());craft.setZoom(decorZoom&&screen==='game'&&work.step===1?DECOR_ZOOM:1);
-  if(screen==='game'&&work.step===0&&!choosingVariant&&work.knead<3&&!work.sculpt?.complete)sculpt=new SculptGame(craft,work,value=>{if(!save())return;const bar=document.querySelector('.sculpt-progress i'),status=document.querySelector('#sculpt-status'),next=document.querySelector('[data-action=next-shape]');if(bar)bar.style.width=`${value.fraction*100}%`;if(status)status.textContent=value.complete?'통과! 목표 모양을 잘 빚었어요.':`모양 일치 ${Math.floor(value.fraction*100)}% · 목표 90%`;if(next)next.disabled=!value.complete;if(value.complete)document.querySelector('.sculpt-canvas')?.classList.add('completed');});
+  if(screen==='game'&&work.step===0&&!choosingVariant&&work.knead<3&&!work.sculpt?.complete)sculpt=new SculptGame(craft,work,value=>{if(!save())return;const bar=document.querySelector('.sculpt-progress i'),status=document.querySelector('#sculpt-status'),next=document.querySelector('[data-action=next-shape]');if(bar)bar.style.width=`${value.fraction*100}%`;if(status)status.textContent=value.complete?'통과! 목표 모양을 잘 빚었어요.':`모양 일치 ${Math.floor(value.fraction*100)}% · 목표 ${Math.round(SCULPT_PASS*100)}%`;if(next)next.disabled=!value.complete;if(value.complete)document.querySelector('.sculpt-canvas')?.classList.add('completed');});
   if(screen==='game'&&work.step===1&&['fill','wipe','done'].includes(work.inlayMode))inlayGame=new InlayGame(craft,work,{mode:work.inlayMode==='fill'?'fill':'wipe',onProgress:value=>{if(!save())return;const bar=document.querySelector('.inlay-progress i'),status=document.querySelector('.inlay-status'),next=document.querySelector('[data-action="inlay-wipe"], [data-action="next-decor"]');if(bar)bar.style.width=`${value.fraction*100}%`;if(status)status.textContent=value.complete?(value.mode==='fill'?'색흙을 다 채웠어요! 닦으러 가요.':'무늬가 또렷하게 드러났어요!'):`${Math.floor(value.fraction*100)}% ${value.mode==='fill'?'채웠어요':'닦았어요'}`;if(next)next.disabled=!value.complete;const refill=document.querySelector('[data-action=inlay-refill]');if(refill)refill.disabled=!(value.mode==='fill'&&value.fraction>0);}});
  }else if(craft){craft.dispose();craft=null;}
  if(screen==='clay')clayGame=new ClayKneading(document.querySelector('.knead-pad'),work,value=>{if(!save())return;document.querySelector('#clay-progress i').style.width=`${value.kneads/6*100}%`;document.querySelector('#clay-status').textContent=value.prepared?'공기를 빼고 고르게 반죽했어요.':`꼭꼭 반죽하기 ${value.kneads}/6`;document.querySelector('[data-action=clay-ready]').disabled=!value.prepared;document.querySelectorAll('.knead-counts i').forEach((el,i)=>el.classList.toggle('done',i<value.kneads));});

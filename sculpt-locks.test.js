@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {settleSculptLocks, nextUnlockedSculptPoint} from './sculpt-locks.js';
+import {settleSculptLocks, nextUnlockedSculptPoint, snapSculptGrip} from './sculpt-locks.js';
 import {Craft2D} from './craft-2d.js';
 
 const guide = [[.5,.1],[.8,.5],[.5,.9],[.2,.5]];
@@ -78,4 +78,20 @@ test('the clay silhouette passes exactly through fixed grips when their neighbou
       for (const i of pinned) assert.ok(silhouette.some(p=>p[0]===points[i][0]*800&&p[1]===points[i][1]*600),`fixed grip ${i} remains on the rendered edge`);
     }
   }
+});
+
+test('a grip let go a little short of its own spot lands on it; one far away stays', () => {
+  const ring = Array.from({length: 8}, (_, i) => [.5 + .3 * Math.cos(i / 8 * Math.PI * 2), .5 + .3 * Math.sin(i / 8 * Math.PI * 2)]);
+  const size = 400, diag = Math.hypot(.6 * size, .6 * size), locked = ring.map(() => false);
+  const near = ring.map((p, i) => i === 2 ? [p[0] + diag * .045 / size, p[1]] : [.5, .5]);
+  const snapped = snapSculptGrip(near, ring, locked, 2, size, size);
+  assert.deepEqual(snapped.points[2], ring[2]);assert.equal(snapped.locked[2], true);assert.equal(snapped.locked.filter(Boolean).length, 1);
+  const far = ring.map((p, i) => i === 2 ? [p[0] + diag * .08 / size, p[1]] : [.5, .5]);
+  const kept = snapSculptGrip(far, ring, locked, 2, size, size);
+  assert.equal(kept.points, far, 'too far: nothing changes');assert.equal(kept.locked[2], false);
+  // Green comes within 3% of the target's diagonal, at any screen size.
+  const close = ring.map((p, i) => i === 5 ? [p[0], p[1] + diag * .025 / size] : [.5, .5]);
+  assert.equal(settleSculptLocks(close, ring, locked, size, size).locked[5], true);
+  const short = ring.map((p, i) => i === 5 ? [p[0], p[1] + diag * .035 / size] : [.5, .5]);
+  assert.equal(settleSculptLocks(short, ring, locked, size, size).locked[5], false);
 });
